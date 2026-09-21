@@ -1206,7 +1206,7 @@ if (u.pathname === '/') {
     }
   if (u.pathname === '/useragent') return routeUseragent(u, res, json);
   if (u.pathname === '/jwt') return routeJwt(u, res, json);
-  if (u.pathname === '/password') return routePassword(u, res, json);
+  if (u.pathname === '/pwstrength') return routePassword(u, res, json);
   if (u.pathname === '/geoip') return routeGeoip(u, res, json);
   if (u.pathname === '/ipinfo') {
       const ip = req.socket.remoteAddress || 'unknown';
