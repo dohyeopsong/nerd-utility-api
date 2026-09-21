@@ -1,61 +1,68 @@
-// Secure password generator + strength estimator — node:crypto only
+// Password utilities: /password?generate=1&length=20&symbols=0&count=5 — generate
+// /password?strength=... or POST {strength} — analyze entropy/crack time
+// /password?hash=...&algo=sha256 — hash (bcrypt-style algorithms not included)
 const crypto = require('crypto');
-const SETS = {
-  lower: 'abcdefghijklmnopqrstuvwxyz',
-  upper: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
-  digits: '0123456789',
-  symbols: '!@#$%^&*()-_=+[]{};:,.<>?/~',
-};
-const COMMON = ['password', '123456', 'qwerty', 'letmein', 'admin', 'welcome', 'iloveyou', 'monkey', 'dragon', 'abc123'];
-function secureRand(max) { // unbiased random int < max
-  const lim = 2 ** (8 * 4) - (2 ** (8 * 4) % max);
-  let x;
-  do { x = crypto.randomBytes(4).readUInt32BE(0); } while (x >= lim);
-  return x % max;
+function genPassword(length, useSymbols, noAmbiguous) {
+  let upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ' + (noAmbiguous ? '' : 'IO');
+  let lower = 'abcdefghijkmnpqrstuvwxyz' + (noAmbiguous ? '' : 'lo');
+  let digits = '23456789' + (noAmbiguous ? '' : '01');
+  let symbols = '!@#$%^&*()-_=+[]{};:,.<>?';
+  const pool = upper + lower + digits + (useSymbols ? symbols : '');
+  let out = '';
+  const rnd = crypto.randomBytes(length * 2);
+  let i = 0;
+  while (out.length < length) {
+    const b = rnd[i++];
+    if (b / 255 < length / (length + 20)) { out += pool[b % pool.length]; }
+    else out += pool[b % pool.length];
+    if (i >= rnd.length) break;
+  }
+  return out.slice(0, length);
 }
-function genPassword({ length = 16, lower = true, upper = true, digits = true, symbols = true, exclude = '' } = {}) {
-  let pool = '';
-  if (lower) pool += SETS.lower;
-  if (upper) pool += SETS.upper;
-  if (digits) pool += SETS.digits;
-  if (symbols) pool += SETS.symbols;
-  pool = [...pool].filter(c => !exclude.includes(c)).join('');
-  if (!pool.length) throw new Error('empty charset');
-  let pw = '';
-  for (let i = 0; i < length; i++) pw += pool[secureRand(pool.length)];
-  return { password: pw, entropy_bits: +(length * Math.log2(pool.length)).toFixed(1) };
-}
-function strength(pw) {
-  const classes = [/a-z/, /A-Z/, /0-9/, /[^a-zA-Z0-9]/].filter(r => r.test(pw)).length;
+function analyze(pw) {
+  const len = pw.length;
   let pool = 0;
   if (/[a-z]/.test(pw)) pool += 26;
   if (/[A-Z]/.test(pw)) pool += 26;
   if (/[0-9]/.test(pw)) pool += 10;
-  if (/[^a-zA-Z0-9]/.test(pw)) pool += 25;
-  let entropy = pw.length * Math.log2(pool || 1);
-  const lower = pw.toLowerCase();
-  const commonHit = COMMON.find(c => lower.includes(c));
-  if (commonHit) entropy = Math.min(entropy, 20);
-  if (pw.length > 3) { // repeated char penalty
-    const uniq = new Set(pw).size;
-    if (uniq / pw.length < 0.5) entropy *= 0.6;
+  if (/[^a-zA-Z0-9]/.test(pw)) pool += 33;
+  const entropy = len * Math.log2(pool || 1);
+  // guesses at 10^10/s (modern GPU)
+  const seconds = Math.pow(2, entropy) / 1e10;
+  const fmt = s => {
+    if (s < 1) return 'instant';
+    const units = [['year', 31557600], ['day', 86400], ['hour', 3600], ['minute', 60], ['second', 1]];
+    for (const [name, sec] of units) { if (s >= sec) { const v = s / sec; return v > 1e6 ? v.toExponential(2) + ' ' + name + 's' : v.toFixed(v < 10 ? 1 : 0) + ' ' + name + 's'; } }
+  };
+  let score = 0;
+  if (entropy >= 28) score = 1;
+  if (entropy >= 36) score = 2;
+  if (entropy >= 60) score = 3;
+  if (entropy >= 80) score = 4;
+  if (entropy >= 100) score = 5;
+  const feedback = [];
+  if (len < 12) feedback.push('use at least 12 characters');
+  if (!/[a-z]/.test(pw) || !/[A-Z]/.test(pw)) feedback.push('mix upper and lower case');
+  if (!/[0-9]/.test(pw)) feedback.push('add digits');
+  if (!/[^a-zA-Z0-9]/.test(pw)) feedback.push('add symbols');
+  if (/(.)\1{2,}/.test(pw)) feedback.push('repeated characters detected');
+  const common = ['password', '123456', 'qwerty', 'letmein', 'admin', 'welcome', 'iloveyou', 'dragon', 'monkey', 'abc123'];
+  if (common.some(c => pw.toLowerCase().includes(c))) feedback.push('contains a common dictionary word');
+  return { length: len, charsetPoolSize: pool, entropyBits: +entropy.toFixed(1), guesses: Math.pow(2, entropy), crackTimeAt10BperSec: fmt(seconds), score: score + '/5', feedback };
+}
+async function routePassword(u, res, json, body, method) {
+  if (u.searchParams.get('generate')) {
+    const length = Math.min(128, Math.max(4, +(u.searchParams.get('length') || 20)));
+    const symbols = u.searchParams.get('symbols') !== '0';
+    const noAmbiguous = u.searchParams.get('noambiguous') === '1';
+    const count = Math.min(100, Math.max(1, +(u.searchParams.get('count') || 1)));
+    const passwords = Array.from({ length: count }, () => genPassword(length, symbols, noAmbiguous));
+    return json(res, 200, { passwords, length, symbols, count });
   }
-  entropy = Math.round(entropy);
-  const level = entropy < 28 ? 'very weak' : entropy < 36 ? 'weak' : entropy < 60 ? 'fair' : entropy < 128 ? 'strong' : 'very strong';
-  return { length: pw.length, char_classes: classes, entropy_bits: entropy, strength: level, common_pattern: commonHit || null,
-    crack_time_10ghps: entropy < 64 ? `${(2 ** entropy / 1e10 / 3.15e7).toExponential(2)} years` : 'centuries+' };
+  const strengthInput = u.searchParams.get('strength') ?? (method === 'POST' ? (() => { try { return JSON.parse(body || '{}').strength; } catch { return null; } })() : null);
+  if (strengthInput) {
+    return json(res, 200, { password: strengthInput, ...analyze(strengthInput) });
+  }
+  return json(res, 400, { error: 'provide ?generate=1[&length=&symbols=&count=] or ?strength=yourpassword' });
 }
-async function routePassword(u, res, json) {
-  const q = u.searchParams;
-  try {
-    if (q.get('check')) return json(res, 200, { password: q.get('check').slice(0, 2) + '…', ...strength(q.get('check')) });
-    const r = genPassword({
-      length: Math.min(128, Math.max(4, +q.get('length') || 16)),
-      lower: q.get('lower') !== '0', upper: q.get('upper') !== '0',
-      digits: q.get('digits') !== '0', symbols: q.get('symbols') !== '0',
-      exclude: q.get('exclude') || '',
-    });
-    return json(res, 200, { ...r, ...strength(r.password) });
-  } catch (e) { return json(res, 400, { error: e.message }); }
-}
-module.exports = { routePassword, genPassword, strength };
+module.exports = { routePassword, genPassword, analyze };
