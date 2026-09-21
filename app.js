@@ -1,4 +1,3 @@
-const { routeMarkdown: routeMarkdown2 } = require('./routes/markdown.js'); // md2html
 const { routeHtml2md } = require('./routes/html2md.js'); // html2md
 const { routeIso } = require('./routes/iso.js'); // iso
 const { routeRegex } = require('./routes/regex.js'); // regex
@@ -39,7 +38,8 @@ const { routeVin } = require('./routes/vin.js'); // vin decode
 const { routeCard } = require('./routes/card.js'); // card luhn
 const { routeIban } = require('./routes/iban.js'); // iban validate
 const { routeSubnet } = require('./routes/subnet.js');
-const { routeHtmlEntities } = require('./routes/htmlentities.js'); // subnet calc
+const { routeHtmlEntities } = require('./routes/htmlentities.js');
+const { routeMarkdown: routeMd2Html } = require('./routes/markdown.js'); // md2html // subnet calc
 
 restoreCrons();
 // Nerd utility API
@@ -203,6 +203,10 @@ http.createServer(async (req, res) => {
   if (!rl.allowed) { res.writeHead(429, { 'content-type': 'application/json', 'retry-after': String(rl.retryAfterSec) }); return res.end(JSON.stringify({ error: 'rate limited', retry_after: rl.retryAfterSec })); }
 
     try { const _ip = (req.socket.remoteAddress||'').replace('::ffff:',''); if (!_ip.startsWith('127.') && !_ip.startsWith('::1')) trackUsage(u.pathname, _ip); } catch {}
+  let reqBody = '';
+  if (req.method === 'POST' || req.method === 'PUT') {
+    reqBody = await new Promise(resolve => { let d = ''; req.on('data', c => { if (d.length < 1e6) d += c; }); req.on('end', () => resolve(d)); req.on('error', () => resolve('')); });
+  }
   if (u.pathname === '/mcp') return routeMcp(u, res, json, req);
   if (u.pathname === '/totp') return routeTotp(u, res, json);
   const route = u.pathname.slice(1);
@@ -917,6 +921,10 @@ if (u.pathname === '/') return routeLanding(u, res);
             if (u.pathname === '/color') {
               try { return routeColor(u, res, json); }
               catch (e) { return json(res, 500, { error: e.message }); }
+            }
+            if (u.pathname === '/md2html') {
+              try { return routeMd2Html(u, res, json, reqBody, req.method); }
+              catch (e) { return json(res, 400, { error: e.message }); }
             }
             if (u.pathname === '/html-entities') {
               try { return routeHtmlEntities(u, res, json); }

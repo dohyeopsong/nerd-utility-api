@@ -1,70 +1,73 @@
-// Minimal Markdown -> HTML converter: headings, bold/italic/code, links, images,
-// lists (nested), blockquotes, fenced code, hr, paragraphs. No deps, escaping-first (safe).
-function esc(s) {
+// Minimal Markdown -> HTML converter: /markdown?text=... (GET, urlencoded) or POST JSON {text}
+// Supports: headers, bold, italic, code spans, fenced code blocks, links, images,
+// unordered/ordered lists, blockquotes, hr, paragraphs, inline HTML escaped.
+function escapeHtml(s) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 function inline(s) {
-  // s is already escaped
-  return s
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
-    .replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g, '<img src="$2" alt="$1">')
-    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, '<a href="$2">$1</a>')
-    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-    .replace(/(^|\s)_([^_]+)_/g, '$1<em>$2</em>')
-    .replace(/~~([^~]+)~~/g, '<del>$1</del>');
+  // code spans first (protect from other formatting)
+  const codes = [];
+  s = s.replace(/`([^`]+)`/g, (_, c) => { codes.push(c); return '\u0000' + (codes.length - 1) + '\u0000'; });
+  s = escapeHtml(s);
+  s = s.replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g, '<img src="$2" alt="$1">');
+  s = s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, '<a href="$2">$1</a>');
+  s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  s = s.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+  s = s.replace(/~~([^~]+)~~/g, '<del>$1</del>');
+  s = s.replace(/(^|\s)_([^_]+)_/g, '$1<em>$2</em>');
+  s = s.replace(/\u0000(\d+)\u0000/g, (_, i) => '<code>' + escapeHtml(codes[+i]) + '</code>');
+  return s;
 }
-function mdToHtml(md) {
+function toHtml(md) {
   const lines = md.replace(/\r\n?/g, '\n').split('\n');
-  const out = [];
-  let i = 0, inCode = false, codeBuf = [], codeLang = '';
-  let listStack = []; // 'ul' | 'ol'
-  let inQuote = false, quoteBuf = [];
-  const closeLists = () => { while (listStack.length) out.push(`</${listStack.pop()}>`); };
-  const flushQuote = () => {
-    if (inQuote) { out.push('<blockquote>' + mdToHtml(quoteBuf.join('\n')).replace(/<\/?p>/g, '') + '</blockquote>'); inQuote = false; quoteBuf = []; }
-  };
-  for (; i < lines.length; i++) {
-    const line = lines[i];
-    if (/^```/.test(line.trim())) {
-      if (!inCode) { flushQuote(); closeLists(); inCode = true; codeBuf = []; codeLang = line.trim().slice(3).trim(); }
-      else { out.push(`<pre><code${codeLang ? ` class="language-${codeLang}"` : ''}>${codeBuf.map(esc).join('\n')}</code></pre>`); inCode = false; }
+  let html = [], i = 0, listStack = [];
+  const closeLists = () => { while (listStack.length) html.push('</' + listStack.pop() + '>'); };
+  while (i < lines.length) {
+    let line = lines[i];
+    if (/^```/.test(line)) {
+      const lang = line.slice(3).trim();
+      const buf = [];
+      i++;
+      while (i < lines.length && !/^```/.test(lines[i])) { buf.push(lines[i]); i++; }
+      i++; // skip closing fence
+      html.push('<pre><code' + (lang ? ' class="language-' + escapeHtml(lang) + '"' : '') + '>' + escapeHtml(buf.join('\n')) + '</code></pre>');
       continue;
     }
-    if (inCode) { codeBuf.push(line); continue; }
-    if (!line.trim()) { closeLists(); flushQuote(); continue; }
-    if (/^ {0,3}>/.test(line)) { closeLists(); inQuote = true; quoteBuf.push(line.replace(/^ {0,3}> ?/, '')); continue; }
-    flushQuote();
-    let m;
-    if ((m = /^(#{1,6})\s+(.*)$/.exec(line))) { closeLists(); out.push(`<h${m[1].length}>${inline(esc(m[2]))}</h${m[1].length}>`); continue; }
-    if (/^ {0,3}([-*_])\s*\1\s*\1[\s\1]*$/.test(line)) { closeLists(); out.push('<hr>'); continue; }
-    if ((m = /^(\s*)([-*+])\s+(.*)$/.exec(line))) {
-      const depth = Math.floor(m[1].length / 2);
-      while (listStack.length > depth) out.push(`</${listStack.pop()}>`);
-      if (listStack.length < depth || !listStack.length) { if (listStack.length < depth) { /* can't open multiple at once from one line; open one */ } }
-      if (!listStack.length) { listStack.push('ul'); out.push('<ul>'); }
-      out.push(`<li>${inline(esc(m[3]))}</li>`); continue;
+    const h = line.match(/^(#{1,6})\s+(.*)$/);
+    if (h) { closeLists(); html.push('<h' + h[1].length + '>' + inline(h[2]) + '</h' + h[1].length + '>'); i++; continue; }
+    if (/^\s*(---+|\*\*\*+)\s*$/.test(line)) { closeLists(); html.push('<hr>'); i++; continue; }
+    const ul = line.match(/^\s*[-*+]\s+(.*)$/);
+    const ol = line.match(/^\s*\d+\.\s+(.*)$/);
+    if (ul || ol) {
+      const tag = ul ? 'ul' : 'ol';
+      if (listStack[listStack.length - 1] !== tag) { closeLists(); html.push('<' + tag + '>'); listStack.push(tag); }
+      html.push('<li>' + inline((ul || ol)[1]) + '</li>'); i++; continue;
     }
-    if ((m = /^(\s*)(\d+)[.)]\s+(.*)$/.exec(line))) {
-      if (!listStack.length || listStack[listStack.length - 1] !== 'ol') { closeLists(); listStack.push('ol'); out.push('<ol>'); }
-      out.push(`<li>${inline(esc(m[3]))}</li>`); continue;
+    if (/^\s*>\s?/.test(line)) {
+      closeLists();
+      const buf = [];
+      while (i < lines.length && /^\s*>\s?/.test(lines[i])) { buf.push(lines[i].replace(/^\s*>\s?/, '')); i++; }
+      html.push('<blockquote>' + toHtml(buf.join('\n')) + '</blockquote>');
+      continue;
     }
-    closeLists();
-    out.push(`<p>${inline(esc(line))}</p>`);
+    if (line.trim() === '') { closeLists(); i++; continue; }
+    // paragraph: gather until blank/structural
+    const buf = [];
+    while (i < lines.length && lines[i].trim() !== '' && !/^(#{1,6}\s|```|\s*[-*+]\s|\s*\d+\.\s|\s*>)/.test(lines[i])) { buf.push(lines[i]); i++; }
+    if (buf.length) { closeLists(); html.push('<p>' + inline(buf.join('\n')) + '</p>'); }
+    else i++;
   }
-  if (inCode) out.push(`<pre><code>${codeBuf.map(esc).join('\n')}</code></pre>`);
-  closeLists(); flushQuote();
-  return out.join('\n');
+  closeLists();
+  return html.join('\n');
 }
-function routeMarkdown(u, res, json, body, isPost) {
-  let md = u.searchParams.get('md');
-  if (isPost && body && typeof body === 'object') md = body.md || body.markdown;
-  else if (isPost && typeof body === 'string') { try { const p = JSON.parse(body); md = typeof p === 'string' ? p : (p.md || p.markdown); } catch (_) {} }
-  if (!md) return json(res, 400, { error: isPost ? 'POST JSON body: {"md": "..."}' : 'param: md=markdown text' });
-  if (md.length > 100000) return json(res, 413, { error: 'input too large (max 100KB)' });
-  const html = mdToHtml(md);
-  const plain = u.searchParams.get('format') === 'html';
-  if (plain) { res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); return res.end(html); }
-  return json(res, 200, { html });
+async function routeMarkdown(u, res, json, body, method) {
+  let text = null;
+  if (method === 'POST') {
+    try { const b = JSON.parse(body || '{}'); text = b.text ?? b.markdown; } catch { return json(res, 400, { error: 'invalid JSON body' }); }
+  } else {
+    text = u.searchParams.get('text') ?? u.searchParams.get('md');
+  }
+  if (!text) return json(res, 400, { error: 'provide ?text=... or POST {text}' });
+  return json(res, 200, { html: toHtml(text) });
 }
-module.exports = { routeMarkdown, mdToHtml };
+module.exports = { routeMarkdown, toHtml };
