@@ -38,3 +38,4 @@ check diff       "/diff?a=hello%0Aworld&b=hello%0Athere" 200
 check diff       "/diff?a=hello%0Aworld&b=hello%0Athere" 200
 check case       "/case?text=hello%20world%20example" 200
 check case       "/case?text=hello%20world%20example&to=camel" 200
+check jwt        "/jwt?token=eyJhbGciOiJIUzI1NiJ9.eyJleHAiOjk5OTk5OTk5OTl9.sig" 200
