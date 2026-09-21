@@ -38,7 +38,6 @@ function parse(expr) {
   if (parts.length !== 5) throw new Error(`expected 5 fields, got ${parts.length}`);
   const [min, hour, dom, mon, dow] = parts.map((f, i) =>
     parseField(f, [0,59][0], [ [0,59],[0,23],[1,31],[1,12],[0,7] ][i][1], [null, null, null, MONTHS, DAYS][i]));
-  const or5 = f.fieldOr(0); // placeholder
   return { minute: min, hour, dom, mon, dow };
 }
 // helpers on Object prototype avoided; use explicit expands below
