@@ -910,29 +910,6 @@ if (u.pathname === '/') return routeLanding(u, res);
                 return json(res, 400, {error: String(e)});
               }
             }
-            if (u.pathname === '/jwt') {
-              const q = u.searchParams;
-              const raw = q.get('token') || (q.get('jwt') || '');
-              if (!raw) return json(res, 400, {error: 'token?=<JWT> — decodes header+payload, checks exp/nbf/iat (no signature verification)'});
-              const parts = raw.trim().split('.');
-              if (parts.length !== 3) return json(res, 400, {error: `JWT must have 3 dot-separated parts, got ${parts.length}`});
-              const b64u = (s) => Buffer.from(s.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8');
-              let header, payload;
-              try { header = JSON.parse(b64u(parts[0])); } catch { return json(res, 400, {error: 'invalid header segment (not base64url JSON)'}); }
-              try { payload = JSON.parse(b64u(parts[1])); } catch { return json(res, 400, {error: 'invalid payload segment (not base64url JSON)'}); }
-              const now = Math.floor(Date.now() / 1000);
-              const status = {};
-              if (payload.exp !== undefined) status.expired = now >= payload.exp, status.expiresAt = new Date(payload.exp * 1000).toISOString();
-              if (payload.nbf !== undefined) status.notYetValid = now < payload.nbf, status.validFrom = new Date(payload.nbf * 1000).toISOString();
-              if (payload.iat !== undefined) status.issuedAt = new Date(payload.iat * 1000).toISOString();
-              status.overall = (status.expired || status.notYetValid) ? 'INVALID (time-based)' : 'VALID (time-based)';
-              return json(res, 200, {
-                header, payload, signaturePresent: parts[2].length > 0, signatureLength: parts[2].length,
-                alg: header.alg || null, typ: header.typ || null,
-                timeStatus: status,
-                note: 'signature NOT verified — decoding only'
-              });
-            }
 
             if (u.pathname === '/color') {
               try { return routeColor(u, res, json); }
