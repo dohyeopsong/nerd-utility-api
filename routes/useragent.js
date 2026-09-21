@@ -55,6 +55,6 @@ function parse(ua) {
 
 function routeUseragent(u, res, json) {
   const ua = u.searchParams.get('ua') || (u.headers && u.headers['user-agent']);
-  return json(parse(ua));
+  return json(res, 200, parse(ua));
 }
 module.exports = { routeUseragent, parse };
