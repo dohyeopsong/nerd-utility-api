@@ -1,3 +1,4 @@
+const { routeLanding } = require('./routes/landing.js');
 const { routeNanoid } = require('./routes/nanoid.js');
 const { routeRoman } = require('./routes/roman.js');
 const { routeUlid } = require('./routes/ulid.js');
@@ -212,7 +213,7 @@ http.createServer(async (req, res) => {
       res.writeHead(200, {'Content-Type':'application/xml'});
       return res.end(require('fs').readFileSync(__dirname + '/public/sitemap.xml'));
     }
-if (u.pathname === '/') {
+if (u.pathname === '/') return routeLanding(u, res);
       res.writeHead(200, {'Content-Type':'text/html'});
       return res.end(require('fs').readFileSync(__dirname + '/public/index.html'));
     }
