@@ -1,3 +1,4 @@
+const { routeRot13 } = require('./routes/rot13.js'); // rot13
 const { routeLorem } = require('./routes/lorem.js'); // lorem
 const { routeCase } = require('./routes/case.js'); // case
 const { routeMarkdown } = require('./routes/markdown.js'); // markdown
@@ -620,6 +621,9 @@ if (u.pathname === '/') return routeLanding(u, res);
               const code = ((hmac[offset] & 0x7F) << 24 | hmac[offset+1] << 16 | hmac[offset+2] << 8 | hmac[offset+3]) % 10 ** digits;
               const remaining = period - (Math.floor(Date.now() / 1000) % period);
               return json(res, 200, { code: String(code).padStart(digits, '0'), digits, period, secondsRemaining: remaining, otpauth: `otpauth://totp/Nerd:${secret}?secret=${secret}&digits=${digits}&period=${period}` });
+            }
+            if (u.pathname === '/rot13') {
+              return routeRot13(u, res, json);
             }
             if (u.pathname === '/lorem') {
               const q = u.searchParams;
