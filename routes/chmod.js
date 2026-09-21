@@ -3,7 +3,7 @@ function symbolicToNumeric(sym) {
   const s = String(sym).trim();
   if (!/^[rwxstST-]{9}$/.test(s)) throw new Error('symbolic must be 9 chars of rwxstST- (e.g. rwxr-x---)');
   let u = 0, g = 0, o = 0;
-  const val = (triplet) => (triplet[0] === 'r' ? 4 : 0) + (triplet[1] === 'w' ? 2 : 0) + (triplet[2] === 'x' ? 1 : 0);
+  const val = (triplet) => (triplet[0] === 'r' ? 4 : 0) + (triplet[1] === 'w' ? 2 : 0) + ('xst'.includes(triplet[2]) ? 1 : 0);
   const trip = [s.slice(0,3), s.slice(3,6), s.slice(6,9)];
   u = val(trip[0]); g = val(trip[1]); o = val(trip[2]);
   // special bits: setuid (u+s -> 's' replaces x in owner triplet), setgid, sticky
