@@ -31,6 +31,9 @@ const H = {
     const head = lines[0].split(delim).map(s => s.trim());
     const rows = lines.slice(1).map(l => { const cells = l.split(delim); const o = {}; head.forEach((h,i)=>o[h]=cells[i] !== undefined ? cells[i].trim() : null); return o; });
     return { headers: head, rowCount: rows.length, rows }; },
+  stats: () => { const top = Object.entries(usage.byCaller).sort((a,b)=>b[1]-a[1]).slice(0,10).map(([ip,n])=>({ip,requests:n}));
+    return { totalExternalRequests: usage.total, byRoute: usage.byRoute, topCallers: top, uniqueCallers: Object.keys(usage.byCaller).length, routes: Object.keys(H).length }; },
+  dashboard: () => ({ message: "see /stats for JSON analytics", routes: Object.keys(H).length }),
   textstats: (q) => { const t = q.text || '';
     const words = t.trim() ? t.trim().split(/\s+/) : [];
     return { chars: t.length, charsNoSpaces: t.replace(/\s/g,'').length, words: words.length, lines: t.split('\n').length, sentences: (t.match(/[.!?]+/g)||[]).length }; },
@@ -119,12 +122,23 @@ const H = {
     routes: Object.keys(H) }),
 };
 
+// ---------- usage analytics ----------
+const UFILE = 'usage.json';
+let usage = { total: 0, byRoute: {}, byCaller: {} };
+try { const u = JSON.parse(require('fs').readFileSync(UFILE, 'utf8')); usage = { total: u.total||0, byRoute: u.byRoute||{}, byCaller: u.byCaller||{} }; } catch {}
+let uDirty = false;
+setInterval(() => { if (uDirty) { try { require('fs').writeFileSync(UFILE, JSON.stringify(usage)); uDirty = false; } catch {} } }, 30000);
+function trackUsage(route, ip) {
+  if (!ip || ip.startsWith('127.0.0.1') || ip === '::1') return;
+  usage.total++; usage.byRoute[route] = (usage.byRoute[route] || 0) + 1; usage.byCaller[ip] = (usage.byCaller[ip] || 0) + 1; uDirty = true;
+}
 // ---------- server ----------
 http.createServer((req, res) => {
   const u = new URL(req.url, 'http://localhost');
   const route = u.pathname.replace(/^\//, '').replace(/\/$/, '');
   if (req.method === 'OPTIONS') return json(res, 204, {});
   if (route === '' || route === 'docs' || route === 'llms.txt') return json(res, 200, H.docs());
+  trackUsage(route, req.socket.remoteAddress || '?');
   if (!H[route]) return json(res, 404, { error: `unknown route /${route}`, available: Object.keys(H) });
   try {
     const q = q0(u); q._ua = req.headers['user-agent'];
