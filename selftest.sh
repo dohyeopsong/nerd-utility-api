@@ -31,3 +31,4 @@ check unknown-route "/nope" 404
 echo "PASS: $PASS  FAIL: $FAIL"
 [ "$FAIL" = "0" ]
 check slug  "/slug?text=H%C3%A9llo+W%C3%B6rld!+10%2B+Great+Ideas" 200
+check pwstrength  "/pwstrength?pw=Tr0ub4dor%263" 200

@@ -27,6 +27,7 @@ const { routeGeoip } = require("./routes/geoip.js");
 const { routeSemver } = require('./routes/semver.js'); // semver sort
 const { routeCron } = require('./routes/cron.js'); // cron parse
 const { routeLuhn } = require('./routes/luhn.js'); // luhn validate
+const { routePwstrength } = require('./routes/pwstrength.js');
 const { routeIsbn } = require('./routes/isbn.js'); // isbn validate
 const { routeImei } = require('./routes/imei.js'); // imei validate
 const { routeEan } = require('./routes/ean.js'); // ean validate
