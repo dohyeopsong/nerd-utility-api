@@ -909,8 +909,11 @@ if (u.pathname === '/') return routeLanding(u, res);
               }
             }
 
-            if (u.pathname === '/color') {
+            if (u.pathname === '/timeago') {
               try { return routeTimeago(u, res, json); }
+              catch (e) { return json(res, 500, { error: e.message }); }
+            }
+            if (u.pathname === '/color') {
               try { return routeColor(u, res, json); }
               catch (e) { return json(res, 500, { error: e.message }); }
             }
