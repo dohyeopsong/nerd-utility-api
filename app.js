@@ -1,3 +1,4 @@
+const { routeUuid7 } = require('./routes/uuid7.js'); // uuid7
 const { routeMorse } = require('./routes/morse.js'); // morse
 const { routeRot13 } = require('./routes/rot13.js'); // rot13
 const { routeLorem } = require('./routes/lorem.js'); // lorem
@@ -802,6 +803,9 @@ if (u.pathname === '/') return routeLanding(u, res);
             if (u.pathname === '/imei') {
               try { return routeImei(u, res, json); }
               catch (e) { return json(res, 500, { error: e.message }); }
+            }
+            if (u.pathname === '/uuid7') {
+              return routeUuid7(u, res, json);
             }
             if (u.pathname === '/morse') {
               return routeMorse(u, res, json);
