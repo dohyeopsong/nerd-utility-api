@@ -36,3 +36,4 @@ check cron       "/cron?expr=0%209%20*%20*%201-5" 200
 check chmod      "/chmod?mode=755" 200
 check diff       "/diff?a=hello%0Aworld&b=hello%0Athere" 200
 check diff       "/diff?a=hello%0Aworld&b=hello%0Athere" 200
+check case       "/case?text=hello%20world%20example" 200
