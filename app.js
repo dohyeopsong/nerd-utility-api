@@ -506,10 +506,6 @@ if (u.pathname === '/') return routeLanding(u, res);
               const types = lines.join('\n');
               return json(res, 200, { types }, { 'content-type': 'application/json' });
             }
-            if (u.pathname === '/slug') {
-              try { return routeSlug(u, res, json); }
-              catch (e) { return json(res, 500, { error: e.message }); }
-            }
             if (u.pathname === '/diff') {
               const q = u.searchParams;
               const a = q.get('a') || '', b = q.get('b') || '';
