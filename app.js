@@ -1,3 +1,4 @@
+const { routeCron } = require('./routes/cron.js'); // cron parse
 const { routeLuhn } = require('./routes/luhn.js'); // luhn validate
 const { routeIsbn } = require('./routes/isbn.js'); // isbn validate
 const { routeImei } = require('./routes/imei.js'); // imei validate
@@ -660,6 +661,10 @@ if (u.pathname === '/') {
             }
             if (u.pathname === '/card') {
               try { return routeCard(u, res, json); }
+              catch (e) { return json(res, 500, { error: e.message }); }
+            }
+            if (u.pathname === '/cron') {
+              try { return routeCron(u, res, json); }
               catch (e) { return json(res, 500, { error: e.message }); }
             }
             if (u.pathname === '/luhn') {
