@@ -1,5 +1,4 @@
 const { routeGeoip } = require("./routes/geoip.js");
-const { routeGeoip } = require('./routes/geoip');
 const { routeSemver } = require('./routes/semver.js'); // semver sort
 const { routeCron } = require('./routes/cron.js'); // cron parse
 const { routeLuhn } = require('./routes/luhn.js'); // luhn validate
