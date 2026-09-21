@@ -197,7 +197,8 @@ function scrapeUrl(url) {
 http.createServer(async (req, res) => {
   const u = new URL(req.url, 'http://x');
   const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress || 'unknown';
-  const rl = rateLimit(ip, 60);
+  const isLocal = ip === '::1' || ip === '127.0.0.1' || ip === '::ffff:127.0.0.1';
+  const rl = isLocal ? { allowed: true, remaining: Infinity } : rateLimit(ip, 60);
   if (!rl.allowed) { res.writeHead(429, { 'content-type': 'application/json', 'retry-after': String(rl.retryAfterSec) }); return res.end(JSON.stringify({ error: 'rate limited', retry_after: rl.retryAfterSec })); }
 
     try { const _ip = (req.socket.remoteAddress||'').replace('::ffff:',''); if (!_ip.startsWith('127.') && !_ip.startsWith('::1')) trackUsage(u.pathname, _ip); } catch {}
