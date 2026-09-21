@@ -1,6 +1,6 @@
 // NanoID generator: URL-safe alphabet, crypto-secure, configurable length
 const crypto = require('crypto');
-const URL_ALPHABET = 'useandom-26T198340PX75pxJACKVERYMINDBUSHWOLFGQZbfghjklqvwyzrict';
+const URL_ALPHABET = 'useandom-26T198340PX75pxJACKVERYMINDBUSHWOLFGQZbfghjklqvwyzrictG';
 function nanoid(len = 21) {
   const bytes = crypto.randomBytes(len);
   let id = '';
