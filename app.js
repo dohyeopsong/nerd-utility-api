@@ -379,6 +379,8 @@ if (u.pathname === '/') return routeLanding(u, res);
               return json(res, 200, {received: true, hookId: id});
             }
             if (u.pathname === '/paste') {
+                if (!capCheck(ip, 'paste')) return json(res, 429, { error: 'paste limit reached (100 per IP)' });
+                capIncr(ip, 'paste');
               if (!capCheck(ip, 'paste')) return json(res, 429, {error: 'paste cap reached (100/IP)'});
               capIncr(ip, 'paste');
               let body = ''; for await (const c of req) body += c;
