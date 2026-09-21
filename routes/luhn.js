@@ -1,33 +1,29 @@
-// Generic Luhn algorithm validator with card-type detection (no card storage — validation only)
-function luhn(digits) {
-  let sum = 0, alt = false;
-  for (let i = digits.length - 1; i >= 0; i--) {
-    let d = +digits[i];
-    if (alt) { d *= 2; if (d > 9) d -= 9; }
-    sum += d; alt = !alt;
+// Generic Luhn check-digit validator with card network detection
+function luhnCheck(numStr) {
+  const s = String(numStr).replace(/[\s-]/g, '');
+  if (!/^\d{2,19}$/.test(s)) return { valid: false, reason: 'must be 2-19 digits' };
+  let sum = 0, dbl = false;
+  for (let i = s.length - 1; i >= 0; i--) {
+    let d = +s[i];
+    if (dbl) { d *= 2; if (d > 9) d -= 9; }
+    sum += d; dbl = !dbl;
   }
-  return sum % 10 === 0;
+  return { valid: sum % 10 === 0, luhnSum: sum, remainder: sum % 10 };
 }
-function cardType(d) {
-  if (/^4/.test(d)) return 'Visa';
-  if (/^(5[1-5]|2(2[2-9]|[3-6]|7[01]|720))/.test(d)) return 'Mastercard';
-  if (/^3[47]/.test(d)) return 'American Express';
-  if (/^(6011|65|64[4-9])/.test(d)) return 'Discover';
-  if (/^3(0[0-5]|[68])/.test(d)) return 'Diners Club';
-  if (/^35/.test(d)) return 'JCB';
+function cardType(s) {
+  const n = String(s).replace(/[\s-]/g, '');
+  if (/^4/.test(n)) return 'visa';
+  if (/^(5[1-5]|2[2-7])/.test(n)) return 'mastercard';
+  if (/^3[47]/.test(n)) return 'amex';
+  if (/^(6011|65|64[4-9])/.test(n)) return 'discover';
+  if (/^(30[0-5]|36|38)/.test(n)) return 'diners';
+  if (/^35/.test(n)) return 'jcb';
   return null;
-}
-function validate(input) {
-  const d = String(input || '').replace(/[\s-]/g, '');
-  if (!/^\d+$/.test(d)) return { error: 'input must contain digits only (spaces/dashes allowed)' };
-  if (d.length < 2) return { error: 'too short' };
-  const out = { digits: d.length, valid: luhn(d) };
-  if (d.length >= 12 && d.length <= 19) out.cardType = cardType(d);
-  return out;
 }
 function routeLuhn(u, res, json) {
   const q = Object.fromEntries(new URL(u, 'http://x').searchParams);
-  if (!q.n && !q.number) return json(res, 400, { error: 'missing ?number= parameter' });
-  return json(res, 200, validate(q.n || q.number));
+  if (!q.num) return json(res, 400, { error: 'provide ?num=<digits> (e.g. card number, IMEI base)' });
+  const r = luhnCheck(q.num);
+  return json(res, 200, { input: q.num, ...r, cardType: r.valid ? cardType(q.num) : cardType(q.num) });
 }
-module.exports = { routeLuhn, luhn };
+module.exports = { routeLuhn, luhnCheck, cardType };
