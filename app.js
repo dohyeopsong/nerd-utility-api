@@ -1,3 +1,4 @@
+const { routeUseragent } = require('./routes/useragent.js');
 const { routeGeoip } = require("./routes/geoip.js");
 const { routeSemver } = require('./routes/semver.js'); // semver sort
 const { routeCron } = require('./routes/cron.js'); // cron parse
@@ -1201,7 +1202,8 @@ if (u.pathname === '/') {
       res.writeHead(200, { 'Content-Type': 'text/csv' });
       return res.end(csv);
     }
-    if (u.pathname === '/geoip') return routeGeoip(u, res, json);
+    if (u.pathname === '/useragent') return routeUseragent(u, res, json);
+  if (u.pathname === '/geoip') return routeGeoip(u, res, json);
   if (u.pathname === '/ipinfo') {
       const ip = req.socket.remoteAddress || 'unknown';
       return json(res, 200, {
