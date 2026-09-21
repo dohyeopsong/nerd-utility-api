@@ -96,6 +96,23 @@ const H = {
         nbf: payload.nbf, nbfIso: ts(payload.nbf), notYetValid: payload.nbf ? now < payload.nbf : null,
         iat: payload.iat, iatIso: ts(payload.iat) },
       signature: parts[2].slice(0,12) + '...', alg: header.alg, note: 'signature NOT verified (decode only)' }; },
+  semver: (q) => { const parse = (v) => { const m = v.trim().match(/^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+([0-9A-Za-z.-]+))?$/);
+      if (!m) { const e = new Error('invalid semver: ' + v); e.status = 400; throw e; }
+      return { major:+m[1], minor:+m[2], patch:+m[3], pre: m[4] ? m[4].split('.') : null, build: m[5] || null, raw: v.trim() }; };
+    const cmpPre = (a, b) => { if (!a && !b) return 0; if (!a) return 1; if (!b) return -1;
+      for (let i = 0; i < Math.max(a.length, b.length); i++) {
+        const x = a[i], y = b[i];
+        if (x === undefined) return -1; if (y === undefined) return 1;
+        const xn = /^\d+$/.test(x), yn = /^\d+$/.test(y);
+        if (xn && yn) { if (+x !== +y) return +x < +y ? -1 : 1; }
+        else if (xn) return -1; else if (yn) return 1;
+        else if (x !== y) return x < y ? -1 : 1; }
+      return 0; };
+    const cmp = (a, b) => a.major !== b.major ? a.major - b.major : a.minor !== b.minor ? a.minor - b.minor : a.patch !== b.patch ? a.patch - b.patch : cmpPre(a.pre, b.pre);
+    if (q.list) { const vs = q.list.split(',').map(parse); return { sorted: [...vs].sort(cmp).map(v=>v.raw), newest: [...vs].sort(cmp).pop().raw, oldest: [...vs].sort(cmp)[0].raw, count: vs.length }; }
+    const a = parse(q.a || ''), b = parse(q.b || '');
+    const d = cmp(a, b);
+    return { a: a.raw, b: b.raw, result: d === 0 ? 'equal' : d < 0 ? 'a < b' : 'a > b', semverSpec: 'build metadata ignored in precedence' }; },
   pricing: () => ({ model: 'free — all endpoints free in local mode (x402 paid tier planned)', wallet: WALLET,
     freeEndpoints: Object.keys(H), note: 'Core utilities free forever.' }),
   docs: () => ({ service: 'Nerd Utility API', wallet: WALLET, usage: 'GET /<route>?text=...&other=params',
