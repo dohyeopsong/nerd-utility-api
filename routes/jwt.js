@@ -17,7 +17,7 @@ function decodeJWT(token) {
 }
 function routeJwt(u, res, json) {
   const q = Object.fromEntries(new URL(u, 'http://x').searchParams);
-  const token = (q.token || q.number || (u.pathname === '/jwt' && false);
+  const token = q.token || q.number;
   if (!token) return json(res, 400, { error: 'provide ?token=<jwt>' });
   try {
     const d = decodeJWT(token);
