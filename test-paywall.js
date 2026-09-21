@@ -47,3 +47,5 @@ const ok = (name, cond) => { console.log((cond ? 'PASS' : 'FAIL') + ' ' + name);
   });
   ok('wrong-signer rejected', r.status === 402);
 })();
+
+process.on("exit", () => require("fs").writeFileSync(require("path").join(__dirname,"payments.json"), "[]"));
