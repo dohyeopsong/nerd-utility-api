@@ -355,27 +355,6 @@ if (u.pathname === '/') {
       return res.end(require('fs').readFileSync(__dirname + '/public/index.html'));
     }
     if (u.pathname === '/health') return json(res, 200, { status: 'ok', time: new Date().toISOString() });
-    if (u.pathname === '/phone') {
-      const raw = (u.searchParams.get('q') || u.searchParams.get('number') || '').trim();
-      if (!raw) return json(res, 400, { error: 'missing ?q=' });
-      try {
-        const hasPlus = raw.startsWith('+');
-        const digits = raw.replace(/[^0-9]/g, '');
-        if (!digits) return json(res, 400, { error: 'no digits found' });
-        const CC = {'1':['US/CA','North America'],'7':['RU','Russia'],'20':['EG','Egypt'],'27':['ZA','South Africa'],'30':['GR','Greece'],'31':['NL','Netherlands'],'32':['BE','Belgium'],'33':['FR','France'],'34':['ES','Spain'],'36':['HU','Hungary'],'39':['IT','Italy'],'40':['RO','Romania'],'41':['CH','Switzerland'],'43':['AT','Austria'],'44':['GB','United Kingdom'],'45':['DK','Denmark'],'46':['SE','Sweden'],'47':['NO','Norway'],'48':['PL','Poland'],'49':['DE','Germany'],'51':['PE','Peru'],'52':['MX','Mexico'],'54':['AR','Argentina'],'55':['BR','Brazil'],'56':['CL','Chile'],'57':['CO','Colombia'],'60':['MY','Malaysia'],'61':['AU','Australia'],'62':['ID','Indonesia'],'63':['PH','Philippines'],'64':['NZ','New Zealand'],'65':['SG','Singapore'],'66':['TH','Thailand'],'81':['JP','Japan'],'82':['KR','South Korea'],'84':['VN','Vietnam'],'86':['CN','China'],'90':['TR','Turkey'],'91':['IN','India'],'92':['PK','Pakistan'],'94':['LK','Sri Lanka'],'98':['IR','Iran'],'212':['MA','Morocco'],'213':['DZ','Algeria'],'216':['TN','Tunisia'],'234':['NG','Nigeria'],'254':['KE','Kenya'],'256':['UG','Uganda'],'263':['ZW','Zimbabwe'],'27':['ZA2','South Africa'],'299':['GL','Greenland'],'351':['PT','Portugal'],'352':['LU','Luxembourg'],'353':['IE','Ireland'],'354':['IS','Iceland'],'358':['FI','Finland'],'359':['BG','Bulgaria'],'370':['LT','Lithuania'],'371':['LV','Latvia'],'372':['EE','Estonia'],'375':['BY','Belarus'],'380':['UA','Ukraine'],'381':['RS','Serbia'],'385':['HR','Croatia'],'386':['SI','Slovenia'],'420':['CZ','Czechia'],'421':['SK','Slovakia'],'502':['GT','Guatemala'],'503':['SV','El Salvador'],'504':['HN','Honduras'],'505':['NI','Nicaragua'],'506':['CR','Costa Rica'],'507':['PA','Panama'],'509':['HT','Haiti'],'591':['BO','Bolivia'],'593':['EC','Ecuador'],'595':['PY','Paraguay'],'598':['UY','Uruguay'],'675':['PG','Papua New Guinea'],'679':['FJ','Fiji'],'852':['HK','Hong Kong'],'855':['KH','Cambodia'],'880':['BD','Bangladesh'],['886']:['TW','Taiwan'],'961':['LB','Lebanon'],'962':['JO','Jordan'],'964':['IQ','Iraq'],'965':['KW','Kuwait'],'966':['SA','Saudi Arabia'],'971':['AE','UAE'],'972':['IL','Israel'],'977':['NP','Nepal'],'994':['AZ','Azerbaijan'],'995':['GE','Georgia'],'998':['UZ','Uzbekistan']};
-        let cc = null, rest = digits;
-        for (const code of Object.keys(CC).sort((a,b) => b.length - a.length)) {
-          if (digits.startsWith(code)) { cc = { callingCode: '+' + code, iso: CC[code][0], name: CC[code][1] }; rest = digits.slice(code.length); break; }
-        }
-        if (cc && cc.callingCode === '+1' && rest.length === 11 && rest[0] === '1') rest = rest.slice(1);
-        const valid = cc !== null && rest.length >= 4 && rest.length <= 12;
-        const e164 = valid ? '+' + cc.callingCode.slice(1) + rest : null;
-        let formatted = e164;
-        if (valid && cc.callingCode === '+1' && rest.length === 10) formatted = `(${rest.slice(0,3)}) ${rest.slice(3,6)}-${rest.slice(6)}`;
-        return json(res, 200, { input: raw, valid: valid, country: cc, national: cc ? rest : null, e164: e164, formatted: formatted });
-      } catch (e) { return json(res, 400, { error: String(e) }); }
-    }
-
             if (u.pathname === '/jwt-decode') {
               const q = Object.fromEntries(u.searchParams); const t = String(q.token || q.jwt || '').trim();
               if (!t || t.split('.').length < 2) return json(res, 400, {error: 'provide ?token=<jwt>'});
@@ -1042,6 +1021,54 @@ if (u.pathname === '/') {
                 return json(res, 400, {valid: false, error: String(e)});
               }
             }
+            if (u.pathname === '/semver') {
+              const q = u.searchParams;
+              const a = q.get('a'), b = q.get('b'), list = q.get('list');
+              const parse = (v) => {
+                const m = /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+([0-9A-Za-z.-]+))?$/.exec(v.trim());
+                if (!m) throw `invalid semver: ${v}`;
+                return {major: +m[1], minor: +m[2], patch: +m[3], pre: m[4] ? m[4].split('.') : null, build: m[5] || null, raw: v.trim()};
+              };
+              const cmp = (x, y) => {
+                if (x.major !== y.major) return x.major - y.major;
+                if (x.minor !== y.minor) return x.minor - y.minor;
+                if (x.patch !== y.patch) return x.patch - y.patch;
+                const pn = x.pre, qn = y.pre;
+                if (!pn && !qn) return 0;
+                if (!pn) return 1;   // release > prerelease
+                if (!qn) return -1;
+                for (let i = 0; i < Math.max(pn.length, qn.length); i++) {
+                  const p = pn[i], r = qn[i];
+                  if (p === undefined) return -1;
+                  if (r === undefined) return 1;
+                  const pd = /^\d+$/.test(p), rd = /^\d+$/.test(r);
+                  if (pd && rd) { if (+p !== +r) return +p - +r; }
+                  else if (pd) return -1;    // numeric < alphanumeric
+                  else if (rd) return 1;
+                  else if (p !== r) return p < r ? -1 : 1;
+                }
+                return 0;
+              };
+              try {
+                if (list) {
+                  const versions = list.split(',').map(parse);
+                  const sorted = versions.slice().sort(cmp);
+                  return json(res, 200, {input: versions.map(v => v.raw), sorted: sorted.map(v => v.raw), latest: sorted[sorted.length - 1].raw, oldest: sorted[0].raw});
+                }
+                if (!a || !b) return json(res, 400, {error: 'a=<v>&b=<v> to compare | list=<v1,v2,...> to sort'});
+                const x = parse(a), y = parse(b);
+                const c = cmp(x, y);
+                return json(res, 200, {
+                  a: x.raw, b: y.raw,
+                  result: c === 0 ? 'equal' : c < 0 ? 'a < b' : 'a > b',
+                  difference: c === 0 ? 0 : (c < 0 ? -1 : 1),
+                  aParsed: {major: x.major, minor: x.minor, patch: x.patch, prerelease: x.pre ? x.pre.join('.') : null, build: x.build},
+                  bParsed: {major: y.major, minor: y.minor, patch: y.patch, prerelease: y.pre ? y.pre.join('.') : null, build: y.build}
+                });
+              } catch (e) {
+                return json(res, 400, {error: String(e)});
+              }
+            }
             if (u.pathname === '/jwt') {
               const q = u.searchParams;
               const raw = q.get('token') || (q.get('jwt') || '');
@@ -1205,12 +1232,13 @@ if (u.pathname === '/') {
     if (u.pathname === '/openapi.json') return json(res, 200, JSON.parse(require('fs').readFileSync(__dirname + '/openapi.json', 'utf8')));
     if (u.pathname === '/agent-card.json' || u.pathname === '/.well-known/agent-card.json') return json(res, 200, require('./agent-card.json'));
     if (u.pathname === '/llms.txt') { res.writeHead(200, {'Content-Type':'text/plain'}); return res.end(require('fs').readFileSync(__dirname + '/PROMO/llms.txt')); }
-    if (u.pathname === '/pricing') return json(res, 200, {
+        if (u.pathname === '/pricing')
       model: 'free (x402 paid tier planned, not active in local mode)',
       wallet: WALLET_ADDRESS,
-      paidTierPlanned: Object.fromEntries(Object.entries(PAID_CENTS).map(([k, v]) => [k, { cents: v, usd: (v / 100).toFixed(2) }])),
-      howToPay: 'x402: on HTTP 402, client signs EIP-3009 USDC transfer and retries. Not enforced in local mode.',
-      note: 'All endpoints are currently free.'
+      freeEndpoints: [...FREE],
+      paid: Object.fromEntries(Object.entries(PAID_CENTS).map(([k, v]) => [k, { cents: v, usd: (v / 100).toFixed(2) }])),
+      howToPay: 'Send x402 payment with request. On HTTP 402, client signs EIP-3009 USDC transfer and retries.',
+      note: 'Paid tier enforces per-request micropayments (1-5 cents). Core utilities stay free forever.'
     });
     if (u.pathname === '/receipts') return json(res, 200, { count: 0, receipts: [], note: 'No payments processed yet — x402 paid tier not active in local mode (no on-chain USDC). All endpoints are currently free.' });
     if (route === 'scrape') {
