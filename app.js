@@ -1,3 +1,4 @@
+const { routeIso } = require('./routes/iso.js'); // iso
 const { routeRegex } = require('./routes/regex.js'); // regex
 const { routeConvert } = require('./routes/convert.js'); // convert
 const { routeCidr } = require('./routes/cidr.js'); // cidr
@@ -708,6 +709,9 @@ if (u.pathname === '/') return routeLanding(u, res);
             }
             if (u.pathname === '/case') {
               return routeCase(u, res, json);
+            }
+            if (u.pathname === '/iso') {
+              return routeIso(u, res, json);
             }
             if (u.pathname === '/cron') {
               try { return routeCron(u, res, json); }
