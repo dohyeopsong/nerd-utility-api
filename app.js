@@ -1,3 +1,4 @@
+const { routeSubnet } = require('./routes/subnet.js'); // subnet calc
 
 restoreCrons();
 // Nerd utility API
@@ -939,6 +940,10 @@ if (u.pathname === '/') {
 
             if (u.pathname === '/color') {
               try { return routeColor(u, res, json); }
+              catch (e) { return json(res, 500, { error: e.message }); }
+            }
+            if (u.pathname === '/subnet') {
+              try { return routeSubnet(u, res, json); }
               catch (e) { return json(res, 500, { error: e.message }); }
             }
             if (u.pathname === '/regex') {
