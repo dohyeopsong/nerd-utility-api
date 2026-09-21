@@ -151,6 +151,34 @@ function scrapeUrl(url) {
 
 http.createServer(async (req, res) => {
   const u = new URL(req.url, 'http://x');
+
+  // --- POST /mcp : MCP-over-HTTP (JSON-RPC 2.0 subset) ---
+  if (req.method === 'POST' && u.pathname === '/mcp') {
+    let body = ''; for await (const c of req) body += c;
+    try {
+      const { id, method, params } = JSON.parse(body || '{}');
+      const ok = (result) => { res.writeHead(200, {'content-type':'application/json'}); res.end(JSON.stringify({ jsonrpc: '2.0', id, result })); };
+      if (method === 'initialize') return ok({ protocolVersion: '2024-11-05', capabilities: { tools: {} }, serverInfo: { name: 'nerd-utility-api', version: '1.0.0' } });
+      if (method === 'tools/list') return ok({ tools: [
+        { name: 'list_routes', description: 'List all utility API routes', inputSchema: { type: 'object', properties: {} } },
+        { name: 'call_route', description: 'Call any utility route, e.g. route=/base64?decode=aGk=', inputSchema: { type: 'object', properties: { route: { type: 'string' } }, required: ['route'] } } ] });
+      if (method === 'tools/call') {
+        const name = params && params.name, args = (params && params.arguments) || {};
+        if (name === 'list_routes') return ok({ content: [{ type: 'text', text: 'format csv2json json2csv base64 hash uuid timestamp validate weather whois shorten rss qrcode dns headers price ipinfo scrape semver regex jwt roman morse units isbn iban ean upc vin password case diff markdown — see /docs' }] });
+        if (name === 'call_route') {
+          const r = await fetch('http://localhost:8080' + (args.route || ''));
+          const t = await r.text();
+          return ok({ content: [{ type: 'text', text: t }] });
+        }
+        return ok({ error: 'unknown tool: ' + name });
+      }
+      res.writeHead(200, {'content-type':'application/json'}); res.end(JSON.stringify({ jsonrpc: '2.0', id, error: { code: -32601, message: 'method not found' } }));
+    } catch (e) {
+      res.writeHead(400, {'content-type':'application/json'}); res.end(JSON.stringify({ jsonrpc: '2.0', error: { code: -32700, message: e.message } }));
+    }
+    return;
+  }
+
     try { const _ip = (req.socket.remoteAddress||'').replace('::ffff:',''); if (!_ip.startsWith('127.') && !_ip.startsWith('::1')) trackUsage(u.pathname, _ip); } catch {}
   const route = u.pathname.slice(1);
   try {
