@@ -60,7 +60,7 @@ function verifyPayment(blob, minValidBefore) {
   try { p = JSON.parse(blob); } catch { throw new Error('X-PAYMENT must be JSON'); }
   const { authorization: auth, signature } = p || {};
   if (!auth || !signature) throw new Error('missing authorization/signature');
-  if ((auth.to || '').toLowerCase() !== PAYEE) throw new Error('wrong payee');
+  if ((auth.to || '').toLowerCase() !== PAYEE.toLowerCase()) throw new Error('wrong payee');
   if (BigInt(auth.value || '0') < centsToWei6(PRICE_CENTS)) throw new Error('insufficient amount');
   const now = Math.floor(Date.now() / 1000);
   if (Number(auth.validBefore) < now) throw new Error('authorization expired');
