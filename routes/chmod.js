@@ -1,35 +1,79 @@
-// chmod calculator: octal <-> symbolic, with descriptions
-const SYM = ['r','w','x'];
-function octalToSymbolic(octal) {
-  const o = String(octal).replace(/\D/g,'');
-  if (!/^[0-7]{3,4}$/.test(o)) throw new Error('invalid octal: expected 3-4 digits 0-7');
-  const s = o.slice(-3);
-  const part = n => SYM.map((c,i) => (n >> (2-i)) & 1 ? c : '-').join('');
-  return (o.length === 4 ? part(+o[0]) : '') + part(+s[0]) + part(+s[1]) + part(+s[2]);
-}
-function symbolicToOctal(sym) {
-  const s = String(sym).trim();
-  if (!/^[rwx-]{9}$/.test(s) && !/^[rwx-]{12}$/.test(s) && !/^[rwx-]{3}$/.test(s)) throw new Error('invalid symbolic: expected rwx- sequences');
-  const part = p => SYM.reduce((acc,c,i) => acc + (p[i] === c ? (4 >> i) : 0), 0);
-  const chunks = s.match(/[rwx-]{3}/g);
-  return chunks.map(part).join('');
-}
-function describe(octal) {
-  const o = String(octal).slice(-3);
-  const who = ['owner','group','others'];
-  return o.split('').map((d,i) => `${who[i]}: ${[+d&4?'read ':''][0]||''}${+d&2?'write ':''}${+d&1?'execute':''}`.trim()).join('; ');
-}
+// Unix chmod permission calculator: numeric <-> symbolic conversion, per-class breakdown
 function routeChmod(u, res, json) {
   const q = Object.fromEntries(new URL(u, 'http://x').searchParams);
-  const input = q.value || q.number;
-  if (!input) return json(res, 400, { error: 'provide ?value=<755 or rwxr-xr-x>' });
+  const input = (q.mode || q.m || '').trim();
+  if (!input) return json(res, 400, { error: 'provide ?mode=<numeric 0-7777 or symbolic like rw-r--r-- or u=rw,g=r,o=>' });
+  const classes = { user: null, group: null, other: null };
+  const bitsOf = (s) => {
+    const R = s.includes('r') ? 4 : 0, W = s.includes('w') ? 2 : 0, X = s.includes('x') ? 1 : 0;
+    if (/[^rwx-]/.test(s)) throw new Error(`invalid permission chars '${s}' (only rwx- allowed)`);
+    return R + W + X;
+  };
+  const namesOf = (n, execName = 'x') => [
+    n & 4 ? 'read' : null, n & 2 ? 'write' : null, n & 1 ? execName : null,
+  ].filter(Boolean);
   try {
-    if (/^[0-7]{3,4}$/.test(String(input).replace(/\D/g,'')) && !/[rwx-]/.test(input)) {
-      const sym = octalToSymbolic(input);
-      return json(res, 200, { input, octal: String(input), symbolic: sym, description: describe(input) });
+    if (/^[0-7]{3,4}$/.test(input)) {
+      const octal = input.padStart(4, '0');
+      const special = +octal[0], us = +octal[1], gr = +octal[2], ot = +octal[3];
+      const sym = [us, gr, ot].map(n => `${n & 4 ? 'r' : '-'}${n & 2 ? 'w' : '-'}${n & 1 ? 'x' : '-'}`).join('');
+      const specialSym = special ? `${special & 4 ? 's' : '-'}${special & 2 ? 's' : '-'}${special & 1 ? 't' : '-'}` : null;
+      return json(res, 200, {
+        input, numeric: +octal, symbolic: sym, octal,
+        specialBits: {
+          setuid: !!(special & 4), setgid: !!(special & 2), sticky: !!(special & 1),
+        },
+        breakdown: {
+          user:  { octal: us, symbolic: sym.slice(0, 3),  permissions: namesOf(us) },
+          group: { octal: gr, symbolic: sym.slice(3, 6),  permissions: namesOf(gr) },
+          other: { octal: ot, symbolic: sym.slice(6, 9),  permissions: namesOf(ot) },
+        },
+      });
     }
-    const oct = symbolicToOctal(input);
-    return json(res, 200, { input, octal: oct, symbolic: octalToSymbolic(oct), description: describe(oct) });
-  } catch (e) { return json(res, 400, { error: e.message }); }
+    if (/^[rwx-]{9}$/.test(input)) {
+      const us = bitsOf(input.slice(0, 3)), gr = bitsOf(input.slice(3, 6)), ot = bitsOf(input.slice(6, 9));
+      const numeric = us * 64 + gr * 8 + ot;
+      return json(res, 200, {
+        input, numeric, octal: String(numeric).padStart(3, '0'), symbolic: input,
+        specialBits: { setuid: false, setgid: false, sticky: false },
+        breakdown: {
+          user:  { octal: us, symbolic: input.slice(0, 3), permissions: namesOf(us) },
+          group: { octal: gr, symbolic: input.slice(3, 6), permissions: namesOf(gr) },
+          other: { octal: ot, symbolic: input.slice(6, 9), permissions: namesOf(ot) },
+        },
+      });
+    }
+    if (/^[ugoa]+[=+-][rwx]*([,][ugoa]*[=+-][rwx]*)*$/.test(input)) {
+      // symbolic chmod like u=rw,g=r,o= — resolve against mode 0
+      let mode = 0;
+      for (const clause of input.split(',')) {
+        const m = clause.match(/^([ugoa]*)([=+-])([rwx]*)$/);
+        if (!m) throw new Error(`invalid clause '${clause}'`);
+        const [, who, op, perms] = m;
+        const targets = who.includes('a') || who === '' ? ['u', 'g', 'o'] : [...who];
+        const val = (perms.includes('r') ? 4 : 0) + (perms.includes('w') ? 2 : 0) + (perms.includes('x') ? 1 : 0);
+        for (const t of targets) {
+          const shift = t === 'u' ? 6 : t === 'g' ? 3 : 0;
+          if (op === '=') mode = (mode & ~(7 << shift)) | (val << shift);
+          else if (op === '+') mode |= val << shift;
+          else if (op === '-') mode &= ~(val << shift);
+        }
+      }
+      const us = (mode >> 6) & 7, gr = (mode >> 3) & 7, ot = mode & 7;
+      const sym = [us, gr, ot].map(n => `${n & 4 ? 'r' : '-'}${n & 2 ? 'w' : '-'}${n & 1 ? 'x' : '-'}`).join('');
+      return json(res, 200, {
+        input, numeric: mode, octal: String(mode).padStart(3, '0'), symbolic: sym,
+        specialBits: { setuid: false, setgid: false, sticky: false },
+        breakdown: {
+          user:  { octal: us, symbolic: sym.slice(0, 3), permissions: namesOf(us) },
+          group: { octal: gr, symbolic: sym.slice(3, 6), permissions: namesOf(gr) },
+          other: { octal: ot, symbolic: sym.slice(6, 9), permissions: namesOf(ot) },
+        },
+      });
+    }
+    return json(res, 400, { error: 'unrecognized mode format — use numeric (755), full symbolic (rwxr-xr-x), or clause (u=rw,g=r,o=)' });
+  } catch (e) {
+    return json(res, 400, { error: e.message });
+  }
 }
-module.exports = { routeChmod, octalToSymbolic, symbolicToOctal };
+module.exports = { routeChmod };
