@@ -2,7 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
-const TOOLS_PATH = path.join(__dirname, 'mcp-gen', 'tools.json');
+const TOOLS_PATH = path.join(__dirname, '..', 'mcp-gen', 'tools.json');
 let _tools = null;
 function loadTools() {
   if (_tools) return _tools;
