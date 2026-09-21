@@ -5,7 +5,7 @@
 // Signs an EIP-3009 TransferWithAuthorization (USDC on Base) off-chain.
 // Note: signature authorizes the transfer; on-chain settlement is not yet
 // executed by the server, so no funds move — this proves payment intent.
-const { Wallet, ethers } = require('ethers');
+const { Wallet } = require('ethers');
 const crypto = require('crypto');
 
 const API_BASE = process.env.NERD_API || 'http://localhost:8080';
@@ -28,8 +28,13 @@ const TYPES = {
   ]
 };
 
+function toWallet(key) {
+  if (key && typeof key === 'object' && typeof key.signTypedData === 'function' && key.address) return key;
+  return new Wallet(key);
+}
+
 async function payAndCall(privateKey, path, params = {}, method = 'GET', body = null) {
-  const wallet = privateKey instanceof Wallet ? privateKey : new Wallet(privateKey);
+  const wallet = toWallet(privateKey);
   const auth = {
     from: wallet.address,
     to: '0x85fe24c7668577ae04106Be4fb806915a77384e0',
