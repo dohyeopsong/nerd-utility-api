@@ -26,9 +26,9 @@ function parseField(expr, min, max, names) {
   }
   return [...result].sort((a, b) => a - b);
 }
-function nextRun(sec, min, hour, dom, mon, dow) {
+function nextRun(min, hour, dom, mon, dow) {
   const d = new Date(); d.setSeconds(0, 0);
-  const S = new Set(sec), Mi = new Set(min), H = new Set(hour), DoM = new Set(dom), Mo = new Set(mon), DoW = new Set(dow);
+  const Mi = new Set(min), H = new Set(hour), DoM = new Set(dom), Mo = new Set(mon), DoW = new Set(dow);
   for (let i = 0; i < 366 * 24 * 60; i++) {
     if (Mo.has(d.getMonth() + 1) && DoM.has(d.getDate()) && DoW.has(d.getDay()) && H.has(d.getHours()) && Mi.has(d.getMinutes())) return d.toISOString();
     d.setMinutes(d.getMinutes() + 1);
