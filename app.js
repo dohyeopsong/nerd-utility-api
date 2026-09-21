@@ -1287,13 +1287,13 @@ if (u.pathname === '/') return routeLanding(u, res);
       try { return json(res, 200, await prices[route](q)); }
       catch (e) { return json(res, 502, { error: e.message }); }
     }
-    if (u.pathname === '/md2html') { return routeMarkdown2(u, res, json, body, req.method === 'POST'); }
     const handler = ENDPOINTS[route];
     if (!handler) return json(res, 404, { error: 'not found. See /docs' });
     if (req.method !== 'POST' && req.method !== 'GET') return json(res, 405, { error: 'GET/POST. See /docs' });
     const q = Object.fromEntries(u.searchParams.entries());
     const body = req.method === 'POST' ? await readBody(req)
       : (() => { const v = q.json || q.csv || q.text || q.data || q.input || q.domain || q.url || q.email; return v === undefined || v === '' ? '' : JSON.stringify({ domain: q.domain, url: q.url, email: q.email, json: q.json, csv: q.csv, text: q.text, data: q.data, input: q.input }); })();
+    if (u.pathname === '/md2html') { return routeMarkdown2(u, res, json, body, req.method === 'POST'); }
     try {
       const out = await handler(body, q);
       return json(res, 200, out);
