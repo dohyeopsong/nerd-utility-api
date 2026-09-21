@@ -1141,10 +1141,7 @@ if (u.pathname === '/') return routeLanding(u, res);
       if (isNaN(lo) || isNaN(hi) || lo > hi) return json(res, 400, { error: 'min/max must be integers, min<=max' });
       return json(res, 200, { min: lo, max: hi, number: Math.floor(Math.random() * (hi - lo + 1)) + lo });
     }
-    if (u.pathname === '/password') {
-      try { return routePassword(u, res, json, reqBody, req.method); }
-      catch (e) { return json(res, 400, { error: e.message }); }
-    }
+    if (u.pathname === '/password') return routePassword(u, res, json, reqBody, req.method);
     if (u.pathname === '/lorem') {
       const q = Object.fromEntries(u.searchParams);
       const words = ['lorem','ipsum','dolor','sit','amet','consectetur','adipiscing','elit','sed','do','eiusmod','tempor','incididunt','ut','labore','et','dolore','magna','aliqua'];
