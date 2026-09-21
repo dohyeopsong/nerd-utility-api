@@ -1,3 +1,4 @@
+const { routeChmod } = require('./routes/chmod.js'); // chmod converter
 const { routeSlug } = require('./routes/slug.js'); // slug/case
 const { routeDiff } = require('./routes/diff.js'); // text diff
 const { routeTimeago } = require('./routes/timeago.js'); // relative time
@@ -961,6 +962,10 @@ if (u.pathname === '/') return routeLanding(u, res);
                 h = h.replace(/\n{3,}/g, '\n\n').replace(/[ \t]+/g, ' ').trim();
                 return json(res, 200, {url: q.url, markdown: h});
               } catch (e) { return json(res, 502, {error: e.message}); }
+            }
+            if (u.pathname === '/chmod') {
+              try { return routeChmod(u, res, json); }
+              catch (e) { return json(res, 500, { error: e.message }); }
             }
             if (u.pathname === '/slug') {
               const q = Object.fromEntries(u.searchParams);
