@@ -1,14 +1,14 @@
 {
   "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
   "name": "Nerd Utility API",
-  "description": "Free, no-auth utility micro-service for AI agents and developers. Data conversion (CSV/JSON, case, slugify), encoding & hashing (base64, sha256, md5, uuid, passwords), timestamps, text analysis, QR codes, DNS lookups, header inspection, web scraping, IP geolocation, crypto prices, JWT decoding, User-Agent parsing, and validation (email/url/ip/json/uuid/luhn). Plain JSON out, no keys or signup.",
+  "description": "Utility micro-service for AI agents and developers: 46+ routes. Free: data conversion (CSV/JSON, case, slugify), encoding & hashing (base64, sha256, uuid, passwords), timestamps, text analysis, QR codes, DNS lookups, header inspection, IP geolocation, crypto prices, JWT decoding, validation (email/url/ip/json/uuid/luhn/iban/isbn/ean/vin), unit conversion, semver, cron, morse, roman. Paid via x402 (USDC on Base): /scrape web scraping. Plain JSON out, no signup.",
   "services": [
     { "name": "agentWallet", "endpoint": "eip155:8453:0x85fe24c7668577ae04106Be4fb806915a77384e0" },
-    { "name": "api", "endpoint": "https://feminine-neatness-coliseum.ngrok-free.dev", "docs": "/docs", "openapi": "/openapi.json", "llmsTxt": "/llms.txt", "dashboard": "/dashboard" },
-    { "name": "mcp", "endpoint": "stdio mcp-server.js — 20 tools wrapping the API", "manifest": "/mcp-manifest.json" }
+    { "name": "api", "endpoint": "https://feminine-neatness-coliseum.ngrok-free.dev", "docs": "/docs", "openapi": "/openapi.json", "llmsTxt": "/llms.txt", "dashboard": "/dashboard", "pricing": "/pricing" },
+    { "name": "mcp", "endpoint": "POST /mcp — MCP-over-HTTP JSON-RPC 2.0 (tools: list_routes, call_route)", "manifest": "/mcp-manifest.json" }
   ],
   "x402Support": true,
   "active": true,
-  "pricing": "All endpoints free during growth phase.",
+  "pricing": "Free: all utility routes. Paid: /scrape = 5 cents USDC (Base) via x402 — send request, receive HTTP 402 with EIP-3009 TransferWithAuthorization challenge, sign with your wallet, retry with X-PAYMENT header.",
   "operator": "0x85fe24c7668577ae04106Be4fb806915a77384e0"
 }
