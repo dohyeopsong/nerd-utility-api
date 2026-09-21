@@ -28,6 +28,7 @@ const { routeSemver } = require('./routes/semver.js'); // semver sort
 const { routeCron } = require('./routes/cron.js'); // cron parse
 const { routeLuhn } = require('./routes/luhn.js'); // luhn validate
 const { routePwstrength } = require('./routes/pwstrength.js');
+const { routeHtml } = require('./routes/html.js');
 const { routeIsbn } = require('./routes/isbn.js'); // isbn validate
 const { routeImei } = require('./routes/imei.js'); // imei validate
 const { routeEan } = require('./routes/ean.js'); // ean validate
@@ -1207,6 +1208,7 @@ if (u.pathname === '/') return routeLanding(u, res);
     }
   if (u.pathname === '/useragent') return routeUseragent(u, res, json);
   if (u.pathname === '/jwt') return routeJwt(u, res, json);
+  if (u.pathname === '/html') return routeHtml(u, res, json);
   if (u.pathname === '/pwstrength') return routePwstrength(u, res, json);
   if (u.pathname === '/cuid') return routeCuid(u, res, json);
   if (u.pathname === '/ulid') return routeUlid(u, res, json);
