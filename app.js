@@ -728,44 +728,6 @@ if (u.pathname === '/') return routeLanding(u, res);
               catch (e) { return json(res, 500, { error: e.message }); }
             }
 
-            if (u.pathname === '/isbn') {
-              const q = u.searchParams;
-              const raw = q.get('isbn');
-              if (!raw) return json(res, 400, {error: 'isbn?=<ISBN-10 or ISBN-13 with or without hyphens>'});
-              const s = raw.replace(/[-\s]/g, '').toUpperCase();
-              if (s.length === 10) {
-                if (!/^[0-9]{9}[0-9X]$/.test(s)) return json(res, 400, {valid: false, error: 'ISBN-10 must be 9 digits + check digit (0-9 or X)'});
-                let sum = 0;
-                for (let i = 0; i < 10; i++) {
-                  const v = s[i] === 'X' ? 10 : +s[i];
-                  sum += v * (10 - i);
-                }
-                const valid = sum % 11 === 0;
-                // convert to ISBN-13
-                const core = '978' + s.slice(0, 9);
-                let sum13 = 0;
-                for (let i = 0; i < 12; i++) sum13 += +core[i] * (i % 2 === 0 ? 1 : 3);
-                const check13 = (10 - sum13 % 10) % 10;
-                return json(res, 200, {input: raw, format: 'ISBN-10', valid, checkDigit: s[9], asIsbn13: core + check13});
-              }
-              if (s.length === 13) {
-                if (!/^[0-9]{13}$/.test(s)) return json(res, 400, {valid: false, error: 'ISBN-13 must be 13 digits'});
-                let sum = 0;
-                for (let i = 0; i < 13; i++) sum += +s[i] * (i % 2 === 0 ? 1 : 3);
-                const valid = sum % 10 === 0;
-                const eanPrefix = s.slice(0, 3);
-                let asIsbn10 = null;
-                if (eanPrefix === '978') {
-                  const core = s.slice(3, 12);
-                  let sum10 = 0;
-                  for (let i = 0; i < 9; i++) sum10 += +core[i] * (10 - i);
-                  let check = (11 - sum10 % 11) % 11;
-                  asIsbn10 = core + (check === 10 ? 'X' : check);
-                }
-                return json(res, 200, {input: raw, format: 'ISBN-13', valid, checkDigit: s[12], eanPrefix, asIsbn10});
-              }
-              return json(res, 400, {valid: false, error: `expected 10 or 13 digits, got ${s.length}`});
-            }
             if (u.pathname === '/barcode') {
               const q = u.searchParams;
               const raw = q.get('code');

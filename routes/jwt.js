@@ -1,10 +1,10 @@
 // JWT decoder: header, payload, expiry check. No signature verification (decode only).
 function b64uDecode(s) {
-  const b64 = s.replace(/-/g, '+').replace(/_/g, '/');
+  const b64 = s.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - s.length % 4) % 4);
   return Buffer.from(b64, 'base64').toString('utf8');
 }
 function routeJwt(u, res, json) {
-  const token = (u.searchParams.get('token') || '').trim();
+  const token = (u.searchParams.get('token') || u.searchParams.get('jwt') || '').trim();
   if (!token) return json(res, 400, { error: 'missing token param' });
   const parts = token.split('.');
   if (parts.length !== 3) return json(res, 400, { error: 'invalid JWT: expected 3 segments' });

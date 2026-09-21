@@ -1,6 +1,6 @@
 // IBAN validator: format check, mod-97 checksum, country length, pretty-print
 function routeIban(u, res, json) {
-  const raw = (u.searchParams.get('iban') || '').replace(/\s+/g, '').toUpperCase();
+  const raw = ((u.searchParams.get('iban') || u.searchParams.get('number')) || u.searchParams.get('number') || '').replace(/\s+/g, '').toUpperCase();
   if (!raw) return json(res, 400, { error: 'missing iban param' });
   if (!/^[A-Z]{2}[0-9]{2}[A-Z0-9]{1,30}$/.test(raw)) {
     return json(res, 400, { error: 'invalid IBAN format', iban: raw });

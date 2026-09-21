@@ -31,13 +31,13 @@ function cmp(a, b) {
   return cmpPre(A.pre, B.pre);
 }
 function routeSemver(u, res, json) {
-  const single = u.searchParams.get('v');
+  const single = u.searchParams.get('v') || u.searchParams.get('version');
   if (single) {
     const p = parseSemver(single);
     if (!p) return json(res, 400, { error: 'invalid semver: ' + single });
     return json(res, 200, { input: single, valid: true, ...p });
   }
-  const list = (u.searchParams.get('list') || '').split(',').map(s => s.trim()).filter(Boolean);
+  const list = (u.searchParams.get('list') || u.searchParams.get('versions') || '').split(',').map(s => s.trim()).filter(Boolean);
   if (!list.length) return json(res, 400, { error: 'provide ?v=VERSION or ?list=v1,v2,...' });
   for (const v of list) if (!parseSemver(v)) return json(res, 400, { error: 'invalid semver: ' + v });
   if (list.length === 2) {
