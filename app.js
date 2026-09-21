@@ -1240,6 +1240,43 @@ if (u.pathname === '/') {
       howToPay: 'Send x402 payment with request. On HTTP 402, client signs EIP-3009 USDC transfer and retries.',
       note: 'Paid tier enforces per-request micropayments (1-5 cents). Core utilities stay free forever.'
     });
+    if (u.pathname === '/phone') {
+      const q = u.searchParams.get('q') || u.searchParams.get('number') || u.searchParams.get('phone');
+      if (!q) return json(res, 400, { error: 'missing ?q=' });
+      const raw = q.trim();
+      // country calling codes (longest-prefix match), ISO + name
+      const CCS = [['1','US/CA','North America'],['7','RU','Russia/Kazakhstan'],['20','EG','Egypt'],['27','ZA','South Africa'],['30','GR','Greece'],['31','NL','Netherlands'],['32','BE','Belgium'],['33','FR','France'],['34','ES','Spain'],['36','HU','Hungary'],['39','IT','Italy'],['40','RO','Romania'],['41','CH','Switzerland'],['43','AT','Austria'],['44','GB','United Kingdom'],['45','DK','Denmark'],['46','SE','Sweden'],['47','NO','Norway'],['48','PL','Poland'],['49','DE','Germany'],['51','PE','Peru'],['52','MX','Mexico'],['53','CU','Cuba'],['54','AR','Argentina'],['55','BR','Brazil'],['56','CL','Chile'],['57','CO','Colombia'],['58','VE','Venezuela'],['60','MY','Malaysia'],['61','AU','Australia'],['62','ID','Indonesia'],['63','PH','Philippines'],['64','NZ','New Zealand'],['65','SG','Singapore'],['66','TH','Thailand'],['81','JP','Japan'],['82','KR','South Korea'],['84','VN','Vietnam'],['86','CN','China'],['90','TR','Turkey'],['91','IN','India'],['92','PK','Pakistan'],['93','AF','Afghanistan'],['94','LK','Sri Lanka'],['95','MM','Myanmar'],['98','IR','Iran'],['211','SS','South Sudan'],['212','MA','Morocco'],['213','DZ','Algeria'],['216','TN','Tunisia'],['218','LY','Libya'],['220','GM','Gambia'],['233','GH','Ghana'],['234','NG','Nigeria'],['250','RW','Rwanda'],['254','KE','Kenya'],['256','UG','Uganda'],['257','BI','Burundi'],['258','MZ','Mozambique'],['260','ZM','Zambia'],['263','ZW','Zimbabwe'],['264','NA','Namibia'],['267','BW','Botswana'],['269','KM','Comoros'],['291','ER','Eritrea'],['299','GL','Greenland'],['350','GI','Gibraltar'],['351','PT','Portugal'],['352','LU','Luxembourg'],['353','IE','Ireland'],['354','IS','Iceland'],['355','AL','Albania'],['356','MT','Malta'],['357','CY','Cyprus'],['358','FI','Finland'],['359','BG','Bulgaria'],['370','LT','Lithuania'],['371','LV','Latvia'],['372','EE','Estonia'],['373','MD','Moldova'],['374','AM','Armenia'],['375','BY','Belarus'],['376','AD','Andorra'],['377','MC','Monaco'],['378','SM','San Marino'],['379','VA','Vatican'],['380','UA','Ukraine'],['381','RS','Serbia'],['382','ME','Montenegro'],['383','XK','Kosovo'],['385','HR','Croatia'],['386','SI','Slovenia'],['387','BA','Bosnia'],['389','MK','North Macedonia'],['420','CZ','Czechia'],['421','SK','Slovakia'],['423','LI','Liechtenstein'],['501','BZ','Belize'],['502','GT','Guatemala'],['503','SV','El Salvador'],['504','HN','Honduras'],['505','NI','Nicaragua'],['506','CR','Costa Rica'],['507','PA','Panama'],['508','PM','St Pierre'],['509','HT','Haiti'],['590','GP','Guadeloupe'],['591','BO','Bolivia'],['592','GY','Guyana'],['593','EC','Ecuador'],['594','GF','French Guiana'],['595','PY','Paraguay'],['596','MQ','Martinique'],['597','SR','Suriname'],['598','UY','Uruguay'],['599','CW','Curaçao'],['670','TL','Timor-Leste'],['672','NF','Norfolk'],['673','BN','Brunei'],['675','PG','Papua New Guinea'],['676','TO','Tonga'],['679','FJ','Fiji'],['685','WS','Samoa'],['687','NC','New Caledonia'],['689','PF','French Polynesia'],['850','KP','North Korea'],['852','HK','Hong Kong'],['853','MO','Macau'],['855','KH','Cambodia'],['856','LA','Laos'],['870','PN',' Pitcairn'],['880','BD','Bangladesh'],['886','TW','Taiwan'],['960','MV','Maldives'],['961','LB','Lebanon'],['962','JO','Jordan'],['963','SY','Syria'],['964','IQ','Iraq'],['965','KW','Kuwait'],['966','SA','Saudi Arabia'],['967','YE','Yemen'],['968','OM','Oman'],['970','PS','Palestine'],['971','AE','UAE'],['972','IL','Israel'],['973','BH','Bahrain'],['974','QA','Qatar'],['975','BT','Bhutan'],['976','MN','Mongolia'],['977','NP','Nepal'],['994','AZ','Azerbaijan'],['995','GE','Georgia'],['996','KG','Kyrgyzstan'],['998','UZ','Uzbekistan']];
+      // strip formatting
+      let hasPlus = raw.startsWith('+');
+      let digits = raw.replace(/[^0-9]/g, '');
+      if (!digits) return json(res, 400, { error: 'no digits found in input' });
+      let natl = null;
+      if (!hasPlus && digits.length > 10 && digits.length <= 11 && digits[0] === '1') { hasPlus = true; digits = digits; }
+      if (!hasPlus && digits.length === 10 && raw.startsWith('0')) { natl = true; }
+      let cc = null, rest = null;
+      for (const [code, iso, name] of CCS) {
+        if (digits.startsWith(code)) { cc = { code, iso, name }; rest = digits.slice(code.length); break; }
+      }
+      // NANP handling: if leading 1 and rest is 10 digits
+      if (cc && cc.code === '1' && rest.length === 11) rest = rest.slice(1);
+      const valid = rest !== null && rest.length >= 4 && rest.length <= 13;
+      // format E.164
+      let e164 = null;
+      if (cc && valid) e164 = '+' + cc.code + rest;
+      // national formatting for 10-digit NANP
+      let pretty = e164;
+      if (cc && cc.code === '1' && rest.length === 10) pretty = `(${rest.slice(0,3)}) ${rest.slice(3,6)}-${rest.slice(6)}`;
+      return json(res, 200, {
+        input: raw,
+        digits: digits,
+        valid: valid,
+        country: cc ? { callingCode: '+' + cc.code, iso: cc.iso, name: cc.name } : null,
+        national: rest,
+        e164: e164,
+        formatted: pretty,
+        note: cc ? null : 'country code not recognized — number may be national format'
+      });
+    }
     if (u.pathname === '/receipts') return json(res, 200, { count: 0, receipts: [], note: 'No payments processed yet — x402 paid tier not active in local mode (no on-chain USDC). All endpoints are currently free.' });
     if (route === 'scrape') {
       if (req.method !== 'GET' && req.method !== 'POST') return json(res, 405, { error: 'GET/POST only' });
