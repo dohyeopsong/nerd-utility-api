@@ -1,3 +1,4 @@
+const { routeCidr } = require('./routes/cidr.js'); // cidr
 const { routeUuid7 } = require('./routes/uuid7.js'); // uuid7
 const { routeMorse } = require('./routes/morse.js'); // morse
 const { routeRot13 } = require('./routes/rot13.js'); // rot13
@@ -689,6 +690,9 @@ if (u.pathname === '/') return routeLanding(u, res);
             }
             if (u.pathname === '/crc32') {
               return routeCrc32(u, res, json);
+            }
+            if (u.pathname === '/cidr') {
+              return routeCidr(u, res, json);
             }
             if (u.pathname === '/semver') {
               try { return routeSemver(u, res, json); }
