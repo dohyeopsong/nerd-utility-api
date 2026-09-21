@@ -1,37 +1,37 @@
-// /luhn?number=4532015112830366 → generic Luhn checksum + payment card type detection
-function routeLuhn(u, res, json) {
-  const raw = u.searchParams.get('number') || u.searchParams.get('value');
-  if (!raw) return json(res, 400, { error: 'pass number=<digit sequence>' });
-  const num = raw.replace(/[\s-]/g, '');
-  if (!/^\d{2,}$/.test(num)) return json(res, 400, { error: 'must be digits only (min 2)' });
-
-  let sum = 0;
-  const dbl = num.length % 2 === 0 ? 0 : 1; // for card numbers, double from second-to-last
-  for (let i = num.length - 1; i >= 0; i--) {
-    let d = +num[i];
-    if ((num.length - 1 - i) % 2 === (dbl ? 0 : 1)) { d *= 2; if (d > 9) d -= 9; }
-    sum += d;
+// Luhn checksum validator with card network detection
+function luhnCheck(num) {
+  const digits = String(num).replace(/[\s-]/g, '');
+  if (!/^\d+$/.test(digits)) return { valid: false, reason: 'not all digits' };
+  if (digits.length < 2) return { valid: false, reason: 'too short' };
+  let sum = 0, dbl = false;
+  for (let i = digits.length - 1; i >= 0; i--) {
+    let d = +digits[i];
+    if (dbl) { d *= 2; if (d > 9) d -= 9; }
+    sum += d; dbl = !dbl;
   }
-  const valid = sum % 10 === 0;
-
-  // card type detection for plausible lengths (13-19)
-  let cardType = null;
-  if (num.length >= 12 && num.length <= 19) {
-    if (/^4/.test(num)) cardType = 'Visa';
-    else if (/^(5[1-5]|2[2-7])/.test(num) && num.length === 16) cardType = 'Mastercard';
-    else if (/^3[47]/.test(num)) cardType = 'American Express';
-    else if (/^(6011|65|64[4-9])/.test(num)) cardType = 'Discover';
-    else if (/^3(0[0-5]|[68])/.test(num)) cardType = 'Diners Club';
-    else if (/^35/.test(num)) cardType = 'JCB';
-    else if (/^(50|5[6-9]|6[0-9])/.test(num)) cardType = 'Maestro/Elo (possible)';
-  }
-
-  return json(res, 200, {
-    number: num,
-    length: num.length,
-    luhnValid: valid,
-    cardType: cardType || 'not a recognized card pattern',
-    note: 'Checksum validity does not mean the card/account exists. Use only on data you own.'
-  });
+  return { valid: sum % 10 === 0, checksum: sum, length: digits.length };
 }
-module.exports = { routeLuhn };
+function detectCard(digits) {
+  const d = String(digits).replace(/[\s-]/g, '');
+  const t = [
+    [/^4/, [13,16,19], 'Visa'],
+    [/^(5[1-5]|2(2[2-9]|[3-6]|7[01]|720))/, [16], 'Mastercard'],
+    [/^3[47]/, [15], 'American Express'],
+    [/^(6011|65|64[4-9])/, [16,19], 'Discover'],
+    [/^(36|38|30[0-5])/, [14,16,19], 'Diners Club'],
+    [/^(352[89]|35[3-8])/, [16,19], 'JCB']
+  ];
+  for (const [re, lens, name] of t) {
+    if (re.test(d) && lens.includes(d.length)) return name;
+  }
+  return null;
+}
+function routeLuhn(u, res, json) {
+  const q = Object.fromEntries(new URL(u, 'http://x').searchParams);
+  if (!q.num && !q.number) return json(res, 400, { error: 'missing ?number= parameter' });
+  const digits = String(q.num || q.number).replace(/[\s-]/g, '');
+  const r = luhnCheck(digits);
+  if (r.valid) r.cardType = detectCard(digits) || 'unknown';
+  return json(res, 200, { input: digits, ...r });
+}
+module.exports = { routeLuhn, luhnCheck };
