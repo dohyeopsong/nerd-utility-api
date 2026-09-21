@@ -1,3 +1,4 @@
+const { routeDiff } = require('./routes/diff.js'); // text diff
 const { routeTimeago } = require('./routes/timeago.js'); // relative time
 const { routeLanding } = require('./routes/landing.js');
 const { routeNanoid } = require('./routes/nanoid.js');
@@ -909,6 +910,10 @@ if (u.pathname === '/') return routeLanding(u, res);
               }
             }
 
+            if (u.pathname === '/diff') {
+              try { return routeDiff(u, res, json); }
+              catch (e) { return json(res, 500, { error: e.message }); }
+            }
             if (u.pathname === '/timeago') {
               try { return routeTimeago(u, res, json); }
               catch (e) { return json(res, 500, { error: e.message }); }
