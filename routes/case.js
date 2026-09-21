@@ -26,7 +26,11 @@ function routeCase(u, res, json) {
     CONSTANT_CASE: constant, 'Title Case': title, UPPERCASE: upper, lowercase: low,
     'Sentence case': sentence, aLtErNaTiNg: alternating, wordCount: w.length };
   if (to === 'all') return json(res, 200, { input: text, ...all });
-  const key = Object.keys(all).find(k => k.toLowerCase().replace(/[^a-z]/g, '') === to.replace(/[^a-z]/g, ''));
+  const norm = to.replace(/[^a-z]/g, '');
+  const key = Object.keys(all).find(k => {
+    const kk = k.toLowerCase().replace(/[^a-z]/g, '');
+    return kk === norm || kk.startsWith(norm) || kk.includes(norm);
+  });
   if (!key) return json(res, 400, { error: `unknown case '${to}'`, available: Object.keys(all).filter(k => k !== 'wordCount') });
   return json(res, 200, { input: text, case: key, result: all[key] });
 }
