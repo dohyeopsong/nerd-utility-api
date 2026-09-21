@@ -1,3 +1,4 @@
+const { routeEan } = require('./routes/ean.js'); // ean validate
 const { routeVin } = require('./routes/vin.js'); // vin decode
 const { routeCard } = require('./routes/card.js'); // card luhn
 const { routeIban } = require('./routes/iban.js'); // iban validate
@@ -748,6 +749,10 @@ if (u.pathname === '/') {
                 else country = 'other/GS1 member';
               }
               return json(res, 200, {input: raw, type, valid, checkDigit: check, computedCheckDigit: (10 - sum % 10) % 10, gs1Prefix, country});
+            }
+            if (u.pathname === '/ean') {
+              try { return routeEan(u, res, json); }
+              catch (e) { return json(res, 500, { error: e.message }); }
             }
             if (u.pathname === '/vin') {
               try { return routeVin(u, res, json); }
