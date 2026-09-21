@@ -1,3 +1,4 @@
+const { routeNanoid } = require('./routes/nanoid.js');
 const { routeRoman } = require('./routes/roman.js');
 const { routeUlid } = require('./routes/ulid.js');
 const { routeCuid } = require('./routes/cuid.js');
@@ -1213,6 +1214,7 @@ if (u.pathname === '/') {
   if (u.pathname === '/cuid') return routeCuid(u, res, json);
   if (u.pathname === '/ulid') return routeUlid(u, res, json);
   if (u.pathname === '/roman') return routeRoman(u, res, json);
+  if (u.pathname === '/nanoid') return routeNanoid(u, res, json);
   if (u.pathname === '/geoip') return routeGeoip(u, res, json);
   if (u.pathname === '/ipinfo') {
       const ip = req.socket.remoteAddress || 'unknown';
