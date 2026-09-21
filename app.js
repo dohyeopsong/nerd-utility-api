@@ -1,3 +1,4 @@
+const { routePassword } = require('./routes/password.js');
 const { routeJwt } = require('./routes/jwt.js');
 const { routeUseragent } = require('./routes/useragent.js');
 const { routeGeoip } = require("./routes/geoip.js");
@@ -1205,6 +1206,7 @@ if (u.pathname === '/') {
     }
   if (u.pathname === '/useragent') return routeUseragent(u, res, json);
   if (u.pathname === '/jwt') return routeJwt(u, res, json);
+  if (u.pathname === '/password') return routePassword(u, res, json);
   if (u.pathname === '/geoip') return routeGeoip(u, res, json);
   if (u.pathname === '/ipinfo') {
       const ip = req.socket.remoteAddress || 'unknown';
