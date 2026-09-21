@@ -1,3 +1,5 @@
+const { routeGeoip } = require('./routes/geoip');
+const { routeGeoip } = require('./routes/geoip.js');
 const { routeSemver } = require('./routes/semver.js'); // semver sort
 const { routeCron } = require('./routes/cron.js'); // cron parse
 const { routeLuhn } = require('./routes/luhn.js'); // luhn validate
@@ -1200,7 +1202,8 @@ if (u.pathname === '/') {
       res.writeHead(200, { 'Content-Type': 'text/csv' });
       return res.end(csv);
     }
-    if (u.pathname === '/ipinfo') {
+    if (u.pathname === '/geoip') return routeGeoip(u, res, json);
+  if (u.pathname === '/ipinfo') {
       const ip = req.socket.remoteAddress || 'unknown';
       return json(res, 200, {
         ip: ip.replace('::ffff:',''),
