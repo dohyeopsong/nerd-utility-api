@@ -42,3 +42,4 @@ check jwt        "/jwt?token=eyJhbGciOiJIUzI1NiJ9.eyJleHAiOjk5OTk5OTk5OTl9.sig" 
 check html       "/html?text=hello%20%3Cworld%3E" 200
 check html       "/html?text=%3Cb%3Ehi%3C%2Fb%3E&mode=decode" 200
 check html       "/html?text=%3Cscript%3Ealert(1)%3C/script%3E" 200
+check uuid7      "/uuid7?count=3" 200
