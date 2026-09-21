@@ -1,3 +1,4 @@
+const { routeTimeago } = require('./routes/timeago.js'); // relative time
 const { routeLanding } = require('./routes/landing.js');
 const { routeNanoid } = require('./routes/nanoid.js');
 const { routeRoman } = require('./routes/roman.js');
