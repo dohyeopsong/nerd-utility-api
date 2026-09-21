@@ -82,6 +82,20 @@ const H = {
     if (f === 'k' && t === 'c') return { value: v, from: f, to: t, result: v - 273.15 };
     if (tbl[f] && tbl[t]) return { value: v, from: f, to: t, result: v * tbl[f] / tbl[t] };
     const e = new Error('unsupported units (length/mass/data/volume/temp)'); e.status = 400; throw e; },
+  jwt: (q) => { const t = (q.text || q.token || '').trim();
+    const parts = t.split('.');
+    if (parts.length !== 3) { const e = new Error('provide JWT via ?token=a.b.c'); e.status = 400; throw e; }
+    const dec = (s) => { const b = Buffer.from(s.replace(/-/g,'+').replace(/_/g,'/'), 'base64').toString('utf8');
+      try { return JSON.parse(b); } catch { return b; } };
+    const header = dec(parts[0]), payload = dec(parts[1]);
+    const now = Math.floor(Date.now()/1000);
+    const ts = (v) => v && typeof v === 'number' ? new Date(v*1000).toISOString() : null;
+    return { header, payload,
+      claims: {
+        exp: payload.exp, expIso: ts(payload.exp), expired: payload.exp ? now > payload.exp : null,
+        nbf: payload.nbf, nbfIso: ts(payload.nbf), notYetValid: payload.nbf ? now < payload.nbf : null,
+        iat: payload.iat, iatIso: ts(payload.iat) },
+      signature: parts[2].slice(0,12) + '...', alg: header.alg, note: 'signature NOT verified (decode only)' }; },
   pricing: () => ({ model: 'free — all endpoints free in local mode (x402 paid tier planned)', wallet: WALLET,
     freeEndpoints: Object.keys(H), note: 'Core utilities free forever.' }),
   docs: () => ({ service: 'Nerd Utility API', wallet: WALLET, usage: 'GET /<route>?text=...&other=params',
