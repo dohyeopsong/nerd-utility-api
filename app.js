@@ -24,11 +24,6 @@ function trackUsage(pathname, ip) {
 setInterval(() => saveUsage(usage), 60000).unref();
 
 const http = require('http');
-// x402 pricing layer
-const WALLET_ADDRESS = process.env.X402_WALLET || '0x85fe24c7668577ae04106Be4fb806915a77384e0';
-const PAID_CENTS = { scrape: 5, og: 2, markdown: 2, rss: 2, whois: 3, cert: 2, headers: 1, ipinfo: 1, price: 1, weather: 1 };
-const FREE = new Set(['health','docs','stats','pricing','openapi','llms.txt','dashboard','format','csv2json','json2csv','base64','hash','uuid','timestamp','validate','regex','qrcode','qr','text-stats','dns','isbn','iban','barcode','vin','password','cron','semver','jwt','jwt-decode','units','diff','slug','ua-parse','otp','faker','md','ts','paste','hook','shorten','s','p']);
-const receipts = []; // {id, endpoint, cents, payer, ts} — populated on payment verification
 const https = require('https');
 const crypto = require('crypto');
 class HttpError extends Error { constructor(status, msg) { super(msg); this.status = status; } }
@@ -158,189 +153,6 @@ http.createServer(async (req, res) => {
   const u = new URL(req.url, 'http://x');
     try { const _ip = (req.socket.remoteAddress||'').replace('::ffff:',''); if (!_ip.startsWith('127.') && !_ip.startsWith('::1')) trackUsage(u.pathname, _ip); } catch {}
   const route = u.pathname.slice(1);
-toreCrons();
-// Nerd utility API — free endpoints + x402-gated /scrape
-
-// --- usage analytics (SQLite via node:sqlite fallback to JSON file) ---
-const path = require('path');
-const USAGE_FILE = path.join(__dirname, 'usage.json');
-function loadUsage() {
-  try { return JSON.parse(require('fs').readFileSync(USAGE_FILE, 'utf8')); }
-  catch { return { total: 0, byEndpoint: {}, byDay: {}, byIP: {} }; }
-}
-function saveUsage(u) {
-  try { require('fs').writeFileSync(USAGE_FILE, JSON.stringify(u)); } catch {}
-}
-const usage = loadUsage();
-function trackUsage(pathname, ip) {
-  const day = new Date().toISOString().slice(0, 10);
-  usage.total++;
-  usage.byEndpoint[pathname] = (usage.byEndpoint[pathname] || 0) + 1;
-  usage.byDay[day] = (usage.byDay[day] || 0) + 1;
-  usage.byIP[ip] = (usage.byIP[ip] || 0) + 1;
-  if (usage.total % 20 === 0) saveUsage(usage);
-}
-setInterval(() => saveUsage(usage), 60000).unref();
-
-const http = require('http');
-// x402 pricing layer
-const WALLET_ADDRESS = process.env.X402_WALLET || '0x85fe24c7668577ae04106Be4fb806915a77384e0';
-const PAID_CENTS = { scrape: 5, og: 2, markdown: 2, rss: 2, whois: 3, cert: 2, headers: 1, ipinfo: 1, price: 1, weather: 1 };
-const FREE = new Set(['health','docs','stats','pricing','openapi','llms.txt','dashboard','format','csv2json','json2csv','base64','hash','uuid','timestamp','validate','regex','qrcode','qr','text-stats','dns','isbn','iban','barcode','vin','password','cron','semver','jwt','jwt-decode','units','diff','slug','ua-parse','otp','faker','md','ts','paste','hook','shorten','s','p']);
-const receipts = []; // {id, endpoint, cents, payer, ts} — populated on payment verification
-const https = require('https');
-const crypto = require('crypto');
-class HttpError extends Error { constructor(status, msg) { super(msg); this.status = status; } }
-const qr = require('./qr');
-const md = require('./md');
-const alerts = require('./alerts');
-const textstats = require('./textstats');
-const price = require('./price');
-const { challenge, verifyPayment, PRICE_CENTS } = require('./x402.js');
-const prices = require('./price.js');
-
-const json = (res, code, obj) => { if (res.headersSent) return; res.writeHead(code, {'Content-Type':'application/json'}); res.end(JSON.stringify(obj)); };
-const readBody = req => new Promise(r => { let d=''; req.on('data',c=>d+=c); req.on('end',()=>r(d)); });
-
-// DNS lookup: {"domain":"example.com","type":"A|AAAA|MX|TXT|NS|CNAME"}
-async function dnsLookup(body) {
-  const { domain, type = 'A' } = JSON.parse(body || '{}');
-  if (!domain || !/^[a-z0-9.-]+$/i.test(domain)) throw new Error('valid "domain" required');
-  const dns = require('dns').promises;
-  const fn = { A: 'resolve4', AAAA: 'resolve6', MX: 'resolveMx', TXT: 'resolveTxt', NS: 'resolveNs', CNAME: 'resolveCname' }[type.toUpperCase()];
-  if (!fn) throw new Error('type must be one of A, AAAA, MX, TXT, NS, CNAME');
-  const records = await dns[fn](domain);
-  return { domain, type: type.toUpperCase(), records };
-}
-
-// Fetch a URL and return status + response headers (no body)
-async function inspectHeaders(body) {
-  const { url } = JSON.parse(body || '{}');
-  if (!/^https?:\/\//i.test(url || '')) throw new Error('"url" must start with http(s)://');
-  const r = await fetch(url, { method: 'HEAD', redirect: 'follow', signal: AbortSignal.timeout(8000) });
-  const headers = {};
-  r.headers.forEach((v, k) => { headers[k] = v; });
-  return { url: r.url, status: r.status, ok: r.ok, headers };
-}
-
-const ENDPOINTS = {
-  dns: dnsLookup,
-  headers: inspectHeaders,
-  format: (body) => ({ result: JSON.stringify(JSON.parse(body), null, 2) }),
-  csv2json: (body) => {
-    const [head, ...rows] = body.trim().split(/\r?\n/);
-    const keys = head.split(',');
-    return { result: rows.map(r => { const vals = r.split(','); const o = {}; keys.forEach((k,i) => o[k.trim()] = (vals[i]||'').trim()); return o; }) };
-  },
-  base64: (body, q) => q.mode === 'decode' ? { result: Buffer.from(body, 'base64').toString('utf8') } : { result: Buffer.from(body).toString('base64') },
-  hash: (body, q) => { const algo = q.algo || 'sha256'; if (!['md5','sha1','sha256','sha512'].includes(algo)) throw new Error('unsupported algo'); if (!body) throw new HttpError(400, 'text required'); return { algo, result: crypto.createHash(algo).update(body).digest('hex') }; },
-  uuid: () => ({ result: crypto.randomUUID() }),
-  timestamp: (body, q) => {
-    if (q.date) return { result: Math.floor(new Date(q.date).getTime() / 1000) };
-    if (q.ts) return { result: new Date(Number(q.ts) * 1000).toISOString() };
-    return { result: Math.floor(Date.now() / 1000), iso: new Date().toISOString() };
-  },
-  hmac: (body, q) => { if (!q.key || !q.algo) throw new Error('key and algo required'); return { result: crypto.createHmac(q.algo, q.key).update(body).digest('hex') }; }
-};
-
-function hookRoutes(req, res, u) {
-  if (u.pathname === '/hook/new') {
-    const id = newHookId();
-    HOOKS[id] = { createdAt: Date.now(), hits: [] };
-    return json(res, 200, {
-      id,
-      url: '/hook/' + id,
-      method: 'POST/GET/PUT/DELETE (any)',
-      inspect: 'GET /hook/' + id + '  (optionally ?json=1)',
-      expires: 'on process restart',
-      note: 'Send any request to the url; inspect captured requests at the inspect URL.'
-    });
-  }
-  const m = u.pathname.match(/^\/hook\/([a-f0-9]{12})$/);
-  if (m) {
-    const hook = HOOKS[m[1]];
-    if (!hook) return json(res, 404, { error: 'unknown hook id — create one at /hook/new' });
-    return hook; // truthy -> caller continues
-  }
-  return null; // not a hook route
-}
-
-let __persistDebounce;
-function persistCrons() {
-  clearTimeout(__persistDebounce);
-  __persistDebounce = setTimeout(() => {
-    try {
-      const CRONS = global.__CRONS || new Map();
-      const data = [...CRONS.entries()].map(([id, j]) => ({ id, url: j.url, every: j.every, ok: j.ok, fail: j.fail }));
-      require('fs').writeFileSync(__dirname + '/cron-jobs.json', JSON.stringify(data));
-    } catch (e) { console.error('persistCrons:', e.message); }
-  }, 500);
-}
-function restoreCrons() {
-  try {
-    const raw = require('fs').readFileSync(__dirname + '/cron-jobs.json', 'utf8');
-    const CRONS = (global.__CRONS = global.__CRONS || new Map());
-    let n = 0;
-    for (const j of JSON.parse(raw)) {
-      const job = { url: j.url, every: j.every, created: Date.now(), runs: [], ok: j.ok || 0, fail: j.fail || 0 };
-      CRONS.set(j.id, job);
-      job.timer = setInterval(async () => {
-        try {
-          const r = await fetch(j.url, { signal: AbortSignal.timeout(10000) });
-          (r.status >= 200 && r.status < 400) ? job.ok++ : job.fail++;
-          job.runs.push({ at: new Date().toISOString(), status: r.status });
-        } catch (e) { job.fail++; job.runs.push({ at: new Date().toISOString(), error: String(e.cause && e.cause.code || e.message).slice(0, 120) }); }
-        if (job.runs.length > 30) job.runs.shift();
-      }, job.every * 1000);
-      job.timer.unref();
-      n++;
-    }
-    if (n) console.log('restored', n, 'cron jobs');
-  } catch (e) { /* no file yet */ }
-}
-
-function scrapeUrl(url) {
-  return new Promise((resolve, reject) => {
-    https.get(url, r => {
-      let d = ''; r.on('data', c => d += c);
-      r.on('end', () => {
-        const title = (d.match(/<title[^>]*>([^<]*)<\/title>/i) || [])[1] || null;
-        const text = d.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 5000);
-        const links = [...d.matchAll(/href="(https?:\/\/[^"]+)"/g)].map(m => m[1]).slice(0, 100);
-        resolve({ url, status: r.statusCode, title, text, links });
-      });
-    }).on('error', e => reject(e));
-  });
-}
-
-http.createServer(async (req, res) => {
-  const u = new URL(req.url, 'http://x');
-    try { const _ip = (req.socket.remoteAddress||'').replace('::ffff:',''); if (!_ip.startsWith('127.') && !_ip.startsWith('::1')) trackUsage(u.pathname, _ip); } catch {}
-  const route = u.pathname.slice(1);
-  const __ep = u.pathname.replace(/\/$/, '').replace(/^\//, '').split('/')[0];
-    if (PAID_CENTS[__ep] !== undefined) {
-      const pay = req.headers['x-payment'];
-      if (!pay) {
-        res.writeHead(402, {
-          'Content-Type': 'application/json',
-          'X402-Version': '1',
-          'Pay-To': WALLET_ADDRESS,
-          'X402-Scheme': 'x402,urn:x402:usdc-base',
-          'X402-MaxAmount': String(PAID_CENTS[__ep]),
-          'X402-Asset': '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'
-        });
-        return res.end(JSON.stringify({
-          error: '402 Payment Required',
-          endpoint: '/' + __ep, costCents: PAID_CENTS[__ep],
-          payTo: WALLET_ADDRESS,
-          scheme: 'x402 (EIP-3009 USDC transfer with authorization)',
-          retryWith: 'Include X-PAYMENT header containing signed EIP-3009 authorization'
-        }));
-      }
-      const rid = require('crypto').randomBytes(8).toString('hex');
-      receipts.push({ id: rid, endpoint: '/' + __ep, cents: PAID_CENTS[__ep], payer: pay.slice(0, 40) + '...', ts: new Date().toISOString() });
-    }
-
   try {
         if (u.pathname === '/robots.txt') {
       res.writeHead(200, {'Content-Type':'text/plain'});
@@ -1232,16 +1044,10 @@ if (u.pathname === '/') {
     if (u.pathname === '/openapi.json') return json(res, 200, JSON.parse(require('fs').readFileSync(__dirname + '/openapi.json', 'utf8')));
     if (u.pathname === '/agent-card.json' || u.pathname === '/.well-known/agent-card.json') return json(res, 200, require('./agent-card.json'));
     if (u.pathname === '/llms.txt') { res.writeHead(200, {'Content-Type':'text/plain'}); return res.end(require('fs').readFileSync(__dirname + '/PROMO/llms.txt')); }
-        if (u.pathname === '/pricing')
-          return json(res, 200, {
-      model: 'free (x402 paid tier planned, not active in local mode)',
-      wallet: WALLET_ADDRESS,
-      freeEndpoints: [...FREE],
-      paid: Object.fromEntries(Object.entries(PAID_CENTS).map(([k, v]) => [k, { cents: v, usd: (v / 100).toFixed(2) }])),
-      howToPay: 'Send x402 payment with request. On HTTP 402, client signs EIP-3009 USDC transfer and retries.',
-      note: 'Paid tier enforces per-request micropayments (1-5 cents). Core utilities stay free forever.'
-          });
-    if (u.pathname === '/receipts') return json(res, 200, { count: 0, receipts: [], note: 'No payments processed yet — x402 paid tier not active in local mode (no on-chain USDC). All endpoints are currently free.' });
+    if (u.pathname === '/pricing') return json(res, 200, {
+      free: Object.keys(ENDPOINTS),
+      paid: { scrape: `${PRICE_CENTS} cents (USDC via x402)` }
+    });
     if (route === 'scrape') {
       if (req.method !== 'GET' && req.method !== 'POST') return json(res, 405, { error: 'GET/POST only' });
       const target = u.searchParams.get('url') || (req.method === 'POST' ? (JSON.parse(await readBody(req)).url || '') : '');
