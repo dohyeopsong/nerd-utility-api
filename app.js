@@ -1,3 +1,4 @@
+const { routeMarkdown: routeMarkdown2 } = require('./routes/markdown.js'); // md2html
 const { routeIso } = require('./routes/iso.js'); // iso
 const { routeRegex } = require('./routes/regex.js'); // regex
 const { routeConvert } = require('./routes/convert.js'); // convert
@@ -709,6 +710,9 @@ if (u.pathname === '/') return routeLanding(u, res);
             }
             if (u.pathname === '/case') {
               return routeCase(u, res, json);
+            }
+            if (u.pathname === '/md2html') {
+              return routeMarkdown2(u, res, json, body, req.method === 'POST');
             }
             if (u.pathname === '/iso') {
               return routeIso(u, res, json);
