@@ -1,3 +1,4 @@
+const { routeVin } = require('./routes/vin.js'); // vin decode
 const { routeCard } = require('./routes/card.js'); // card luhn
 const { routeIban } = require('./routes/iban.js'); // iban validate
 const { routeSubnet } = require('./routes/subnet.js'); // subnet calc
@@ -749,39 +750,10 @@ if (u.pathname === '/') {
               return json(res, 200, {input: raw, type, valid, checkDigit: check, computedCheckDigit: (10 - sum % 10) % 10, gs1Prefix, country});
             }
             if (u.pathname === '/vin') {
-              const q = u.searchParams;
-              const raw = q.get('vin');
-              if (!raw) return json(res, 400, {error: 'vin?=<17-char VIN>'});
-              const vin = raw.toUpperCase().replace(/\s+/g, '');
-              if (vin.length !== 17) return json(res, 400, {valid: false, error: `VIN must be exactly 17 chars, got ${vin.length}`});
-              if (!/^[A-HJ-NPR-Z0-9]{17}$/.test(vin)) return json(res, 400, {valid: false, error: 'VIN contains illegal chars (no I, O, Q allowed)'});
-              // transliteration
-              const tr = {A:1,B:2,C:3,D:4,E:5,F:6,G:7,H:8,J:1,K:2,L:3,M:4,N:5,P:7,R:9,S:2,T:3,U:4,V:5,W:6,X:7,Y:8,Z:9};
-              const weights = [8,7,6,5,4,3,2,10,0,9,8,7,6,5,4,3,2];
-              let sum = 0;
-              for (let i = 0; i < 17; i++) sum += (tr[vin[i]] !== undefined ? tr[vin[i]] : +vin[i]) * weights[i];
-              const checkDigit = sum % 11 === 10 ? 'X' : String(sum % 11);
-              const checkValid = checkDigit === vin[8];
-              const wmi = vin.slice(0, 3);
-              const yearCodes = {A:2010,B:2011,C:2012,D:2013,E:2014,F:2015,G:2016,H:2017,J:2018,K:2019,L:2020,M:2021,N:2022,P:2023,R:2024,S:2025,T:2026,V:2027,W:2028,X:2029,Y:2030,1:2031,2:2032,3:2033,4:2034,5:2035,6:2036,7:2037,8:2038,9:2039};
-              const year = yearCodes[vin[9]];
-              const region = (() => {
-                const c1 = vin[0];
-                if ('AHA'.includes(c1)) return 'Africa';
-                if ('ABCDEFGHJKLMNPRSTUVWXY'.includes(c1)) return 'Asia';
-                if ('12345'.includes(c1)) return 'North America';
-                if ('678'.includes(c1)) return 'Oceania';
-                if ('9'.includes(c1)) return 'South America';
-                if ('0'.includes(c1)) return 'Europe';
-                return 'Europe';
-              })();
-              return json(res, 200, {
-                vin, wmi, vds: vin.slice(3, 9), vis: vin.slice(9),
-                region, modelYear: year, modelYearCode: vin[9],
-                plantCode: vin[10], serialNumber: vin.slice(11),
-                checkDigit: vin[8], computedCheckDigit: checkDigit, checkValid
-              });
+              try { return routeVin(u, res, json); }
+              catch (e) { return json(res, 500, { error: e.message }); }
             }
+
             if (u.pathname === '/cron') {
               const q = u.searchParams;
               const expr = q.get('expr');
