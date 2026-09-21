@@ -1,40 +1,25 @@
-// IMEI validator: 15 digits (Luhn check digit), decode TAC/FAC/serial; IMEISV = 16 digits (no check digit)
-function luhn15(d14) {
-  // compute check digit for first 14 digits
-  let sum = 0;
-  for (let i = 0; i < 14; i++) {
-    let n = +d14[i];
-    if (i % 2 === 1) { n *= 2; if (n > 9) n -= 9; }
-    sum += n;
+// IMEI/IMEISV validator: Luhn check + TAC/FAC/serial decomposition
+const { luhnCheck } = require('./luhn.js');
+function validateIMEI(input) {
+  const imei = String(input).replace(/[\s-]/g, '');
+  if (!/^\d{15}$/.test(imei)) {
+    if (/^\d{16}$/.test(imei)) {
+      return { valid: false, format: 'IMEISV(16-digit)', reason: 'IMEISV has no check digit; use 15-digit IMEI for validation' };
+    }
+    return { valid: false, reason: 'IMEI must be 15 digits (got ' + imei.length + ')' };
   }
-  return (10 - (sum % 10)) % 10;
-}
-function validate(input) {
-  const d = String(input || '').replace(/[\s-]/g, '');
-  if (!/^\d+$/.test(d)) return { error: 'IMEI must contain digits only' };
-  if (d.length === 15) {
-    const expected = luhn15(d.slice(0, 14));
-    const out = {
-      imei: d,
-      type: 'IMEI',
-      tac: d.slice(0, 8),        // Type Allocation Code
-      fac: d.slice(0, 2),        // Reporting Body Identifier (old FAC)
-      snr: d.slice(8, 14),       // serial
-      checkDigitProvided: d[14],
-      checkDigitExpected: String(expected),
-      valid: +d[14] === expected
-    };
-    if (!out.valid) out.reason = `check digit should be ${expected}`;
-    return out;
-  }
-  if (d.length === 16) {
-    return { imei: d, type: 'IMEISV', tac: d.slice(0, 8), snr: d.slice(8, 14), svn: d.slice(14), valid: true, note: 'IMEISV has no check digit (software version number replaces it)' };
-  }
-  return { error: 'IMEI must be 15 digits (or 16 for IMEISV)' };
+  const luhn = luhnCheck(imei);
+  return {
+    input: imei, valid: luhn.valid, format: 'IMEI(15-digit)',
+    reason: luhn.valid ? null : 'Luhn check digit mismatch',
+    luhnSum: luhn.luhnSum,
+    tac: imei.slice(0, 8), fac: imei.slice(8, 10),
+    serial: imei.slice(10, 14), checkDigit: imei[14]
+  };
 }
 function routeImei(u, res, json) {
   const q = Object.fromEntries(new URL(u, 'http://x').searchParams);
-  if (!q.imei && !q.n) return json(res, 400, { error: 'missing ?imei= parameter' });
-  return json(res, 200, validate(q.imei || q.n));
+  if (!q.imei) return json(res, 400, { error: 'provide ?imei=<15-digit IMEI>' });
+  return json(res, 200, validateIMEI(q.imei));
 }
-module.exports = { routeImei, validate };
+module.exports = { routeImei, validateIMEI };
