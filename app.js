@@ -1,3 +1,4 @@
+const { routeLorem } = require('./routes/lorem.js'); // lorem
 const { routeCase } = require('./routes/case.js'); // case
 const { routeMarkdown } = require('./routes/markdown.js'); // markdown
 const { routeCrc32 } = require('./routes/crc32.js'); // crc32
