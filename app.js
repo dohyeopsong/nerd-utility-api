@@ -1,3 +1,4 @@
+const { routeIban } = require('./routes/iban.js'); // iban validate
 const { routeSubnet } = require('./routes/subnet.js'); // subnet calc
 
 restoreCrons();
@@ -652,31 +653,10 @@ if (u.pathname === '/') {
               return json(res, 400, {error: `incompatible or unknown units: ${from} -> ${to}`, categories: {length: Object.keys(factors.length), mass: Object.keys(factors.mass), temperature: ['c','f','k'], data: Object.keys(factors.data), volume: Object.keys(factors.volume)}});
             }
             if (u.pathname === '/iban') {
-              const q = u.searchParams;
-              const raw = q.get('iban');
-              if (!raw) return json(res, 400, {error: 'iban?=<IBAN> e.g. DE89370400440532013000'});
-              const iban = raw.replace(/\s+/g, '').toUpperCase();
-              if (!/^[A-Z]{2}\d{2}[A-Z0-9]+$/.test(iban)) return json(res, 400, {error: 'malformed IBAN (expected CC + 2 check digits + BBAN)'});
-              const lengths = {AL:28,AD:24,AT:20,AZ:28,BH:22,BE:16,BA:20,BR:29,BG:22,HR:21,CY:28,CZ:24,DK:18,DO:28,EE:20,FO:18,FI:18,FR:27,GE:22,DE:22,GI:23,GR:27,GL:18,GT:28,HU:28,IS:26,IE:22,IL:23,IT:27,JO:30,KZ:20,KW:30,LV:21,LB:28,LI:21,LT:20,LU:20,MK:19,MT:31,MR:27,MU:30,MD:24,MC:27,ME:22,NL:18,NO:15,PK:24,PS:29,PL:28,PT:25,QA:29,RO:24,SM:27,SA:24,RS:22,SK:24,SI:19,ES:24,SE:24,CH:21,TN:24,TR:26,AE:23,GB:22,VG:24};
-              const cc = iban.slice(0, 2);
-              const expected = lengths[cc];
-              if (!expected) return json(res, 400, {valid: false, error: `unknown IBAN country code: ${cc}`});
-              if (iban.length !== expected) return json(res, 400, {valid: false, error: `wrong length for ${cc}: got ${iban.length}, expected ${expected}`, country: cc, expectedLength: expected});
-              // mod-97: move first 4 chars to end, convert letters to numbers, mod 97 == 1
-              const rearranged = iban.slice(4) + iban.slice(0, 4);
-              const numeric = rearranged.split('').map(c => {
-                if (c >= '0' && c <= '9') return c;
-                return String(c.charCodeAt(0) - 55);
-              }).join('');
-              let rem = 0;
-              for (const d of numeric) rem = (rem * 10 + +d) % 97;
-              const valid = rem === 1;
-              return json(res, 200, {
-                iban, country: cc, countryName: cc, length: iban.length, expectedLength: expected,
-                checkDigits: iban.slice(2, 4), bban: iban.slice(4),
-                mod97: rem, valid
-              });
+              try { return routeIban(u, res, json); }
+              catch (e) { return json(res, 500, { error: e.message }); }
             }
+
             if (u.pathname === '/isbn') {
               const q = u.searchParams;
               const raw = q.get('isbn');
