@@ -1,3 +1,4 @@
+const { routeConvert } = require('./routes/convert.js'); // convert
 const { routeCidr } = require('./routes/cidr.js'); // cidr
 const { routeUuid7 } = require('./routes/uuid7.js'); // uuid7
 const { routeMorse } = require('./routes/morse.js'); // morse
@@ -690,6 +691,9 @@ if (u.pathname === '/') return routeLanding(u, res);
             }
             if (u.pathname === '/crc32') {
               return routeCrc32(u, res, json);
+            }
+            if (u.pathname === '/convert') {
+              return routeConvert(u, res, json);
             }
             if (u.pathname === '/cidr') {
               return routeCidr(u, res, json);
