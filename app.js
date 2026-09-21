@@ -25,7 +25,8 @@ const { routeJwt } = require('./routes/jwt.js');
 const { routeUseragent } = require('./routes/useragent.js');
 const { routeGeoip } = require("./routes/geoip.js");
 const { routeSemver } = require('./routes/semver.js'); // semver sort
-const { routeCron } = require('./routes/cron.js'); // cron parse
+const { routeCron } = require('./routes/cron.js');
+const { rateLimit, capCheck, capIncr, capDecr, capStats } = require('./routes/ratelimit.js'); // cron parse
 const { routeLuhn } = require('./routes/luhn.js'); // luhn validate
 const { routePwstrength } = require('./routes/pwstrength.js');
 const { routeHtml } = require('./routes/html.js');
@@ -195,6 +196,9 @@ function scrapeUrl(url) {
 
 http.createServer(async (req, res) => {
   const u = new URL(req.url, 'http://x');
+  const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress || 'unknown';
+  const rl = rateLimit(ip, 60);
+  if (!rl.allowed) { res.writeHead(429, { 'content-type': 'application/json', 'retry-after': String(rl.retryAfterSec) }); return res.end(JSON.stringify({ error: 'rate limited', retry_after: rl.retryAfterSec })); }
 
     try { const _ip = (req.socket.remoteAddress||'').replace('::ffff:',''); if (!_ip.startsWith('127.') && !_ip.startsWith('::1')) trackUsage(u.pathname, _ip); } catch {}
   if (u.pathname === '/mcp') return routeMcp(u, res, json, req);
