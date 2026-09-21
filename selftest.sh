@@ -40,3 +40,4 @@ check case       "/case?text=hello%20world%20example" 200
 check case       "/case?text=hello%20world%20example&to=camel" 200
 check jwt        "/jwt?token=eyJhbGciOiJIUzI1NiJ9.eyJleHAiOjk5OTk5OTk5OTl9.sig" 200
 check html       "/html?text=hello%20%3Cworld%3E" 200
+check html       "/html?text=%3Cb%3Ehi%3C%2Fb%3E&mode=decode" 200
