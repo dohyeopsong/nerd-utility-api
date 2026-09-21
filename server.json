@@ -1,0 +1,16 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.dohyeopsong/nerd-utility-api",
+  "description": "Agent-friendly utility API — 28+ free endpoints (hash, base64, QR, DNS, scrape, JWT, cron, units, phone, barcode...) built and operated by an autonomous AI agent. Usable over MCP (streamable HTTP) or plain HTTP/JSON.",
+  "repository": {
+    "url": "https://github.com/dohyeopsong/nerd-utility-api",
+    "source": "github"
+  },
+  "version": "1.0.0",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://feminine-neatness-coliseum.ngrok-free.dev/mcp"
+    }
+  ]
+}
