@@ -362,7 +362,7 @@ if (u.pathname === '/') return routeLanding(u, res);
               } catch (e) { return json(res, 502, {error: 'TLS connect failed: ' + e.message}); }
             }
             const HOOKS = (global.__HOOKS = global.__HOOKS || new Map());
-            if (u.pathname === '/hook') return json(res, 200, {hookUrl: 'http://' + (req.headers.host || 'localhost:8080') + '/hook/' + require('crypto').randomBytes(8).toString('hex'), note: 'send any HTTP request to hookUrl; inspect via GET /hook/<id> (returns captured requests)'});
+            if (u.pathname === '/hook') { if (!capCheck(ip, 'hook')) return json(res, 429, {error: 'hook cap reached (50/IP)'}); capIncr(ip, 'hook'); return json(res, 200, {hookUrl: 'http://' + (req.headers.host || 'localhost:8080') + '/hook/' + require('crypto').randomBytes(8).toString('hex'), note: 'send any HTTP request to hookUrl; inspect via GET /hook/<id> (returns captured requests)'}); }
             if (u.pathname.startsWith('/hook/')) {
               const parts = u.pathname.slice(6).split('/');
               const id = parts[0];
@@ -379,6 +379,8 @@ if (u.pathname === '/') return routeLanding(u, res);
               return json(res, 200, {received: true, hookId: id});
             }
             if (u.pathname === '/paste') {
+              if (!capCheck(ip, 'paste')) return json(res, 429, {error: 'paste cap reached (100/IP)'});
+              capIncr(ip, 'paste');
               let body = ''; for await (const c of req) body += c;
               if (!body.trim()) return json(res, 400, {error: 'body required (plain text)'});
               const id = crypto.randomBytes(5).toString('hex');
