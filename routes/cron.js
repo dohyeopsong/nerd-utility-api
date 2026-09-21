@@ -19,6 +19,10 @@ function describeField(field, min, max, names) {
 
 function explain(expr) {
   if (!expr) return { error: 'missing ?expr= parameter' };
+  const ALIASES = { '@daily':'0 0 * * *','@hourly':'0 * * * *','@weekly':'0 0 * * 0','@monthly':'0 0 1 * *','@yearly':'0 0 1 1 *','@annually':'0 0 1 1 *','@midnight':'0 0 * * *','@reboot':null };
+  const key = expr.trim().toLowerCase();
+  if (key === '@reboot') return { expression: expr.trim(), humanReadable: 'runs once at system startup (not a schedule)', specialAliases: '@reboot' };
+  if (ALIASES[key]) { const expanded = ALIASES[key]; return { expression: expr.trim(), specialAliases: expanded, expanded, humanReadable: explain(expanded).humanReadable }; }
   const fields = expr.trim().split(/\s+/);
   if (fields.length < 5 || fields.length > 6) return { error: `expected 5 or 6 fields, got ${fields.length}` };
   const F = fields.length === 6 ? fields : ['0', ...fields];
