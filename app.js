@@ -1,3 +1,4 @@
+const { routeUlid } = require('./routes/ulid.js');
 const { routeCuid } = require('./routes/cuid.js');
 const { routePassword } = require('./routes/password.js');
 const { routeJwt } = require('./routes/jwt.js');
@@ -1209,6 +1210,7 @@ if (u.pathname === '/') {
   if (u.pathname === '/jwt') return routeJwt(u, res, json);
   if (u.pathname === '/pwstrength') return routePassword(u, res, json);
   if (u.pathname === '/cuid') return routeCuid(u, res, json);
+  if (u.pathname === '/ulid') return routeUlid(u, res, json);
   if (u.pathname === '/geoip') return routeGeoip(u, res, json);
   if (u.pathname === '/ipinfo') {
       const ip = req.socket.remoteAddress || 'unknown';
