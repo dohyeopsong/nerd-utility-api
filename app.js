@@ -196,6 +196,7 @@ http.createServer(async (req, res) => {
   const u = new URL(req.url, 'http://x');
 
     try { const _ip = (req.socket.remoteAddress||'').replace('::ffff:',''); if (!_ip.startsWith('127.') && !_ip.startsWith('::1')) trackUsage(u.pathname, _ip); } catch {}
+  if (u.pathname === '/mcp') return routeMcp(u, res, json, req);
   const route = u.pathname.slice(1);
   try {
         if (u.pathname === '/robots.txt') {
