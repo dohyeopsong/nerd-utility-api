@@ -1,3 +1,4 @@
+const { routeGeoip } = require('./routes/geoip.js'); // geoip lookup
 const { routeGeoip } = require('./routes/geoip.js');
 const { routeGeoip } = require('./routes/geoip');
 const { routeGeoip } = require('./routes/geoip.js');
