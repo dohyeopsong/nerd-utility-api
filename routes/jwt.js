@@ -1,39 +1,27 @@
-// JWT decoder: parse header + payload (no signature verification — validation of structure/exp only)
+// JWT decoder: base64url decode header+payload, check expiry (no signature verification)
 function b64urlDecode(s) {
-  s = s.replace(/-/g, '+').replace(/_/g, '/');
-  while (s.length % 4) s += '=';
-  return Buffer.from(s, 'base64').toString('utf8');
+  const b = Buffer.from(s.replace(/-/g, '+').replace(/_/g, '/'), 'base64');
+  return JSON.parse(b.toString('utf8'));
 }
-function decode(token) {
-  const t = String(token || '').trim();
-  const parts = t.split('.');
-  if (parts.length < 2 || parts.length > 3) return { error: 'JWT must have 2 or 3 dot-separated segments (header.payload.signature)' };
-  let header, payload;
-  try {
-    header = JSON.parse(b64urlDecode(parts[0]));
-    payload = JSON.parse(b64urlDecode(parts[1]));
-  } catch (e) {
-    return { error: 'segments are not valid base64url-encoded JSON' };
-  }
-  if (!header.alg || !header.typ) return { error: 'missing required header fields (alg, typ)' };
-  const out = {
-    header, payload,
-    signature: parts[2] ? parts[2] : null,
-    signaturePresent: !!parts[2],
-    note: 'structure/exp decoded only; signature NOT cryptographically verified'
-  };
-  if (payload.exp) {
-    const exp = new Date(payload.exp * 1000);
-    out.expiresAt = exp.toISOString();
-    out.expired = Date.now() > payload.exp * 1000;
-  }
-  if (payload.iat) out.issuedAt = new Date(payload.iat * 1000).toISOString();
-  if (payload.nbf) out.notBefore = new Date(payload.nbf * 1000).toISOString();
-  return out;
+function decodeJWT(token) {
+  const parts = String(token).trim().split('.');
+  if (parts.length < 2 || parts.length > 3) throw new Error('invalid JWT: expected 3 dot-separated parts');
+  const header = b64urlDecode(parts[0]);
+  const payload = b64urlDecode(parts[1]);
+  const now = Math.floor(Date.now() / 1000);
+  let expiry = null;
+  if (typeof payload.exp === 'number') expiry = { exp: payload.exp, expiresAt: new Date(payload.exp * 1000).toISOString(), expired: now >= payload.exp };
+  let issuedAt = null;
+  if (typeof payload.iat === 'number') issuedAt = new Date(payload.iat * 1000).toISOString();
+  return { header, payload, issuedAt, expiry, signature: parts[2] || null, alg: header.alg || null, subject: payload.sub || null };
 }
 function routeJwt(u, res, json) {
   const q = Object.fromEntries(new URL(u, 'http://x').searchParams);
-  if (!q.token) return json(res, 400, { error: 'missing ?token= JWT' });
-  return json(res, 200, decode(q.token));
+  const token = q.token || (u.pathname === '/jwt' && false);
+  if (!token) return json(res, 400, { error: 'provide ?token=<jwt>' });
+  try {
+    const d = decodeJWT(token);
+    return json(res, 200, { ...d, note: 'decoded only; signature NOT verified' });
+  } catch (e) { return json(res, 400, { error: e.message }); }
 }
-module.exports = { routeJwt, decode };
+module.exports = { routeJwt, decodeJWT };
