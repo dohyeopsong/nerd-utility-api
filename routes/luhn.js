@@ -1,37 +1,33 @@
-// Luhn checksum validator with card network detection
-function luhnCheck(num) {
-  const digits = String(num).replace(/[\s-]/g, '');
-  if (!/^\d+$/.test(digits)) return { valid: false, reason: 'not all digits' };
-  if (digits.length < 2) return { valid: false, reason: 'too short' };
-  let sum = 0, dbl = false;
+// Generic Luhn algorithm validator with card-type detection (no card storage — validation only)
+function luhn(digits) {
+  let sum = 0, alt = false;
   for (let i = digits.length - 1; i >= 0; i--) {
     let d = +digits[i];
-    if (dbl) { d *= 2; if (d > 9) d -= 9; }
-    sum += d; dbl = !dbl;
+    if (alt) { d *= 2; if (d > 9) d -= 9; }
+    sum += d; alt = !alt;
   }
-  return { valid: sum % 10 === 0, checksum: sum, length: digits.length };
+  return sum % 10 === 0;
 }
-function detectCard(digits) {
-  const d = String(digits).replace(/[\s-]/g, '');
-  const t = [
-    [/^4/, [13,16,19], 'Visa'],
-    [/^(5[1-5]|2(2[2-9]|[3-6]|7[01]|720))/, [16], 'Mastercard'],
-    [/^3[47]/, [15], 'American Express'],
-    [/^(6011|65|64[4-9])/, [16,19], 'Discover'],
-    [/^(36|38|30[0-5])/, [14,16,19], 'Diners Club'],
-    [/^(352[89]|35[3-8])/, [16,19], 'JCB']
-  ];
-  for (const [re, lens, name] of t) {
-    if (re.test(d) && lens.includes(d.length)) return name;
-  }
+function cardType(d) {
+  if (/^4/.test(d)) return 'Visa';
+  if (/^(5[1-5]|2(2[2-9]|[3-6]|7[01]|720))/.test(d)) return 'Mastercard';
+  if (/^3[47]/.test(d)) return 'American Express';
+  if (/^(6011|65|64[4-9])/.test(d)) return 'Discover';
+  if (/^3(0[0-5]|[68])/.test(d)) return 'Diners Club';
+  if (/^35/.test(d)) return 'JCB';
   return null;
+}
+function validate(input) {
+  const d = String(input || '').replace(/[\s-]/g, '');
+  if (!/^\d+$/.test(d)) return { error: 'input must contain digits only (spaces/dashes allowed)' };
+  if (d.length < 2) return { error: 'too short' };
+  const out = { digits: d.length, valid: luhn(d) };
+  if (d.length >= 12 && d.length <= 19) out.cardType = cardType(d);
+  return out;
 }
 function routeLuhn(u, res, json) {
   const q = Object.fromEntries(new URL(u, 'http://x').searchParams);
-  if (!q.num && !q.number) return json(res, 400, { error: 'missing ?number= parameter' });
-  const digits = String(q.num || q.number).replace(/[\s-]/g, '');
-  const r = luhnCheck(digits);
-  if (r.valid) r.cardType = detectCard(digits) || 'unknown';
-  return json(res, 200, { input: digits, ...r });
+  if (!q.n && !q.number) return json(res, 400, { error: 'missing ?number= parameter' });
+  return json(res, 200, validate(q.n || q.number));
 }
-module.exports = { routeLuhn, luhnCheck };
+module.exports = { routeLuhn, luhn };
