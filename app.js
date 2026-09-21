@@ -39,7 +39,8 @@ const { routeCard } = require('./routes/card.js'); // card luhn
 const { routeIban } = require('./routes/iban.js'); // iban validate
 const { routeSubnet } = require('./routes/subnet.js');
 const { routeHtmlEntities } = require('./routes/htmlentities.js');
-const { routeMarkdown: routeMd2Html } = require('./routes/markdown.js'); // md2html // subnet calc
+const { routeMarkdown: routeMd2Html } = require('./routes/markdown.js'); // md2html
+const { routePem } = require('./routes/pem.js'); // subnet calc
 
 restoreCrons();
 // Nerd utility API
@@ -922,6 +923,10 @@ if (u.pathname === '/') return routeLanding(u, res);
               try { return routeColor(u, res, json); }
               catch (e) { return json(res, 500, { error: e.message }); }
             }
+            if (u.pathname === '/pem') {
+              try { return routePem(u, res, json, reqBody, req.method); }
+              catch (e) { return json(res, 400, { error: e.message }); }
+            }
             if (u.pathname === '/md2html') {
               try { return routeMd2Html(u, res, json, reqBody, req.method); }
               catch (e) { return json(res, 400, { error: e.message }); }
@@ -1258,7 +1263,11 @@ if (u.pathname === '/') return routeLanding(u, res);
     const q = Object.fromEntries(u.searchParams.entries());
     const body = req.method === 'POST' ? await readBody(req)
       : (() => { const v = q.json || q.csv || q.text || q.data || q.input || q.domain || q.url || q.email; return v === undefined || v === '' ? '' : JSON.stringify({ domain: q.domain, url: q.url, email: q.email, json: q.json, csv: q.csv, text: q.text, data: q.data, input: q.input }); })();
-    if (u.pathname === '/md2html') { return routeMarkdown2(u, res, json, body, req.method === 'POST'); }
+    if (u.pathname === '/pem') {
+              try { return routePem(u, res, json, reqBody, req.method); }
+              catch (e) { return json(res, 400, { error: e.message }); }
+            }
+            if (u.pathname === '/md2html') { return routeMarkdown2(u, res, json, body, req.method === 'POST'); }
     if (u.pathname === '/html2md') { return routeHtml2md(u, res, json, body, req.method === 'POST'); }
     try {
       const out = await handler(body, q);
