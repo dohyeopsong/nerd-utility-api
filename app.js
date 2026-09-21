@@ -1,6 +1,7 @@
 
 restoreCrons();
-// Nerd utility API — free endpoints + x402-gated /scrape
+// Nerd utility API
+const { routeColor } = require('./routes/color.js'); // color conversion route
 
 // --- usage analytics (SQLite via node:sqlite fallback to JSON file) ---
 const path = require('path');
@@ -934,6 +935,11 @@ if (u.pathname === '/') {
                 timeStatus: status,
                 note: 'signature NOT verified — decoding only'
               });
+            }
+
+            if (u.pathname === '/color') {
+              try { return routeColor(u, res, json); }
+              catch (e) { return json(res, 500, { error: e.message }); }
             }
             if (u.pathname === '/regex') {
               const q = Object.fromEntries(u.searchParams);
