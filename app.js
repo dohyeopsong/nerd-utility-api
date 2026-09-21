@@ -30,6 +30,7 @@ const { routeLuhn } = require('./routes/luhn.js'); // luhn validate
 const { routePwstrength } = require('./routes/pwstrength.js');
 const { routeHtml } = require('./routes/html.js');
 const { routeMcp } = require('./routes/mcp.js');
+const { routeTotp } = require('./routes/totp.js');
 const { routeIsbn } = require('./routes/isbn.js'); // isbn validate
 const { routeImei } = require('./routes/imei.js'); // imei validate
 const { routeEan } = require('./routes/ean.js'); // ean validate
@@ -197,6 +198,7 @@ http.createServer(async (req, res) => {
 
     try { const _ip = (req.socket.remoteAddress||'').replace('::ffff:',''); if (!_ip.startsWith('127.') && !_ip.startsWith('::1')) trackUsage(u.pathname, _ip); } catch {}
   if (u.pathname === '/mcp') return routeMcp(u, res, json, req);
+  if (u.pathname === '/totp') return routeTotp(u, res, json);
   const route = u.pathname.slice(1);
   try {
         if (u.pathname === '/robots.txt') {
