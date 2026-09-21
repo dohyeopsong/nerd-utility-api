@@ -711,9 +711,6 @@ if (u.pathname === '/') return routeLanding(u, res);
             if (u.pathname === '/case') {
               return routeCase(u, res, json);
             }
-            if (u.pathname === '/md2html') {
-              return routeMarkdown2(u, res, json, body, req.method === 'POST');
-            }
             if (u.pathname === '/iso') {
               return routeIso(u, res, json);
             }
@@ -1290,6 +1287,7 @@ if (u.pathname === '/') return routeLanding(u, res);
       try { return json(res, 200, await prices[route](q)); }
       catch (e) { return json(res, 502, { error: e.message }); }
     }
+    if (u.pathname === '/md2html') { return routeMarkdown2(u, res, json, body, req.method === 'POST'); }
     const handler = ENDPOINTS[route];
     if (!handler) return json(res, 404, { error: 'not found. See /docs' });
     if (req.method !== 'POST' && req.method !== 'GET') return json(res, 405, { error: 'GET/POST. See /docs' });
