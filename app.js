@@ -214,9 +214,6 @@ http.createServer(async (req, res) => {
       return res.end(require('fs').readFileSync(__dirname + '/public/sitemap.xml'));
     }
 if (u.pathname === '/') return routeLanding(u, res);
-      res.writeHead(200, {'Content-Type':'text/html'});
-      return res.end(require('fs').readFileSync(__dirname + '/public/index.html'));
-    }
     if (u.pathname === '/health') return json(res, 200, { status: 'ok', time: new Date().toISOString() });
             if (u.pathname === '/jwt-decode') {
               const q = Object.fromEntries(u.searchParams); const t = String(q.token || q.jwt || '').trim();
