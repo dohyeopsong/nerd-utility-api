@@ -1,56 +1,39 @@
-// UUID v7: time-ordered (RFC 9562). Generate and parse.
-function uuidv7(monotonicState) {
-  const ts = Date.now();
-  let bytes;
-  if (monotonicState && monotonicState.ts === ts) {
-    // same ms: increment 12-bit rand_a counter
-    monotonicState.seq = (monotonicState.seq + 1) & 0xfff;
-    if (monotonicState.seq === 0) throw new Error('sequence overflow within same millisecond');
-  } else {
-    monotonicState.ts = ts;
-    monotonicState.seq = crypto.getRandomValues(new Uint8Array(2));
-    monotonicState.seq = ((monotonicState.seq[0] << 8) | monotonicState.seq[1]) & 0xfff;
-  }
-  const b = crypto.getRandomValues(new Uint8Array(16));
-  const ts48 = BigInt(ts) & 0xffffffffffffn;
-  // unix_ts_ms (48 bits)
-  b[0] = Number(ts48 >> 40n); b[1] = Number(ts48 >> 32n) & 0xff;
-  b[2] = Number(ts48 >> 24n) & 0xff; b[3] = Number(ts48 >> 16n) & 0xff;
-  b[4] = Number(ts48 >> 8n) & 0xff; b[5] = Number(ts48) & 0xff;
-  // ver=7 (4 bits) + rand_a (12 bits = our counter)
-  b[6] = 0x70 | ((monotonicState.seq >> 8) & 0x0f);
-  b[7] = monotonicState.seq & 0xff;
-  // var=10 + rand_b
-  b[8] = 0x80 | (b[8] & 0x3f);
-  const hex = [...b].map(x => x.toString(16).padStart(2, '0')).join('');
+// UUID v7 generator/parser + v4 fallback — node:crypto only
+const crypto = require('crypto');
+function uuidv7(t = Date.now()) {
+  const ts = BigInt(t);
+  const b = crypto.randomBytes(16);
+  // 48-bit unix ms | ver 7 | 12 rand | var 10 | 62 rand
+  const buf = Buffer.alloc(16);
+  buf.writeUInt32BE(Number(ts >> 16n), 0);
+  buf.writeUInt16BE(Number(ts & 0xffffn), 4);
+  buf[6] = 0x70 | (b[6] & 0x0f);            // version 7
+  buf[7] = b[7];
+  buf[8] = 0x80 | (b[8] & 0x3f);            // variant 10
+  b.copy(buf, 9, 9);
+  const hex = buf.toString('hex');
   return [hex.slice(0,8), hex.slice(8,12), hex.slice(12,16), hex.slice(16,20), hex.slice(20)].join('-');
 }
-function parseUuidv7(s) {
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s))
-    throw new Error('not a valid UUIDv7');
-  const hex = s.replace(/-/g, '');
-  const tsHex = hex.slice(0, 12);
-  const ms = parseInt(tsHex, 16);
-  const date = new Date(ms);
-  return { version: 7, timestampMs: ms, iso: date.toISOString() };
-}
-function routeUuid7(u, res, json) {
-  const q = Object.fromEntries(new URL(u, 'http://x').searchParams);
-  const action = (q.action || q.a || 'generate').toLowerCase();
-  try {
-    if (action === 'generate' || action === 'g' || action === 'gen') {
-      const count = Math.min(parseInt(q.count || q.n || '1', 10) || 1, 1000);
-      const state = {};
-      const uuids = Array.from({ length: count }, () => uuidv7(state));
-      return json(res, 200, { count, uuids, version: 'v7', note: count > 1 ? 'monotonic within same ms' : undefined });
-    }
-    if (action === 'parse' || action === 'p') {
-      if (!q.uuid && !q.value) return json(res, 400, { error: 'provide ?uuid=<v7> to parse' });
-      return json(res, 200, parseUuidv7(q.uuid || q.value));
-    }
-    return json(res, 400, { error: `unknown action '${action}'`, available: ['generate', 'parse'] });
-  } catch (e) {
-    return json(res, 400, { error: e.message });
+function parse(id) {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return { valid: false, error: 'malformed' };
+  const hex = id.replace(/-/g, '');
+  const ver = parseInt(hex[12], 16), varb = parseInt(hex[16], 16);
+  const out = { valid: true, version: ver, variant: varb >> 2 === 0b10 ? 'RFC 4122' : 'other' };
+  if (ver === 7) {
+    const ts = BigInt('0x' + hex.slice(0, 12));
+    out.timestamp_ms = Number(ts);
+    out.generated_at = new Date(Number(ts)).toISOString();
   }
+  if (ver === 1) out.note = 'time-based (MAC)';
+  if (ver === 4) out.note = 'random';
+  return out;
 }
-module.exports = { routeUuid7, uuidv7, parseUuidv7 };
+function sortKey(id) { return id.replace(/-/g, ''); }
+async function routeUuid7(u, res, json) {
+  const q = u.searchParams;
+  if (q.get('parse')) return json(res, 200, parse(q.get('parse')));
+  const n = Math.min(100, Math.max(1, +q.get('count') || 1));
+  const ids = Array.from({ length: n }, () => uuidv7());
+  json(res, 200, n === 1 && !q.get('count') ? { uuid: ids[0], ...parse(ids[0]) } : { uuids: ids, count: n });
+}
+module.exports = { routeUuid7, uuidv7, parse };
