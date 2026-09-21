@@ -1142,13 +1142,8 @@ if (u.pathname === '/') return routeLanding(u, res);
       return json(res, 200, { min: lo, max: hi, number: Math.floor(Math.random() * (hi - lo + 1)) + lo });
     }
     if (u.pathname === '/password') {
-      const q = Object.fromEntries(u.searchParams);
-      const len = Math.min(Math.max(parseInt(q.length || '20'), 8), 128);
-      const sets = { lower: 'abcdefghijkmnopqrstuvwxyz', upper: 'ABCDEFGHJKLMNPQRSTUVWXYZ', digits: '23456789', symbols: '!@#$%^&*-_=+' };
-      const pool = Object.entries(sets).filter(([k]) => q[k] !== 'false' && !(q.exclude||'').includes(k[0])).map(([,v]) => v).join('');
-      const bytes = require('crypto').randomBytes(len);
-      let pw = ''; for (let i = 0; i < len; i++) pw += pool[bytes[i] % pool.length];
-      return json(res, 200, { password: pw, length: len });
+      try { return routePassword(u, res, json, reqBody, req.method); }
+      catch (e) { return json(res, 400, { error: e.message }); }
     }
     if (u.pathname === '/lorem') {
       const q = Object.fromEntries(u.searchParams);
