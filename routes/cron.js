@@ -1,70 +1,87 @@
-// Cron expression parser/validator with human-readable description
-const FIELD_NAMES = ['minute','hour','day-of-month','month','day-of-week'];
-const RANGES = [[0,59],[0,23],[1,31],[1,12],[0,7]];
-const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-const DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-const ALIASES = { '@yearly':'0 0 1 1 *', '@annually':'0 0 1 1 *', '@monthly':'0 0 1 * *', '@weekly':'0 0 * * 0', '@daily':'0 0 * * *', '@midnight':'0 0 * * *', '@hourly':'0 * * * *' };
-
-function resolveToken(tok, idx) {
-  if (/^\d+$/.test(tok)) return parseInt(tok, 10);
-  if (idx === 3) { const i = MONTHS.findIndex(m => m.toLowerCase().startsWith(tok.toLowerCase())); return i >= 0 ? i + 1 : null; }
-  if (idx === 4) { const i = DAYS.findIndex(d => d.toLowerCase().startsWith(tok.toLowerCase())); return i >= 0 ? i : null; }
-  return null;
-}
-function parseField(field, idx) {
-  if (field === '*') return { ok: true, values: null };
-  const [lo, hi] = RANGES[idx];
-  const values = new Set();
-  for (const part of field.split(',')) {
-    const seg = part.split('/');
-    const step = seg.length > 1 ? parseInt(seg[1], 10) : 1;
-    const range = seg[0];
-    if (!Number.isFinite(step) || step < 1) return { ok: false, error: 'invalid step in "' + part + '" (' + FIELD_NAMES[idx] + ')' };
-    let start, end;
-    if (range === '*') { start = lo; end = hi; }
-    else if (range.includes('-')) {
-      const m = range.match(/^(\w+)-(\w+)$/);
-      if (!m) return { ok: false, error: 'invalid range "' + range + '"' };
-      start = resolveToken(m[1], idx); end = resolveToken(m[2], idx);
-      if (start === null || end === null) return { ok: false, error: 'invalid names in "' + range + '" (' + FIELD_NAMES[idx] + ')' };
-    } else {
-      start = end = resolveToken(range, idx);
-      if (start === null) return { ok: false, error: 'invalid value "' + range + '" (' + FIELD_NAMES[idx] + ')' };
+// Cron expression explainer: 5-field parse + next-run computation
+const ALIASES = {
+  '@yearly': '0 0 1 1 *', '@annually': '0 0 1 1 *', '@monthly': '0 0 1 * *',
+  '@weekly': '0 0 * * 0', '@daily': '0 0 * * *', '@midnight': '0 0 * * *', '@hourly': '0 * * * *'
+};
+const FIELDS = [
+  { name: 'minute', min: 0, max: 59 }, { name: 'hour', min: 0, max: 23 },
+  { name: 'day-of-month', min: 1, max: 31 }, { name: 'month', min: 1, max: 12 },
+  { name: 'day-of-week', min: 0, max: 7 } // 0 and 7 = Sunday
+];
+function parseField(expr, f) {
+  const out = new Set();
+  for (const part of expr.split(',')) {
+    const [range, step] = part.split('/');
+    const stepN = step ? parseInt(step, 10) : 1;
+    if (!Number.isInteger(stepN) || stepN < 1) throw new Error(`invalid step in ${f.name}: "${part}"`);
+    let lo = f.min, hi = f.max;
+    if (range !== '*') {
+      if (range.includes('-')) {
+        const [a, b] = range.split('-').map(n => parseInt(n, 10));
+        if (!Number.isInteger(a) || !Number.isInteger(b)) throw new Error(`invalid range in ${f.name}: "${part}"`);
+        lo = a; hi = b;
+      } else {
+        const v = parseInt(range, 10);
+        if (!Number.isInteger(v)) throw new Error(`invalid value in ${f.name}: "${part}"`);
+        lo = v; hi = step ? v : v; // N/step = N-max/step
+        if (step) hi = f.max;
+      }
     }
-    if (idx === 4) { if (start === 7) start = 0; if (end === 7) end = 0; }
-    if (start < lo || start > hi || end < lo || end > hi || start > end) return { ok: false, error: 'out-of-range "' + part + '" (' + FIELD_NAMES[idx] + ', allowed ' + lo + '-' + hi + ')' };
-    for (let v = start; v <= end; v += step) values.add(v);
+    if (lo < f.min || hi > f.max || lo > hi) throw new Error(`out of range in ${f.name}: "${part}"`);
+    for (let v = lo; v <= hi; v += stepN) out.add(f.name === 'day-of-week' && v === 7 ? 0 : v);
   }
-  return { ok: true, values };
+  return out;
 }
-function describe(fields) {
-  const [m, h, dom, mon, dow] = fields;
-  if (m === '*' && h === '*' && dom === '*' && mon === '*' && dow === '*') return 'every minute';
-  if (dom === '*' && mon === '*' && dow === '*') return 'at minute ' + m + ' past hour ' + h;
-  if (m === '0' && h === '0' && dom === '*' && mon === '*' && dow === '*') return 'daily at midnight';
-  if (m === '0' && h === '0' && dom === '*' && mon === '*' && dow === '1') return 'weekly on Monday at midnight';
-  if (m === '0' && h === '0' && dom === '1' && mon === '*' && dow === '*') return 'monthly on the 1st at midnight';
-  if (m === '0' && h === '0' && dom === '1' && mon === '1' && dow === '*') return 'annually on January 1st at midnight';
-  return 'minute=' + m + ', hour=' + h + ', day-of-month=' + dom + ', month=' + mon + ', day-of-week=' + dow;
-}
-function parse(expr) {
-  let e = String(expr || '').trim();
-  if (!e) return { error: 'empty expression' };
-  if (e === '@reboot') return { expression: e, valid: true, description: 'runs once at system startup' };
-  if (ALIASES[e]) { const base = parse(ALIASES[e]); if (base.error) return base; base.expression = e; base.alias = true; return base; }
+function parseCron(expr) {
+  let e = String(expr || '').trim().toLowerCase();
+  if (ALIASES[e]) e = ALIASES[e];
+  if (e.startsWith('@')) throw new Error(`unknown alias: ${e}`);
   const fields = e.split(/\s+/);
-  if (fields.length !== 5) return { error: 'expected 5 fields (minute hour day-of-month month day-of-week), got ' + fields.length };
-  const parsed = [];
-  for (let i = 0; i < 5; i++) {
-    const r = parseField(fields[i], i);
-    if (!r.ok) return { error: r.error };
-    parsed.push(r.values ? [...r.values].sort((a,b)=>a-b) : '*');
+  if (fields.length !== 5) throw new Error(`expected 5 fields, got ${fields.length}`);
+  return FIELDS.map((f, i) => parseField(fields[i], f));
+}
+function describe(sets) {
+  const [min, hr, dom, mon, dow] = sets;
+  const s = n => n.size === 1 ? [...n][0] : `${Math.min(...n)}-${Math.max(...n)}`;
+  const parts = [];
+  parts.push(min.size === 60 ? 'every minute' : `at minute ${s(min)} past`);
+  parts.push(hr.size === 24 ? 'every hour' : `hour ${s(hr)}`);
+  parts.push(dom.size === 31 ? 'every day' : `day ${s(dom)} of`);
+  parts.push(mon.size === 12 ? 'every month' : `month ${s(mon)}`);
+  parts.push(dow.size === 8 || (dow.size === 7 && !dow.has(0) && [1,2,3,4,5,6].every(d=>dow.has(d)) ? false : false) ? 'every day of week' : `weekday(s) ${s(dow)}`);
+  return parts.join(' ');
+}
+function nextRuns(sets, from, count) {
+  const [min, hr, dom, mon, dow] = sets;
+  const runs = [];
+  let d = new Date(Math.ceil(from.getTime() / 60000) * 60000); // round up to next minute
+  d.setSeconds(0, 0);
+  d = new Date(d.getTime() + 60000); // start from next minute boundary after 'from'
+  const limit = new Date(from.getTime() + 366 * 24 * 3600 * 1000);
+  while (runs.length < count && d < limit) {
+    if (mon.has(d.getMonth() + 1) && dom.has(d.getDate()) && dow.has(d.getDay()) && hr.has(d.getHours()) && min.has(d.getMinutes())) {
+      runs.push(new Date(d));
+      d = new Date(d.getTime() + 60000);
+    } else {
+      d = new Date(d.getTime() + 60000);
+    }
   }
-  return { expression: e, valid: true, fields: { minute: parsed[0], hour: parsed[1], dayOfMonth: parsed[2], month: parsed[3], dayOfWeek: parsed[4] }, description: describe(fields) };
+  return runs;
 }
 function routeCron(u, res, json) {
   const q = Object.fromEntries(new URL(u, 'http://x').searchParams);
-  if (!q.expr) return json(res, 400, { error: 'missing ?expr= cron expression (URL-encode spaces)' });
-  return json(res, 200, parse(q.expr));
+  if (!q.expr) return json(res, 400, { error: 'missing ?expr=<cron expression>' });
+  try {
+    const sets = parseCron(q.expr);
+    const count = Math.min(parseInt(q.count || '3', 10) || 3, 10);
+    const from = q.from ? new Date(q.from) : new Date();
+    if (isNaN(from)) return json(res, 400, { error: 'invalid ?from= date' });
+    return json(res, 200, {
+      expression: q.expr, normalized: q.expr.trim().toLowerCase(), description: describe(sets),
+      nextRuns: nextRuns(sets, from, count).map(d => d.toISOString())
+    });
+  } catch (e) {
+    return json(res, 400, { error: e.message });
+  }
 }
-module.exports = { routeCron, parse };
+module.exports = { routeCron, parseCron, nextRuns, describe };
