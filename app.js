@@ -1,3 +1,4 @@
+const { routeImei } = require('./routes/imei.js'); // imei validate
 const { routeEan } = require('./routes/ean.js'); // ean validate
 const { routeVin } = require('./routes/vin.js'); // vin decode
 const { routeCard } = require('./routes/card.js'); // card luhn
@@ -749,6 +750,10 @@ if (u.pathname === '/') {
                 else country = 'other/GS1 member';
               }
               return json(res, 200, {input: raw, type, valid, checkDigit: check, computedCheckDigit: (10 - sum % 10) % 10, gs1Prefix, country});
+            }
+            if (u.pathname === '/imei') {
+              try { return routeImei(u, res, json); }
+              catch (e) { return json(res, 500, { error: e.message }); }
             }
             if (u.pathname === '/ean') {
               try { return routeEan(u, res, json); }
