@@ -1,43 +1,34 @@
-// Regex tester: test/match/replace against a pattern with flags
+// Regex tester: /regex?pattern=...&flags=...&text=...&mode=match|test|replace&replacement=...
 function routeRegex(u, res, json) {
-  const pattern = u.searchParams.get('pattern');
-  const flags = u.searchParams.get('flags') || '';
-  const text = u.searchParams.get('text') || '';
-  const replace = u.searchParams.get('replace');
-  if (pattern === null || pattern === undefined || pattern === '') return json(res, 400, { error: 'params: pattern, text, [flags], [replace]' });
-  if (!/^^[gimsuyd]*$/.test(flags)) return json(res, 400, { error: 'invalid flags' });
+  const q = u.searchParams;
+  const pattern = q.get('pattern'), text = q.get('text') ?? '';
+  if (!pattern) return json(res, 400, { error: 'pattern required' });
+  let flags = q.get('flags') || '', mode = q.get('mode') || 'match';
+  if (mode === 'matchall' && !flags.includes('g')) flags += 'g';
   let re;
   try { re = new RegExp(pattern, flags); } catch (e) { return json(res, 400, { error: 'invalid regex: ' + e.message }); }
-  const mode = u.searchParams.get('mode') || (replace !== null ? 'replace' : 'match');
-  if (mode === 'test') {
-    return json(res, 200, { pattern, flags, matches: re.test(text) });
-  }
-  if (mode === 'replace') {
-    if (replace === null) return json(res, 400, { error: 'replace param required for replace mode' });
-    let out, count = 0;
-    try {
-      if (re.global) {
-        const matches = text.match(re) || [];
-        count = matches.length;
-      }
-      out = text.replace(re, replace);
-    } catch (e) { return json(res, 400, { error: 'replace failed: ' + e.message }); }
-    return json(res, 200, { pattern, flags, count, result: out });
-  }
-  // match mode: return all matches with groups
-  const results = [];
-  if (re.global) {
-    let m;
-    const rx = new RegExp(pattern, flags);
-    let guard = 0;
-    while ((m = rx.exec(text)) !== null && guard++ < 1000) {
-      results.push({ match: m[0], index: m.index, groups: m.slice(1) });
-      if (m[0] === '') rx.lastIndex++;
+  try {
+    if (mode === 'test') {
+      return json(res, 200, { matches: re.test(text), mode });
     }
-  } else {
+    if (mode === 'replace') {
+      const replacement = q.get('replacement') ?? '';
+      const count = (text.match(new RegExp(pattern, flags.includes('g') ? flags : flags + 'g')) || []).length;
+      return json(res, 200, { result: text.replace(re, replacement), replacements: count, mode });
+    }
+    if (mode === 'matchall') {
+      const out = []; let m;
+      if (flags.includes('g')) {
+        while ((m = re.exec(text)) !== null) { out.push({ match: m[0], index: m.index, groups: m.slice(1) }); if (m[0] === '') re.lastIndex++; if (out.length > 1000) break; }
+      } else {
+        while ((m = re.exec(text)) !== null) { out.push({ match: m[0], index: m.index, groups: m.slice(1) }); re.lastIndex = m.index + 1; if (out.length > 1000) break; }
+      }
+      return json(res, 200, { count: out.length, matches: out, mode });
+    }
+    // default: single match
     const m = text.match(re);
-    if (m) results.push({ match: m[0], index: m.index, groups: m.slice(1) });
-  }
-  return json(res, 200, { pattern, flags, matchCount: results.length, matches: results });
+    if (!m) return json(res, 200, { match: null, mode });
+    return json(res, 200, { match: m[0], index: m.index, groups: m.slice(1), named_groups: m.groups || null, mode });
+  } catch (e) { return json(res, 400, { error: e.message }); }
 }
 module.exports = { routeRegex };
