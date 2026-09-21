@@ -1,4 +1,5 @@
 const { routeMarkdown: routeMarkdown2 } = require('./routes/markdown.js'); // md2html
+const { routeHtml2md } = require('./routes/html2md.js'); // html2md
 const { routeIso } = require('./routes/iso.js'); // iso
 const { routeRegex } = require('./routes/regex.js'); // regex
 const { routeConvert } = require('./routes/convert.js'); // convert
@@ -1288,12 +1289,13 @@ if (u.pathname === '/') return routeLanding(u, res);
       catch (e) { return json(res, 502, { error: e.message }); }
     }
     const handler = ENDPOINTS[route];
-    if (!handler && u.pathname !== '/md2html') return json(res, 404, { error: 'not found. See /docs' });
+    if (!handler && u.pathname !== '/md2html' && u.pathname !== '/html2md') return json(res, 404, { error: 'not found. See /docs' });
     if (req.method !== 'POST' && req.method !== 'GET') return json(res, 405, { error: 'GET/POST. See /docs' });
     const q = Object.fromEntries(u.searchParams.entries());
     const body = req.method === 'POST' ? await readBody(req)
       : (() => { const v = q.json || q.csv || q.text || q.data || q.input || q.domain || q.url || q.email; return v === undefined || v === '' ? '' : JSON.stringify({ domain: q.domain, url: q.url, email: q.email, json: q.json, csv: q.csv, text: q.text, data: q.data, input: q.input }); })();
     if (u.pathname === '/md2html') { return routeMarkdown2(u, res, json, body, req.method === 'POST'); }
+    if (u.pathname === '/html2md') { return routeHtml2md(u, res, json, body, req.method === 'POST'); }
     try {
       const out = await handler(body, q);
       return json(res, 200, out);
