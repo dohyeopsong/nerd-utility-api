@@ -66,7 +66,8 @@ function routeCron(u, res, json) {
   if (!expr) return json(res, 400, { error: 'pass expr=<cron expression>', example: '/cron?expr=0 9 * * 1-5', macros: Object.keys(MACROS) });
   const p = explain(expr);
   if (p.error) return json(res, 400, p);
-  const next = nextRuns(p.minutes, p.hours, p.daysOfMonth, p.months.map(m => MONTHS.indexOf(m) + 1), p.daysOfWeek, 3);
+  const dowsNum = p.daysOfWeek.map(d => DAYS.indexOf(d));
+  const next = nextRuns(p.minutes, p.hours, p.daysOfMonth, p.months.map(m => MONTHS.indexOf(m) + 1), dowsNum, 3);
   return json(res, 200, { expression: expr, ...p, nextRuns: next, timezone: 'UTC' });
 }
 module.exports = { routeCron };
