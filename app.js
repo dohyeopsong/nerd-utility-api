@@ -1,3 +1,4 @@
+const { routeGeoip } = require('./routes/geoip.js');
 const { routeGeoip } = require('./routes/geoip');
 const { routeGeoip } = require('./routes/geoip.js');
 const { routeSemver } = require('./routes/semver.js'); // semver sort
