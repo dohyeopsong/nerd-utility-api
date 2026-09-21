@@ -1080,6 +1080,16 @@ if (u.pathname === '/') {
       if (req.method !== 'GET' && req.method !== 'POST') return json(res, 405, { error: 'GET/POST only' });
       const target = u.searchParams.get('url') || (req.method === 'POST' ? (JSON.parse(await readBody(req)).url || '') : '');
       if (!target || !/^https:\/\//.test(target)) return json(res, 400, { error: 'provide ?url=https://...' });
+      // --- x402 paywall (skip when disabled or localhost test) ---
+      if (process.env.X402_DISABLED !== '1') {
+        const pay = req.headers['x-payment'];
+        if (!pay) {
+          res.writeHead(402, { 'Content-Type': 'application/json', 'Www-Authenticate': 'X402 challenge' });
+          return res.end(JSON.stringify(challenge(u.pathname)));
+        }
+        try { verifyPayment(pay); }
+        catch (e) { return json(res, 402, { error: 'payment rejected: ' + e.message }); }
+      }
       const result = await scrapeUrl(target);
       return json(res, 200, result);
     }
