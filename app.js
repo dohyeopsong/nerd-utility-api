@@ -1,3 +1,4 @@
+const { routeMorse } = require('./routes/morse.js'); // morse
 const { routeRot13 } = require('./routes/rot13.js'); // rot13
 const { routeLorem } = require('./routes/lorem.js'); // lorem
 const { routeCase } = require('./routes/case.js'); // case
@@ -801,6 +802,9 @@ if (u.pathname === '/') return routeLanding(u, res);
             if (u.pathname === '/imei') {
               try { return routeImei(u, res, json); }
               catch (e) { return json(res, 500, { error: e.message }); }
+            }
+            if (u.pathname === '/morse') {
+              return routeMorse(u, res, json);
             }
             if (u.pathname === '/ean') {
               try { return routeEan(u, res, json); }
