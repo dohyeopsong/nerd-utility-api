@@ -1,3 +1,4 @@
+const { routeCase } = require('./routes/case.js'); // case
 const { routeMarkdown } = require('./routes/markdown.js'); // markdown
 const { routeCrc32 } = require('./routes/crc32.js'); // crc32
 const { routeChmod } = require('./routes/chmod.js'); // chmod converter
@@ -685,6 +686,9 @@ if (u.pathname === '/') return routeLanding(u, res);
             if (u.pathname === '/semver') {
               try { return routeSemver(u, res, json); }
               catch (e) { return json(res, 500, { error: e.message }); }
+            }
+            if (u.pathname === '/case') {
+              return routeCase(u, res, json);
             }
             if (u.pathname === '/cron') {
               try { return routeCron(u, res, json); }
