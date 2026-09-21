@@ -1,3 +1,4 @@
+const { routeSlug } = require('./routes/slug.js'); // slug/case
 const { routeDiff } = require('./routes/diff.js'); // text diff
 const { routeTimeago } = require('./routes/timeago.js'); // relative time
 const { routeLanding } = require('./routes/landing.js');
@@ -504,6 +505,10 @@ if (u.pathname === '/') return routeLanding(u, res);
               emit(data, 'Root');
               const types = lines.join('\n');
               return json(res, 200, { types }, { 'content-type': 'application/json' });
+            }
+            if (u.pathname === '/slug') {
+              try { return routeSlug(u, res, json); }
+              catch (e) { return json(res, 500, { error: e.message }); }
             }
             if (u.pathname === '/diff') {
               const q = u.searchParams;
