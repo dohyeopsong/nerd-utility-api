@@ -27,7 +27,7 @@ function validateISBN(input) {
 }
 function routeIsbn(u, res, json) {
   const q = Object.fromEntries(new URL(u, 'http://x').searchParams);
-  if (!q.isbn) return json(res, 400, { error: 'provide ?isbn=<ISBN-10 or ISBN-13>' });
+  if (!(q.isbn || q.number)) return json(res, 400, { error: 'provide ?isbn=<ISBN-10 or ISBN-13>' });
   return json(res, 200, validateISBN(q.isbn));
 }
 module.exports = { routeIsbn, validateISBN };

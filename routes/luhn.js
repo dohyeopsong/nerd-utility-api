@@ -22,7 +22,7 @@ function cardType(s) {
 }
 function routeLuhn(u, res, json) {
   const q = Object.fromEntries(new URL(u, 'http://x').searchParams);
-  if (!q.num) return json(res, 400, { error: 'provide ?num=<digits> (e.g. card number, IMEI base)' });
+  if (!(q.num || q.number)) return json(res, 400, { error: 'provide ?num=<digits> (e.g. card number, IMEI base)' });
   const r = luhnCheck(q.num);
   return json(res, 200, { input: q.num, ...r, cardType: r.valid ? cardType(q.num) : cardType(q.num) });
 }

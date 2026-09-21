@@ -16,7 +16,7 @@ function validateIBAN(input) {
 }
 function routeIban(u, res, json) {
   const q = Object.fromEntries(new URL(u, 'http://x').searchParams);
-  if (!q.iban) return json(res, 400, { error: 'provide ?iban=<IBAN>' });
+  if (!(q.iban || q.number)) return json(res, 400, { error: 'provide ?iban=<IBAN>' });
   return json(res, 200, { input: q.iban, ...validateIBAN(q.iban) });
 }
 module.exports = { routeIban, validateIBAN };
