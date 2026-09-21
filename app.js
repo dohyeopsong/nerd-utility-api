@@ -910,6 +910,7 @@ if (u.pathname === '/') return routeLanding(u, res);
             }
 
             if (u.pathname === '/color') {
+              try { return routeTimeago(u, res, json); }
               try { return routeColor(u, res, json); }
               catch (e) { return json(res, 500, { error: e.message }); }
             }
