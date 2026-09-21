@@ -1233,13 +1233,15 @@ if (u.pathname === '/') {
     if (u.pathname === '/agent-card.json' || u.pathname === '/.well-known/agent-card.json') return json(res, 200, require('./agent-card.json'));
     if (u.pathname === '/llms.txt') { res.writeHead(200, {'Content-Type':'text/plain'}); return res.end(require('fs').readFileSync(__dirname + '/PROMO/llms.txt')); }
         if (u.pathname === '/pricing')
+          return json(res, 200, {
       model: 'free (x402 paid tier planned, not active in local mode)',
       wallet: WALLET_ADDRESS,
       freeEndpoints: [...FREE],
       paid: Object.fromEntries(Object.entries(PAID_CENTS).map(([k, v]) => [k, { cents: v, usd: (v / 100).toFixed(2) }])),
       howToPay: 'Send x402 payment with request. On HTTP 402, client signs EIP-3009 USDC transfer and retries.',
       note: 'Paid tier enforces per-request micropayments (1-5 cents). Core utilities stay free forever.'
-    });
+          });
+        }
     if (u.pathname === '/receipts') return json(res, 200, { count: 0, receipts: [], note: 'No payments processed yet — x402 paid tier not active in local mode (no on-chain USDC). All endpoints are currently free.' });
     if (route === 'scrape') {
       if (req.method !== 'GET' && req.method !== 'POST') return json(res, 405, { error: 'GET/POST only' });
