@@ -1,10 +1,20 @@
-// UUID v7 generator and parser: time-ordered (48-bit unix ms + random), per RFC 9562
+// UUID v7 generator and parser: time-ordered (48-bit unix ms + counter + random), per RFC 9562
 const crypto = require('crypto');
+let lastMs = 0, lastCounter = 0;
 function uuidv7() {
   const ts = Date.now();
+  let counter;
+  if (ts === lastMs) {
+    counter = ++lastCounter;
+  } else {
+    lastMs = ts;
+    counter = (crypto.randomBytes(2).readUInt16BE(0) & 0x0fff) << 2; // 12-bit rand_a seed shifted left 2
+    lastCounter = counter;
+  }
   const b = crypto.randomBytes(16);
   b[0] = (ts / 2 ** 40) & 0xff; b[1] = (ts / 2 ** 32) & 0xff; b[2] = (ts / 2 ** 24) & 0xff; b[3] = (ts / 2 ** 16) & 0xff; b[4] = (ts / 2 ** 8) & 0xff; b[5] = ts & 0xff;
-  b[6] = (b[6] & 0x0f) | 0x70; // version 7
+  b[6] = ((counter >> 8) & 0x0f) | 0x70; // version 7 + high counter nibble
+  b[7] = counter & 0xff;
   b[8] = (b[8] & 0x3f) | 0x80; // variant 10
   const h = b.toString('hex');
   return [h.slice(0,8), h.slice(8,12), h.slice(12,16), h.slice(16,20), h.slice(20)].join('-');
