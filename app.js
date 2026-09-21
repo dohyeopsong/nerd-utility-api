@@ -34,6 +34,8 @@ const textstats = require('./textstats');
 const price = require('./price');
 const { challenge, verifyPayment, PRICE_CENTS } = require('./x402.js');
 const ledger = require('./payments.js');
+
+
 const prices = require('./price.js');
 
 const json = (res, code, obj) => { if (res.headersSent) return; res.writeHead(code, {'Content-Type':'application/json'}); res.end(JSON.stringify(obj)); };
@@ -1209,6 +1211,12 @@ if (u.pathname === '/') {
         timestamp: new Date().toISOString()
       });
     }
+    if (u.pathname === '/payments') {
+      const all = ledger.load();
+      const s = ledger.summary();
+      const limit = Math.min(parseInt(u.searchParams.get('limit')) || 50, 200);
+      return json(res, 200, { summary: s, payments: all.slice(-limit).reverse() });
+    }
     if (u.pathname === '/stats') {
       const top = Object.entries(usage.byEndpoint).sort((a,b)=>b[1]-a[1]).slice(0,20);
       const ips = Object.keys(usage.byIP).length;
@@ -1243,12 +1251,4 @@ if (u.pathname === '/') {
       return json(res, 200, out);
     } catch (e) { return json(res, (e && e.status) || 422, { error: String(e && e.message || e) }); }
   } catch (e) { json(res, 400, { error: e.message }); }
-// payment ledger (public audit endpoint)
-app.get('/payments', (req, res) => {
-  const all = ledger.load();
-  const s = ledger.summary();
-  const limit = Math.min(parseInt(req.query.limit) || 50, 200);
-  res.json({ summary: s, payments: all.slice(-limit).reverse() });
-});
-
 }).listen(8080, () => console.log('Nerd utility API (with x402 /scrape) listening on :8080'));
