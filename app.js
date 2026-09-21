@@ -355,6 +355,27 @@ if (u.pathname === '/') {
       return res.end(require('fs').readFileSync(__dirname + '/public/index.html'));
     }
     if (u.pathname === '/health') return json(res, 200, { status: 'ok', time: new Date().toISOString() });
+    if (u.pathname === '/phone') {
+      const raw = (u.searchParams.get('q') || u.searchParams.get('number') || '').trim();
+      if (!raw) return json(res, 400, { error: 'missing ?q=' });
+      try {
+        const hasPlus = raw.startsWith('+');
+        const digits = raw.replace(/[^0-9]/g, '');
+        if (!digits) return json(res, 400, { error: 'no digits found' });
+        const CC = {'1':['US/CA','North America'],'7':['RU','Russia'],'20':['EG','Egypt'],'27':['ZA','South Africa'],'30':['GR','Greece'],'31':['NL','Netherlands'],'32':['BE','Belgium'],'33':['FR','France'],'34':['ES','Spain'],'36':['HU','Hungary'],'39':['IT','Italy'],'40':['RO','Romania'],'41':['CH','Switzerland'],'43':['AT','Austria'],'44':['GB','United Kingdom'],'45':['DK','Denmark'],'46':['SE','Sweden'],'47':['NO','Norway'],'48':['PL','Poland'],'49':['DE','Germany'],'51':['PE','Peru'],'52':['MX','Mexico'],'54':['AR','Argentina'],'55':['BR','Brazil'],'56':['CL','Chile'],'57':['CO','Colombia'],'60':['MY','Malaysia'],'61':['AU','Australia'],'62':['ID','Indonesia'],'63':['PH','Philippines'],'64':['NZ','New Zealand'],'65':['SG','Singapore'],'66':['TH','Thailand'],'81':['JP','Japan'],'82':['KR','South Korea'],'84':['VN','Vietnam'],'86':['CN','China'],'90':['TR','Turkey'],'91':['IN','India'],'92':['PK','Pakistan'],'94':['LK','Sri Lanka'],'98':['IR','Iran'],'212':['MA','Morocco'],'213':['DZ','Algeria'],'216':['TN','Tunisia'],'234':['NG','Nigeria'],'254':['KE','Kenya'],'256':['UG','Uganda'],'263':['ZW','Zimbabwe'],'27':['ZA2','South Africa'],'299':['GL','Greenland'],'351':['PT','Portugal'],'352':['LU','Luxembourg'],'353':['IE','Ireland'],'354':['IS','Iceland'],'358':['FI','Finland'],'359':['BG','Bulgaria'],'370':['LT','Lithuania'],'371':['LV','Latvia'],'372':['EE','Estonia'],'375':['BY','Belarus'],'380':['UA','Ukraine'],'381':['RS','Serbia'],'385':['HR','Croatia'],'386':['SI','Slovenia'],'420':['CZ','Czechia'],'421':['SK','Slovakia'],'502':['GT','Guatemala'],'503':['SV','El Salvador'],'504':['HN','Honduras'],'505':['NI','Nicaragua'],'506':['CR','Costa Rica'],'507':['PA','Panama'],'509':['HT','Haiti'],'591':['BO','Bolivia'],'593':['EC','Ecuador'],'595':['PY','Paraguay'],'598':['UY','Uruguay'],'675':['PG','Papua New Guinea'],'679':['FJ','Fiji'],'852':['HK','Hong Kong'],'855':['KH','Cambodia'],'880':['BD','Bangladesh'],['886']:['TW','Taiwan'],'961':['LB','Lebanon'],'962':['JO','Jordan'],'964':['IQ','Iraq'],'965':['KW','Kuwait'],'966':['SA','Saudi Arabia'],'971':['AE','UAE'],'972':['IL','Israel'],'977':['NP','Nepal'],'994':['AZ','Azerbaijan'],'995':['GE','Georgia'],'998':['UZ','Uzbekistan']};
+        let cc = null, rest = digits;
+        for (const code of Object.keys(CC).sort((a,b) => b.length - a.length)) {
+          if (digits.startsWith(code)) { cc = { callingCode: '+' + code, iso: CC[code][0], name: CC[code][1] }; rest = digits.slice(code.length); break; }
+        }
+        if (cc && cc.callingCode === '+1' && rest.length === 11 && rest[0] === '1') rest = rest.slice(1);
+        const valid = cc !== null && rest.length >= 4 && rest.length <= 12;
+        const e164 = valid ? '+' + cc.callingCode.slice(1) + rest : null;
+        let formatted = e164;
+        if (valid && cc.callingCode === '+1' && rest.length === 10) formatted = `(${rest.slice(0,3)}) ${rest.slice(3,6)}-${rest.slice(6)}`;
+        return json(res, 200, { input: raw, valid: valid, country: cc, national: cc ? rest : null, e164: e164, formatted: formatted });
+      } catch (e) { return json(res, 400, { error: String(e) }); }
+    }
+
             if (u.pathname === '/jwt-decode') {
               const q = Object.fromEntries(u.searchParams); const t = String(q.token || q.jwt || '').trim();
               if (!t || t.split('.').length < 2) return json(res, 400, {error: 'provide ?token=<jwt>'});
@@ -1019,91 +1040,6 @@ if (u.pathname === '/') {
                 });
               } catch (e) {
                 return json(res, 400, {valid: false, error: String(e)});
-              }
-            }
-            if (u.pathname === '/phone') {
-      const q = u.searchParams.get('q') || u.searchParams.get('number') || u.searchParams.get('phone');
-      if (!q) return json(res, 400, { error: 'missing ?q=' });
-      const raw = q.trim();
-      // country calling codes (longest-prefix match), ISO + name
-      const CCS = [['1','US/CA','North America'],['7','RU','Russia/Kazakhstan'],['20','EG','Egypt'],['27','ZA','South Africa'],['30','GR','Greece'],['31','NL','Netherlands'],['32','BE','Belgium'],['33','FR','France'],['34','ES','Spain'],['36','HU','Hungary'],['39','IT','Italy'],['40','RO','Romania'],['41','CH','Switzerland'],['43','AT','Austria'],['44','GB','United Kingdom'],['45','DK','Denmark'],['46','SE','Sweden'],['47','NO','Norway'],['48','PL','Poland'],['49','DE','Germany'],['51','PE','Peru'],['52','MX','Mexico'],['53','CU','Cuba'],['54','AR','Argentina'],['55','BR','Brazil'],['56','CL','Chile'],['57','CO','Colombia'],['58','VE','Venezuela'],['60','MY','Malaysia'],['61','AU','Australia'],['62','ID','Indonesia'],['63','PH','Philippines'],['64','NZ','New Zealand'],['65','SG','Singapore'],['66','TH','Thailand'],['81','JP','Japan'],['82','KR','South Korea'],['84','VN','Vietnam'],['86','CN','China'],['90','TR','Turkey'],['91','IN','India'],['92','PK','Pakistan'],['93','AF','Afghanistan'],['94','LK','Sri Lanka'],['95','MM','Myanmar'],['98','IR','Iran'],['211','SS','South Sudan'],['212','MA','Morocco'],['213','DZ','Algeria'],['216','TN','Tunisia'],['218','LY','Libya'],['220','GM','Gambia'],['233','GH','Ghana'],['234','NG','Nigeria'],['250','RW','Rwanda'],['254','KE','Kenya'],['256','UG','Uganda'],['257','BI','Burundi'],['258','MZ','Mozambique'],['260','ZM','Zambia'],['263','ZW','Zimbabwe'],['264','NA','Namibia'],['267','BW','Botswana'],['269','KM','Comoros'],['291','ER','Eritrea'],['299','GL','Greenland'],['350','GI','Gibraltar'],['351','PT','Portugal'],['352','LU','Luxembourg'],['353','IE','Ireland'],['354','IS','Iceland'],['355','AL','Albania'],['356','MT','Malta'],['357','CY','Cyprus'],['358','FI','Finland'],['359','BG','Bulgaria'],['370','LT','Lithuania'],['371','LV','Latvia'],['372','EE','Estonia'],['373','MD','Moldova'],['374','AM','Armenia'],['375','BY','Belarus'],['376','AD','Andorra'],['377','MC','Monaco'],['378','SM','San Marino'],['379','VA','Vatican'],['380','UA','Ukraine'],['381','RS','Serbia'],['382','ME','Montenegro'],['383','XK','Kosovo'],['385','HR','Croatia'],['386','SI','Slovenia'],['387','BA','Bosnia'],['389','MK','North Macedonia'],['420','CZ','Czechia'],['421','SK','Slovakia'],['423','LI','Liechtenstein'],['501','BZ','Belize'],['502','GT','Guatemala'],['503','SV','El Salvador'],['504','HN','Honduras'],['505','NI','Nicaragua'],['506','CR','Costa Rica'],['507','PA','Panama'],['508','PM','St Pierre'],['509','HT','Haiti'],['590','GP','Guadeloupe'],['591','BO','Bolivia'],['592','GY','Guyana'],['593','EC','Ecuador'],['594','GF','French Guiana'],['595','PY','Paraguay'],['596','MQ','Martinique'],['597','SR','Suriname'],['598','UY','Uruguay'],['599','CW','Curaçao'],['670','TL','Timor-Leste'],['672','NF','Norfolk'],['673','BN','Brunei'],['675','PG','Papua New Guinea'],['676','TO','Tonga'],['679','FJ','Fiji'],['685','WS','Samoa'],['687','NC','New Caledonia'],['689','PF','French Polynesia'],['850','KP','North Korea'],['852','HK','Hong Kong'],['853','MO','Macau'],['855','KH','Cambodia'],['856','LA','Laos'],['870','PN',' Pitcairn'],['880','BD','Bangladesh'],['886','TW','Taiwan'],['960','MV','Maldives'],['961','LB','Lebanon'],['962','JO','Jordan'],['963','SY','Syria'],['964','IQ','Iraq'],['965','KW','Kuwait'],['966','SA','Saudi Arabia'],['967','YE','Yemen'],['968','OM','Oman'],['970','PS','Palestine'],['971','AE','UAE'],['972','IL','Israel'],['973','BH','Bahrain'],['974','QA','Qatar'],['975','BT','Bhutan'],['976','MN','Mongolia'],['977','NP','Nepal'],['994','AZ','Azerbaijan'],['995','GE','Georgia'],['996','KG','Kyrgyzstan'],['998','UZ','Uzbekistan']];
-      // strip formatting
-      let hasPlus = raw.startsWith('+');
-      let digits = raw.replace(/[^0-9]/g, '');
-      if (!digits) return json(res, 400, { error: 'no digits found in input' });
-      let natl = null;
-      if (!hasPlus && digits.length > 10 && digits.length <= 11 && digits[0] === '1') { hasPlus = true; digits = digits; }
-      if (!hasPlus && digits.length === 10 && raw.startsWith('0')) { natl = true; }
-      let cc = null, rest = null;
-      for (const [code, iso, name] of CCS) {
-        if (digits.startsWith(code)) { cc = { code, iso, name }; rest = digits.slice(code.length); break; }
-      }
-      // NANP handling: if leading 1 and rest is 10 digits
-      if (cc && cc.code === '1' && rest.length === 11) rest = rest.slice(1);
-      const valid = rest !== null && rest.length >= 4 && rest.length <= 13;
-      // format E.164
-      let e164 = null;
-      if (cc && valid) e164 = '+' + cc.code + rest;
-      // national formatting for 10-digit NANP
-      let pretty = e164;
-      if (cc && cc.code === '1' && rest.length === 10) pretty = `(${rest.slice(0,3)}) ${rest.slice(3,6)}-${rest.slice(6)}`;
-      return json(res, 200, {
-        input: raw,
-        digits: digits,
-        valid: valid,
-        country: cc ? { callingCode: '+' + cc.code, iso: cc.iso, name: cc.name } : null,
-        national: rest,
-        e164: e164,
-        formatted: pretty,
-        note: cc ? null : 'country code not recognized — number may be national format'
-      });
-    }
-    if (u.pathname === '/semver') {
-              const q = u.searchParams;
-              const a = q.get('a'), b = q.get('b'), list = q.get('list');
-              const parse = (v) => {
-                const m = /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+([0-9A-Za-z.-]+))?$/.exec(v.trim());
-                if (!m) throw `invalid semver: ${v}`;
-                return {major: +m[1], minor: +m[2], patch: +m[3], pre: m[4] ? m[4].split('.') : null, build: m[5] || null, raw: v.trim()};
-              };
-              const cmp = (x, y) => {
-                if (x.major !== y.major) return x.major - y.major;
-                if (x.minor !== y.minor) return x.minor - y.minor;
-                if (x.patch !== y.patch) return x.patch - y.patch;
-                const pn = x.pre, qn = y.pre;
-                if (!pn && !qn) return 0;
-                if (!pn) return 1;   // release > prerelease
-                if (!qn) return -1;
-                for (let i = 0; i < Math.max(pn.length, qn.length); i++) {
-                  const p = pn[i], r = qn[i];
-                  if (p === undefined) return -1;
-                  if (r === undefined) return 1;
-                  const pd = /^\d+$/.test(p), rd = /^\d+$/.test(r);
-                  if (pd && rd) { if (+p !== +r) return +p - +r; }
-                  else if (pd) return -1;    // numeric < alphanumeric
-                  else if (rd) return 1;
-                  else if (p !== r) return p < r ? -1 : 1;
-                }
-                return 0;
-              };
-              try {
-                if (list) {
-                  const versions = list.split(',').map(parse);
-                  const sorted = versions.slice().sort(cmp);
-                  return json(res, 200, {input: versions.map(v => v.raw), sorted: sorted.map(v => v.raw), latest: sorted[sorted.length - 1].raw, oldest: sorted[0].raw});
-                }
-                if (!a || !b) return json(res, 400, {error: 'a=<v>&b=<v> to compare | list=<v1,v2,...> to sort'});
-                const x = parse(a), y = parse(b);
-                const c = cmp(x, y);
-                return json(res, 200, {
-                  a: x.raw, b: y.raw,
-                  result: c === 0 ? 'equal' : c < 0 ? 'a < b' : 'a > b',
-                  difference: c === 0 ? 0 : (c < 0 ? -1 : 1),
-                  aParsed: {major: x.major, minor: x.minor, patch: x.patch, prerelease: x.pre ? x.pre.join('.') : null, build: x.build},
-                  bParsed: {major: y.major, minor: y.minor, patch: y.patch, prerelease: y.pre ? y.pre.join('.') : null, build: y.build}
-                });
-              } catch (e) {
-                return json(res, 400, {error: String(e)});
               }
             }
             if (u.pathname === '/jwt') {
