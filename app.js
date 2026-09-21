@@ -1207,7 +1207,7 @@ if (u.pathname === '/') return routeLanding(u, res);
     }
   if (u.pathname === '/useragent') return routeUseragent(u, res, json);
   if (u.pathname === '/jwt') return routeJwt(u, res, json);
-  if (u.pathname === '/pwstrength') return routePassword(u, res, json);
+  if (u.pathname === '/pwstrength') return routePwstrength(u, res, json);
   if (u.pathname === '/cuid') return routeCuid(u, res, json);
   if (u.pathname === '/ulid') return routeUlid(u, res, json);
   if (u.pathname === '/roman') return routeRoman(u, res, json);
