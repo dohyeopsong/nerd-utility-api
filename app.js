@@ -1,3 +1,4 @@
+const { routeSemver } = require('./routes/semver.js'); // semver sort
 const { routeCron } = require('./routes/cron.js'); // cron parse
 const { routeLuhn } = require('./routes/luhn.js'); // luhn validate
 const { routeIsbn } = require('./routes/isbn.js'); // isbn validate
@@ -661,6 +662,10 @@ if (u.pathname === '/') {
             }
             if (u.pathname === '/card') {
               try { return routeCard(u, res, json); }
+              catch (e) { return json(res, 500, { error: e.message }); }
+            }
+            if (u.pathname === '/semver') {
+              try { return routeSemver(u, res, json); }
               catch (e) { return json(res, 500, { error: e.message }); }
             }
             if (u.pathname === '/cron') {
