@@ -918,6 +918,10 @@ if (u.pathname === '/') return routeLanding(u, res);
               try { return routeColor(u, res, json); }
               catch (e) { return json(res, 500, { error: e.message }); }
             }
+            if (u.pathname === '/html-entities') {
+              try { return routeHtmlEntities(u, res, json); }
+              catch (e) { return json(res, 400, { error: e.message }); }
+            }
             if (u.pathname === '/subnet') {
               try { return routeSubnet(u, res, json); }
               catch (e) { return json(res, 500, { error: e.message }); }
