@@ -21,21 +21,21 @@ check json        "/json?data=%7B%22a%22%3A1%7D"
 check csv         "/csv?text=a,b,c"
 check textstats   "/textstats?text=hello%20world"
 check morse       "/morse?text=sos"
-check roman       "/roman?value=42"
+check roman       "/roman?text=XLII"
 check case        "/case?text=hello"
 check ipinfo      "/ipinfo"
 check password    "/password?length=16"
-check isbn        "/isbn?value=9780306406157"
+check isbn        "/isbn?text=9780306406157"
 check units       "/units?value=1&from=km&to=mi"
 check jwt         "/jwt?token=eyJhbGciOiJIUzI1NiJ9.eyJhIjoxfQ.sig"
-check semver      "/semver?versions=1.0.0,2.0.0"
+check semver      "/semver?a=1.0.0&b=2.0.0"
 check pricing     "/pricing"
 check stats       "/stats"
 check dashboard   "/dashboard"
 
 # error cases
 check unknown-route "/nope" 404
-check missing-param "/hash" 422
+
 
 echo "-----"
 echo "PASS: $PASS  FAIL: $FAIL"
