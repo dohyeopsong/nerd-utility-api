@@ -1,3 +1,4 @@
+const { routeCard } = require('./routes/card.js'); // card luhn
 const { routeIban } = require('./routes/iban.js'); // iban validate
 const { routeSubnet } = require('./routes/subnet.js'); // subnet calc
 
@@ -651,6 +652,10 @@ if (u.pathname === '/') {
                 }
               }
               return json(res, 400, {error: `incompatible or unknown units: ${from} -> ${to}`, categories: {length: Object.keys(factors.length), mass: Object.keys(factors.mass), temperature: ['c','f','k'], data: Object.keys(factors.data), volume: Object.keys(factors.volume)}});
+            }
+            if (u.pathname === '/card') {
+              try { return routeCard(u, res, json); }
+              catch (e) { return json(res, 500, { error: e.message }); }
             }
             if (u.pathname === '/iban') {
               try { return routeIban(u, res, json); }
