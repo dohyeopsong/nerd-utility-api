@@ -34,7 +34,7 @@ function routeChmod(u, res, json) {
       const us = bitsOf(input.slice(0, 3)), gr = bitsOf(input.slice(3, 6)), ot = bitsOf(input.slice(6, 9));
       const numeric = us * 64 + gr * 8 + ot;
       return json(res, 200, {
-        input, numeric, octal: String(numeric).padStart(3, '0'), symbolic: input,
+        input, numeric, octal: `${us}${gr}${ot}`, symbolic: input,
         specialBits: { setuid: false, setgid: false, sticky: false },
         breakdown: {
           user:  { octal: us, symbolic: input.slice(0, 3), permissions: namesOf(us) },
