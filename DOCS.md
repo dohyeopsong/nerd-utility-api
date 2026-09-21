@@ -34,3 +34,7 @@ curl -X POST localhost:8080/json2csv -d '[{"a":1,"b":2}]'
 
 ## Self-test
 Run `./selftest.sh` to validate every endpoint.
+
+## Conversion
+- GET|POST /md2html — Markdown → HTML (?md=, POST {"md":"..."}, ?format=html returns text/html)
+- GET|POST /html2md — HTML → Markdown (?html=, ?url= fetches page, POST {"html":"..."} or {"url":"..."})

@@ -123,3 +123,5 @@ Full spec: /openapi.json — Docs: /docs
 - /password?pw=<pw> | gen=<len> — password strength analyzer + secure generator (entropy, crack time, patterns)
 - /cron?expr=<expr> — cron expression explainer with next 3 run times
 - /semver?a=<v>&b=<v> | list=<v,v,...> — semver comparator/sorter (semver.org spec)
+- POST /html2md — HTML to Markdown ({"html": "..."} or {"url": "..."}; also GET ?html= or ?url=)
+- GET|POST /md2html — Markdown to HTML (?md= or POST {"md": "..."}; ?format=html for raw HTML)
