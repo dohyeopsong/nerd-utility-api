@@ -1,18 +1,23 @@
-// NanoID generator: URL-safe alphabet, crypto-secure, configurable length
+// NanoID-style URL-safe unique ID generator
 const crypto = require('crypto');
-const URL_ALPHABET = 'useandom-26T198340PX75pxJACKVERYMINDBUSHWOLFGQZbfghjklqvwyzrictG';
-function nanoid(len = 21) {
-  const bytes = crypto.randomBytes(len);
+function nanoid(size = 21, alphabet = 'useandom-26T198340PX75pxJACKVERYMINDBUSHWOLFGQZbfghjklqvwyzrict') {
   let id = '';
-  for (let i = 0; i < len; i++) id += URL_ALPHABET[bytes[i] % 64];
+  while (id.length < size) {
+    const bytes = crypto.randomBytes(size * 2);
+    for (const b of bytes) {
+      if (b < 256 - (256 % alphabet.length)) {
+        id += alphabet[b % alphabet.length];
+        if (id.length >= size) break;
+      }
+    }
+  }
   return id;
 }
 function routeNanoid(u, res, json) {
   const q = Object.fromEntries(new URL(u, 'http://x').searchParams);
-  const count = Math.min(parseInt(q.count || '1', 10) || 1, 100);
-  const length = Math.min(Math.max(parseInt(q.length || '21', 10) || 21, 4), 64);
-  const ids = [];
-  for (let i = 0; i < count; i++) ids.push(nanoid(length));
-  return json(res, 200, { length, count, ids });
+  const size = Math.min(Math.max(parseInt(q.size || '21', 10) || 21, 1), 256);
+  const count = Math.min(Math.max(parseInt(q.count || '1', 10) || 1, 1), 1000);
+  const ids = Array.from({length: count}, () => nanoid(size));
+  return json(res, 200, { size, count, ids, unique: new Set(ids).size === count });
 }
 module.exports = { routeNanoid, nanoid };
