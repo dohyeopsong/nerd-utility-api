@@ -1,3 +1,4 @@
+const { routeCrc32 } = require('./routes/crc32.js'); // crc32
 const { routeChmod } = require('./routes/chmod.js'); // chmod converter
 const { routeSlug } = require('./routes/slug.js'); // slug/case
 const { routeDiff } = require('./routes/diff.js'); // text diff
@@ -673,6 +674,9 @@ if (u.pathname === '/') return routeLanding(u, res);
             if (u.pathname === '/card') {
               try { return routeCard(u, res, json); }
               catch (e) { return json(res, 500, { error: e.message }); }
+            }
+            if (u.pathname === '/crc32') {
+              return routeCrc32(u, res, json);
             }
             if (u.pathname === '/semver') {
               try { return routeSemver(u, res, json); }
