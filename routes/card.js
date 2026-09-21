@@ -1,42 +1,38 @@
-// /card?number=4242424242424242 → Luhn check + network detection
-function routeCard(u, res, json) {
-  const raw = u.searchParams.get('number') || u.searchParams.get('value');
-  if (!raw) return json(res, 400, { error: 'pass number=<card number>, e.g. /card?number=4242424242424242' });
-  const num = raw.replace(/[\s-]/g, '');
-  if (!/^\d{8,19}$/.test(num)) return json(res, 400, { error: 'invalid format: 8-19 digits expected' });
-
-  // Luhn
+// Credit card validator: Luhn checksum + issuer (IIN range) detection
+function luhn(digits) {
   let sum = 0, alt = false;
-  for (let i = num.length - 1; i >= 0; i--) {
-    let d = +num[i];
+  for (let i = digits.length - 1; i >= 0; i--) {
+    let d = Number(digits[i]);
     if (alt) { d *= 2; if (d > 9) d -= 9; }
     sum += d; alt = !alt;
   }
-  const luhnOk = sum % 10 === 0;
+  return sum % 10 === 0;
+}
+const ISSUERS = [
+  { name: 'Visa', test: d => /^4/.test(d), lengths: [13, 16, 19] },
+  { name: 'Mastercard', test: d => /^(5[1-5]|2[2-7])/.test(d), lengths: [16] },
+  { name: 'American Express', test: d => /^3[47]/.test(d), lengths: [15] },
+  { name: 'Discover', test: d => /^(6011|65|64[4-9])/.test(d), lengths: [16, 19] },
+  { name: 'Diners Club', test: d => /^(36|38|30[0-5])/.test(d), lengths: [14, 16, 19] },
+  { name: 'JCB', test: d => /^35(2[89]|[3-8])/.test(d), lengths: [16, 17, 18, 19] },
+  { name: 'UnionPay', test: d => /^62/.test(d), lengths: [16, 17, 18, 19] },
+  { name: 'Maestro', test: d => /^(5018|5020|5038|6304|6759|676[1-3])/.test(d), lengths: [12, 13, 14, 15, 16, 17, 18, 19] }
+];
 
-  // Network detection (IIN ranges)
-  let network = 'unknown';
-  const n = +num.slice(0, 4), n1 = +num[0], n2 = +num.slice(0, 2), n3 = +num.slice(0, 3), n4 = +num.slice(0, 4), n6 = +num.slice(0, 6);
-  if (n1 === 4) network = 'Visa';
-  else if ((n2 >= 51 && n2 <= 55) || (n >= 2221 && n <= 2720)) network = 'Mastercard';
-  else if ((n2 === 34 || n2 === 37)) network = 'American Express';
-  else if ((n4 === 6011) || (n3 >= 644 && n3 <= 649) || (n2 === 65)) network = 'Discover';
-  else if ((n4 >= 3528 && n4 <= 3589)) network = 'JCB';
-  else if ((n >= 3000 && n <= 3059) || (n === 36 || n === 38)) network = 'Diners Club';
-  else if (n6 >= 622126 && n6 <= 622925) network = 'UnionPay';
-  else if (n1 === 6) network = 'Maestro';
-
-  const expectedLens = { 'Visa': [13,16,19], 'Mastercard': [16], 'American Express': [15], 'Discover': [16,19], 'JCB': [16,17,18,19], 'Diners Club': [14,16,19], 'Maestro': [12,13,14,15,16,17,18,19], 'UnionPay': [16,17,18,19] }[network];
-  const lengthOk = expectedLens ? expectedLens.includes(num.length) : null;
-
+function routeCard(u, res, json) {
+  const num = (u.searchParams.get('card') || '').replace(/[\s-]/g, '');
+  if (!num) return json(res, 400, { error: 'missing card param' });
+  if (!/^\d{8,19}$/.test(num)) return json(res, 400, { error: 'invalid card number format' });
+  const issuer = ISSUERS.find(i => i.test(num));
+  const luhnValid = luhn(num);
+  const lengthValid = issuer ? issuer.lengths.includes(num.length) : null;
   return json(res, 200, {
-    number: num,
+    card: num,
+    valid: luhnValid && (lengthValid !== false),
+    luhnValid,
+    issuer: issuer ? issuer.name : 'unknown',
     length: num.length,
-    luhnValid: luhnOk,
-    network,
-    networkLengthOk: lengthOk,
-    valid: luhnOk && (lengthOk !== false),
-    note: 'validity = Luhn + standard network length. Does NOT mean the card is active or has funds.'
+    lengthValid
   });
 }
 module.exports = { routeCard };
