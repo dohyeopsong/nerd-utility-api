@@ -1,0 +1,11 @@
+{
+  "name": "nerd-utility-mcp",
+  "version": "1.0.0",
+  "description": "MCP server exposing the Nerd Utility API (45+ endpoints: format, validators, decoders, converters)",
+  "main": "src/mcp-server.js",
+  "bin": { "nerd-utility-mcp": "src/mcp-server.js" },
+  "scripts": { "start": "node src/mcp-server.js" },
+  "keywords": ["mcp", "utility", "api", "validator", "model-context-protocol"],
+  "license": "MIT",
+  "engines": { "node": ">=18" }
+}

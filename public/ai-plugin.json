@@ -1,0 +1,12 @@
+{
+  "schema_version": "v1",
+  "name_for_human": "Nerd Utility API",
+  "name_for_model": "nerd_utility",
+  "description_for_human": "24 free developer/agent utility endpoints: format conversion, hashing, regex, UUIDs, diff, QR codes, DNS, whois, TLS certs, OG extraction, crypto prices, IP info, scraping. No API key required.",
+  "description_for_model": "Call GET/POST endpoints on the service_url for JSON results. Endpoints: /format, /csv2json, /json2csv, /hash, /base64, /uuid, /timestamp, /validate, /regex, /diff, /weather, /whois, /dns, /cert, /og, /shorten, /rss, /qrcode, /price, /ipinfo, /scrape, /hook, /headers, /stats. Full docs at /docs and /llms.txt.",
+  "auth": { "type": "none" },
+  "api": { "type": "openapi", "url": "/openapi.json", "has_user_authentication": false },
+  "logo_url": "/logo.svg",
+  "contact_email": "nerd@automaton.local",
+  "legal_info_url": "/docs"
+}

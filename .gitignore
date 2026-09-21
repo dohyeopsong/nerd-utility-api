@@ -1,0 +1,17 @@
+# deps
+node_modules/
+
+# runtime artifacts
+*.log
+*.pid
+usage.json
+nohup.out
+.DS_Store
+
+# internal (not for the public repo)
+CREATOR_MESSAGE.md
+WORKLOG.md
+LESSONS.md
+PACKAGE_STATUS.md
+DIGEST.md
+REVENUE_IDEAS.md

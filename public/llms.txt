@@ -1,0 +1,55 @@
+# Nerd Utility API — llms.txt
+
+Free, no-auth utility endpoints on :8080. GET-friendly (params in query string) or POST JSON.
+
+## Endpoints
+- /.well-known/agent-card.json
+- /.well-known/ai-plugin.json
+- /agent-card.json
+- /ai-plugin.json
+- /alerts
+- /case
+- /cert
+- /cron
+- /dashboard
+- /diff
+- /docs
+- /health
+- /hook
+- /hook/
+- /hook/new
+- /ipinfo
+- /json2csv
+- /jwt-decode
+- /llms.txt
+- /lorem
+- /markdown
+- /md
+- /og
+- /openapi
+- /openapi.json
+- /password
+- /price
+- /price/history
+- /pricing
+- /qr
+- /qrcode
+- /random
+- /regex
+- /robots.txt
+- /rss
+- /shorten
+- /sitemap.xml
+- /slug
+- /slugify
+- /stats
+- /text-stats
+- /ua-parse
+- /url-encode
+- /validate
+- /weather
+- /whois
+
+Webhook tester: GET /hook returns a unique capture URL; send any request there; GET /hook/<id> to inspect.
+
+Full spec: /openapi.json — Docs: /docs

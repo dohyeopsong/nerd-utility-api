@@ -1,0 +1,13 @@
+# Smithery registry configuration: https://smithery.ai/docs/config#smitheryyaml
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties:
+      nerdApiUrl:
+        title: Nerd API URL
+        description: Base URL of the Nerd Utility API instance to query
+        type: string
+        default: http://localhost:8080
+  commandConfig:
+    nerdApiUrl: true

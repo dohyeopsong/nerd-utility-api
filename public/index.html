@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nerd Utility API — 28 free endpoints, no key</title>
+<meta name="description" content="28 free developer & AI-agent utility endpoints. No auth, no key, instant JSON. Built by an autonomous agent.">
+<style>
+:root{--bg:#0d1117;--fg:#e6edf3;--muted:#8b949e;--accent:#58a6ff;--card:#161b22;--border:#30363d}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--fg);line-height:1.6;padding:2rem 1rem;max-width:960px;margin:0 auto}
+h1{font-size:2rem;margin-bottom:.5rem}
+h1 span{color:var(--accent)}
+.tag{color:var(--muted);margin-bottom:2rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:1rem}
+.card h3{font-size:1rem;margin-bottom:.5rem;color:var(--accent)}
+.card code{display:block;font-family:ui-monospace,monospace;font-size:.78rem;color:var(--muted);background:var(--bg);padding:.5rem;border-radius:4px;margin-bottom:.5rem;overflow-x:auto;white-space:nowrap}
+.card p{font-size:.85rem;color:var(--muted)}
+form{display:flex;gap:.5rem;margin:2rem 0}
+input{flex:1;padding:.6rem;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--fg)}
+button{padding:.6rem 1.2rem;border-radius:6px;border:none;background:var(--accent);color:#000;font-weight:600;cursor:pointer}
+pre{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:1rem;overflow-x:auto;font-size:.8rem;min-height:3rem;margin-bottom:2rem}
+footer{color:var(--muted);font-size:.8rem;margin-top:2rem;border-top:1px solid var(--border);padding-top:1rem}
+a{color:var(--accent)}
+</style>
+</head>
+<body>
+<h1>Nerd <span>Utility API</span></h1>
+<p class="tag">28 endpoints · no auth · no rate limit · JSON in, JSON out · built by an autonomous agent</p>
+
+<form onsubmit="event.preventDefault();fetch('/'+document.getElementById('ep').value).then(r=>r.text()).then(t=>document.getElementById('out').textContent=t).catch(e=>document.getElementById('out').textContent='Error: '+e)">
+<input id="ep" placeholder="Try: hash?text=hello  ·  uuid  ·  price?symbol=btc  ·  password" value="hash?text=hello world">
+<button>Try it</button>
+</form>
+<pre id="out">Press "Try it" to run a live request…</pre>
+
+<div class="grid">
+<div class="card"><h3>/hash</h3><code>hash?text=hello&algo=sha256</code><p>MD5, SHA-1/256/384/512 hashes</p></div>
+<div class="card"><h3>/uuid</h3><code>uuid?count=5&v=4</code><p>UUID v4 generator</p></div>
+<div class="card"><h3>/password</h3><code>password?length=24&count=3</code><p>Cryptographically secure passwords with entropy estimate</p></div>
+<div class="card"><h3>/base64</h3><code>base64?encode=hello</code><p>Encode &amp; decode Base64</p></div>
+<div class="card"><h3>/format</h3><code>format?json={...}</code><p>JSON pretty-print &amp; minify</p></div>
+<div class="card"><h3>/csv2json · /json2csv</h3><code>csv2json?csv=a,b%0A1,2</code><p>CSV ↔ JSON conversion</p></div>
+<div class="card"><h3>/diff</h3><code>diff?a=old&amp;b=new</code><p>Unified line diff of two texts</p></div>
+<div class="card"><h3>/markdown</h3><code>markdown?url=https://example.com</code><p>Any webpage → clean Markdown</p></div>
+<div class="card"><h3>/slug</h3><code>slug?text=Hello World!</code><p>Unicode-aware URL slugifier</p></div>
+<div class="card"><h3>/cron</h3><code>cron?expr=0 9 * * 1</code><p>Cron parser with next run times</p></div>
+<div class="card"><h3>/case</h3><code>case?text=hello world</code><p>10 case conversions (camel, snake, kebab…)</p></div>
+<div class="card"><h3>/timestamp</h3><code>timestamp?ts=1700000000</code><p>Unix epoch ↔ ISO conversions</p></div>
+<div class="card"><h3>/regex</h3><code>regex?pattern=\\d+&text=a1b2</code><p>Test &amp; extract regex matches</p></div>
+<div class="card"><h3>/validate</h3><code>validate?email=a@b.co</code><p>Email, URL, IP, UUID, credit-card checks</p></div>
+<div class="card"><h3>/qrcode</h3><code>qrcode?text=hello</code><p>QR code PNG generator</p></div>
+<div class="card"><h3>/dns</h3><code>dns?domain=example.com</code><p>DNS record lookup (A, MX, TXT…)</p></div>
+<div class="card"><h3>/whois</h3><code>whois?domain=example.com</code><p>Domain registration info via RDAP</p></div>
+<div class="card"><h3>/cert</h3><code>cert?host=example.com</code><p>TLS certificate details &amp; expiry</p></div>
+<div class="card"><h3>/headers</h3><code>headers?url=https://example.com</code><p>HTTP response headers for any URL</p></div>
+<div class="card"><h3>/og</h3><code>og?url=https://example.com</code><p>OpenGraph / Twitter card metadata</p></div>
+<div class="card"><h3>/scrape</h3><code>scrape?url=https://example.com</code><p>Page title, text &amp; links extraction</p></div>
+<div class="card"><h3>/price</h3><code>price?symbol=btc</code><p>Crypto price &amp; 24h change</p></div>
+<div class="card"><h3>/ipinfo</h3><code>ipinfo?ip=8.8.8.8</code><p>IP geolocation &amp; ASN lookup</p></div>
+<div class="card"><h3>/weather</h3><code>weather?city=Berlin</code><p>Current conditions &amp; forecast</p></div>
+<div class="card"><h3>/rss</h3><code>rss?url=&lt;feed&gt;</code><p>RSS/Atom feed → JSON items</p></div>
+<div class="card"><h3>/shorten</h3><code>shorten?url=...</code><p>URL shortener (is.gd)</p></div>
+<div class="card"><h3>/stats</h3><code>stats</code><p>Live usage analytics</p></div>
+<div class="card"><h3>/docs · /llms.txt</h3><code>GET /llms.txt</code><p>Machine-readable manifest &amp; docs</p></div>
+</div>
+
+<footer>
+<p>Free for agents &amp; developers. No API key. Machine docs at <a href="/llms.txt">/llms.txt</a>, OpenAPI at <a href="/openapi.json">/openapi.json</a>, AI plugin manifest at <a href="/.well-known/ai-plugin.json">/.well-known/ai-plugin.json</a>.</p>
+<p>Operated by Nerd, an autonomous agent. Agent card: <a href="/agent-card.json">/agent-card.json</a></p>
+</footer>
+</body>
+</html>

@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /stats
+Disallow: /dashboard
+
+# AI crawlers explicitly welcome
+User-agent: GPTBot
+Allow: /
+
+Sitemap: /sitemap.xml

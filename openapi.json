@@ -1,0 +1,879 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Nerd Utility API",
+    "version": "1.0.0",
+    "description": "Free utility microservice: data formatting, hashing, encoding, QR codes, DNS, price feeds, text analysis, and more. Built by an autonomous agent."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health check",
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      }
+    },
+    "/pricing": {
+      "get": {
+        "summary": "Endpoint pricing list",
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      }
+    },
+    "/docs": {
+      "get": {
+        "summary": "HTML documentation",
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      }
+    },
+    "/stats": {
+      "get": {
+        "summary": "Usage analytics",
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      }
+    },
+    "/format": {
+      "post": {
+        "summary": "Pretty-print JSON",
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      }
+    },
+    "/csv2json": {
+      "post": {
+        "summary": "Convert CSV to JSON",
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      }
+    },
+    "/json2csv": {
+      "post": {
+        "summary": "Convert JSON to CSV",
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      }
+    },
+    "/base64": {
+      "post": {
+        "summary": "Base64 encode/decode",
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      }
+    },
+    "/hash": {
+      "post": {
+        "summary": "Hash text (md5/sha1/sha256)",
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      }
+    },
+    "/uuid": {
+      "post": {
+        "summary": "Generate UUID",
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      }
+    },
+    "/timestamp": {
+      "post": {
+        "summary": "Unix timestamp conversion",
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      }
+    },
+    "/text-stats": {
+      "post": {
+        "summary": "Word/char counts and text analysis",
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      }
+    },
+    "/qrcode": {
+      "post": {
+        "summary": "Generate QR code (svg/png/ascii)",
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      }
+    },
+    "/dns": {
+      "post": {
+        "summary": "DNS lookup",
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      }
+    },
+    "/headers": {
+      "post": {
+        "summary": "Fetch URL response headers",
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      }
+    },
+    "/price": {
+      "post": {
+        "summary": "Crypto price feed",
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      }
+    },
+    "/price/history": {
+      "post": {
+        "summary": "Historical crypto prices",
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      }
+    },
+    "/ipinfo": {
+      "get": {
+        "summary": "Client IP and headers",
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      }
+    },
+    "/scrape": {
+      "post": {
+        "summary": "Scrape a URL and extract text",
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      }
+    },
+    "/alerts": {
+      "get": {
+        "summary": "List price alerts",
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create price alert rule",
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete alert rule",
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      }
+    },
+    "/random": {
+      "get": {
+        "summary": "Random integer between min and max",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/password": {
+      "get": {
+        "summary": "Generate a secure random password (length 8-128, exclude sets)",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/lorem": {
+      "get": {
+        "summary": "Lorem ipsum placeholder text (words=30, start=false)",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/slugify": {
+      "get": {
+        "summary": "Convert text to a URL-safe slug",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/case": {
+      "get": {
+        "summary": "Convert text case: upper, lower, title, camel, snake",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/url-encode": {
+      "get": {
+        "summary": "URL encode/decode text",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/barcode": {
+      "get": {
+        "summary": "Validate EAN-8/EAN-13/UPC-A barcodes with checksum and GS1 country lookup",
+        "operationId": "barcode",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "required": false,
+            "description": "code input",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/cert": {
+      "get": {
+        "summary": "TLS certificate lookup: issuer, validity, SANs, days-until-expiry",
+        "operationId": "cert",
+        "parameters": [
+          {
+            "name": "host",
+            "in": "query",
+            "required": false,
+            "description": "host input",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/cron": {
+      "get": {
+        "summary": "Explain a cron expression and list next 3 run times",
+        "operationId": "cron",
+        "parameters": [
+          {
+            "name": "expr",
+            "in": "query",
+            "required": true,
+            "description": "expr input",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/csv": {
+      "get": {
+        "summary": "Convert CSV to JSON or JSON to CSV",
+        "operationId": "csv",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/dashboard": {
+      "get": {
+        "summary": "Live HTML usage dashboard",
+        "operationId": "dashboard",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/diff": {
+      "get": {
+        "summary": "Unified line diff between two texts",
+        "operationId": "diff",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/faker": {
+      "get": {
+        "summary": "Generate fake test data (names, emails, etc.)",
+        "operationId": "faker",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/hook": {
+      "get": {
+        "summary": "Webhook tester",
+        "operationId": "hook",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/iban": {
+      "get": {
+        "summary": "Validate IBAN (country lengths + mod-97 checksum)",
+        "operationId": "iban",
+        "parameters": [
+          {
+            "name": "iban",
+            "in": "query",
+            "required": true,
+            "description": "iban input",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/isbn": {
+      "get": {
+        "summary": "Validate ISBN-10/13 checksums, convert between formats",
+        "operationId": "isbn",
+        "parameters": [
+          {
+            "name": "isbn",
+            "in": "query",
+            "required": true,
+            "description": "isbn input",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/jwt": {
+      "get": {
+        "summary": "JWT inspector: decode header/payload, check exp/nbf/iat",
+        "operationId": "jwt",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "required": false,
+            "description": "token input",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/jwt-decode": {
+      "get": {
+        "summary": "Decode JWT header/payload (legacy alias)",
+        "operationId": "jwt-decode",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "required": false,
+            "description": "token input",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/markdown": {
+      "get": {
+        "summary": "Convert fetched HTML to clean Markdown",
+        "operationId": "markdown",
+        "parameters": [
+          {
+            "name": "url",
+            "in": "query",
+            "required": false,
+            "description": "url input",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/og": {
+      "get": {
+        "summary": "Extract OpenGraph/Twitter meta tags for link previews",
+        "operationId": "og",
+        "parameters": [
+          {
+            "name": "url",
+            "in": "query",
+            "required": false,
+            "description": "url input",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/otp": {
+      "get": {
+        "summary": "Generate a TOTP/OTP code",
+        "operationId": "otp",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/paste": {
+      "get": {
+        "summary": "Create a paste (POST body), fetch at /p/:id",
+        "operationId": "paste",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/qr": {
+      "get": {
+        "summary": "QR code generator (alias of qrcode)",
+        "operationId": "qr",
+        "parameters": [
+          {
+            "name": "text",
+            "in": "query",
+            "required": false,
+            "description": "text input",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/regex": {
+      "get": {
+        "summary": "Test a regex against text, get match info",
+        "operationId": "regex",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/rss": {
+      "get": {
+        "summary": "Fetch an RSS/Atom feed and return clean JSON items",
+        "operationId": "rss",
+        "parameters": [
+          {
+            "name": "url",
+            "in": "query",
+            "required": false,
+            "description": "url input",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/semver": {
+      "get": {
+        "summary": "Compare or sort semver versions (semver.org spec)",
+        "operationId": "semver",
+        "parameters": [
+          {
+            "name": "a",
+            "in": "query",
+            "required": true,
+            "description": "first version",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "b",
+            "in": "query",
+            "description": "second version (or use list=)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/shorten": {
+      "get": {
+        "summary": "URL shortener: returns short code, redirects at /s/:code",
+        "operationId": "shorten",
+        "parameters": [
+          {
+            "name": "url",
+            "in": "query",
+            "required": false,
+            "description": "url input",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/slug": {
+      "get": {
+        "summary": "Slugify text into URL-safe form",
+        "operationId": "slug",
+        "parameters": [
+          {
+            "name": "text",
+            "in": "query",
+            "required": false,
+            "description": "text input",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/ts": {
+      "get": {
+        "summary": "Timestamp converter (unix <-> ISO)",
+        "operationId": "ts",
+        "parameters": [
+          {
+            "name": "ts",
+            "in": "query",
+            "required": false,
+            "description": "ts input",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/ua-parse": {
+      "get": {
+        "summary": "Parse a User-Agent string: browser, OS, device, bot",
+        "operationId": "ua-parse",
+        "parameters": [
+          {
+            "name": "ua",
+            "in": "query",
+            "required": false,
+            "description": "ua input",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/units": {
+      "get": {
+        "summary": "Convert between units (length, mass, temperature, data, volume)",
+        "operationId": "units",
+        "parameters": [
+          {
+            "name": "value",
+            "in": "query",
+            "required": false,
+            "description": "value input",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/validate": {
+      "get": {
+        "summary": "Validate email/url/ipv4/ipv6/json/uuid/luhn",
+        "operationId": "validate",
+        "parameters": [
+          {
+            "name": "value",
+            "in": "query",
+            "required": false,
+            "description": "value input",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/vin": {
+      "get": {
+        "summary": "Decode/validate a 17-char VIN: check digit, WMI, model year, region",
+        "operationId": "vin",
+        "parameters": [
+          {
+            "name": "vin",
+            "in": "query",
+            "required": true,
+            "description": "vin input",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/weather": {
+      "get": {
+        "summary": "Weather via Open-Meteo: current + forecast by city or lat/lon",
+        "operationId": "weather",
+        "parameters": [
+          {
+            "name": "city",
+            "in": "query",
+            "required": false,
+            "description": "city input",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/whois": {
+      "get": {
+        "summary": "RDAP domain lookup with registrar and dates",
+        "operationId": "whois",
+        "parameters": [
+          {
+            "name": "domain",
+            "in": "query",
+            "required": false,
+            "description": "domain input",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/md": {
+      "get": {
+        "summary": "Convert Markdown to HTML",
+        "operationId": "md",
+        "parameters": [
+          {
+            "name": "text",
+            "in": "query",
+            "required": false,
+            "description": "text input",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    }
+  }
+}

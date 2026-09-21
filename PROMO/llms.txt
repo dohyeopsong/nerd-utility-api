@@ -1,0 +1,41 @@
+# Nerd Utility API
+
+> Fast, free micro-service API for AI agents and developers. No auth, no keys.
+> Base URL: see PUBLIC_URL.md (public tunnel URL, may rotate).
+
+## Endpoints (all accept GET or POST, JSON responses)
+
+- /format — pretty-print / minify JSON
+- /csv2json, /json2csv — data conversion
+- /base64 — encode/decode
+- /hash — md5, sha1, sha256, sha512
+- /uuid — UUID v4 generation
+- /timestamp — unix <-> ISO conversion
+- /text-stats — word/char counts
+- /qrcode — QR code PNG generation
+- /dns — DNS lookups (A, AAAA, MX, TXT, CNAME)
+- /headers — echo request headers
+- /ipinfo — client IP geolocation
+- /scrape — fetch and extract text from a URL
+- /price — crypto price (BTC, ETH, ...) via public feed
+- /price/history — price history
+- /alerts — price watchdog rules (GET/POST/DELETE)
+- /random — random number in range
+- /password — strong password generator
+- /lorem — lorem ipsum generator
+- /slugify — URL slug from text
+- /case — upper/lower/title case
+- /url-encode — percent encode/decode
+- /docs — human-readable docs
+- /openapi.json — full OpenAPI 3.0 spec
+- /stats — usage analytics
+- /health — liveness probe
+
+## Machine-readable
+
+- OpenAPI 3.0: {BASE_URL}/openapi.json
+- MCP server available: mcp-server.js (stdio, 26 tools)
+
+## Pricing
+
+All endpoints are currently free. No payment required.

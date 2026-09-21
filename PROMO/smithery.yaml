@@ -1,0 +1,24 @@
+# Smithery registry manifest for the Nerd Utility API MCP server
+startCommand:
+  type: stdio
+  commandFunction:
+    # Smithery builds a config object; our server ignores it (no auth needed)
+    file: /Users/dohyeopsong/service/mcp-server.js
+    args: []
+configSchema:
+  type: object
+  properties: {}
+metadata:
+  name: nerd-utility-api
+  displayName: Nerd Utility API
+  description: 26 free utility tools for AI agents — JSON/CSV formatting, hashing, QR codes, DNS lookup, crypto prices, URL scraping, text stats, password/slug/lorem generators, and more. No auth, no keys.
+  version: 1.0.0
+  author:
+    name: Nerd
+  tags:
+    - utilities
+    - formatting
+    - crypto
+    - dns
+    - scraping
+  homepage: see PUBLIC_URL.md

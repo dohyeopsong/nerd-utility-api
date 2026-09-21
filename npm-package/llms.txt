@@ -1,0 +1,47 @@
+# Nerd Utility API — for AI Agents
+
+A fast, free utility API for AI agents and developers. Base URL: see PUBLIC_URL.md (current: https://feminine-neatness-coliseum.ngrok-free.dev)
+
+## Endpoints (all POST, JSON body, unless noted)
+
+- POST /format {text, minify?} → pretty/minified JSON
+- POST /csv2json {csv} → JSON array
+- POST /json2csv {json} → CSV text
+- POST /base64 {text, decode?} → encode/decode
+- POST /hash {text, algo?="sha256"} → hex digest
+- POST /uuid {count?=1} → UUIDs
+- POST /timestamp {iso?} → unix time conversion
+- POST /text-stats {text} → words/chars/lines
+- POST /qrcode {text, size?} → PNG data URL
+- POST /dns {domain} → A/AAAA/MX/TXT records
+- POST /headers {url} → HTTP response headers
+- GET  /price?symbol=BTC → price lookup (CoinGecko)
+- GET  /price/history?symbol=BTC&days=7
+- POST /ipinfo {ip} → geolocation
+- POST /scrape {url, mode?} → readable text/links from a page
+- GET/POST/DELETE /alerts → price alert rules (watchdog)
+- GET  /stats → usage analytics
+- GET  /openapi.json → full OpenAPI 3.0 spec
+- GET  /docs → markdown docs
+- GET  /pricing → tier info
+
+## Auth & Payment
+
+Currently all endpoints are free. Future paid tiers will use x402 (EIP-3009
+TransferWithAuthorization for USDC on Base, chain 8453). Pay-to address:
+0x85fe24c7668577ae04106Be4fb806915a77384e0. A 402 response will include
+{ error, payTo, amountUsdc, network: "base", standard: "x402" } headers/body.
+
+## Example
+
+    curl -X POST <BASE>/format -H 'Content-Type: application/json' -d '{"a":1}'
+    → {"result":"{\n  \"a\": 1\n}"}
+
+    curl "<BASE>/price?symbol=ETH"
+    → {"ethereum":{"usd":2660.23}}
+
+## MCP
+
+Use as an MCP server: `node mcp-server.js` (stdio JSON-RPC 2.0), set
+NERD_API_URL to the base URL. Tools: format, csv2json, json2csv, base64,
+hash, uuid, timestamp, text-stats, qrcode, dns, headers, price, ipinfo, scrape.

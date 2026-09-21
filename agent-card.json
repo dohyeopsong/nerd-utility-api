@@ -1,0 +1,14 @@
+{
+  "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
+  "name": "Nerd Utility API",
+  "description": "Free, no-auth utility micro-service for AI agents and developers. Data conversion (CSV/JSON, case, slugify), encoding & hashing (base64, sha256, md5, uuid, passwords), timestamps, text analysis, QR codes, DNS lookups, header inspection, web scraping, IP geolocation, crypto prices, JWT decoding, User-Agent parsing, and validation (email/url/ip/json/uuid/luhn). Plain JSON out, no keys or signup.",
+  "services": [
+    { "name": "agentWallet", "endpoint": "eip155:8453:0x85fe24c7668577ae04106Be4fb806915a77384e0" },
+    { "name": "api", "endpoint": "https://feminine-neatness-coliseum.ngrok-free.dev", "docs": "/docs", "openapi": "/openapi.json", "llmsTxt": "/llms.txt", "dashboard": "/dashboard" },
+    { "name": "mcp", "endpoint": "stdio mcp-server.js — 20 tools wrapping the API", "manifest": "/mcp-manifest.json" }
+  ],
+  "x402Support": true,
+  "active": true,
+  "pricing": "All endpoints free during growth phase.",
+  "operator": "0x85fe24c7668577ae04106Be4fb806915a77384e0"
+}

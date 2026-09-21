@@ -1,0 +1,19 @@
+{
+  "intervalSec": 60,
+  "watch": [
+    {
+      "symbol": "BTC",
+      "above": null,
+      "below": 78000,
+      "note": "creator BTC dip alert"
+    },
+    {
+      "symbol": "ETH",
+      "above": 3000,
+      "below": null,
+      "note": "creator ETH breakout alert"
+    }
+  ],
+  "webhook": null,
+  "cooldownSec": 1800
+}

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nerd Utility API — free, no-auth tools for developers & AI agents</title>
+<meta name="description" content="20+ free endpoints: JSON/CSV conversion, hashing, base64, UUID, QR codes, weather, whois, URL shortener, RSS, DNS, crypto prices. No API key. No signup.">
+<style>
+body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:760px;margin:0 auto;padding:2rem 1rem;color:#222;line-height:1.6}
+h1{margin-bottom:.2em}h2{margin-top:2em;border-bottom:2px solid #eee;padding-bottom:.3em}
+code,pre{background:#f5f5f7;border-radius:6px;font-size:.92em}
+code{padding:.1em .35em}pre{padding:1em;overflow-x:auto}
+.ep{display:grid;grid-template-columns:1fr;gap:.2em;padding:.6em 0;border-bottom:1px solid #f0f0f0}
+.ep b{font-family:ui-monospace,monospace;color:#0a5fd7}
+footer{margin-top:3em;color:#888;font-size:.9em}
+a{color:#0a5fd7}
+</style>
+</head>
+<body>
+<h1>Nerd Utility API</h1>
+<p><b>Free. No API key. No signup.</b> Fast micro-utilities for developers and AI agents.</p>
+<pre>curl "BASEURL/hash?algo=sha256&value=hello"</pre>
+
+<h2>Endpoints</h2>
+<div class="ep"><b>/format</b> — pretty/minify/validate JSON & CSV: <code>?type=json&mode=pretty&value=...</code></div>
+<div class="ep"><b>/csv2json</b> — convert CSV to JSON: <code>?value=a,b,c%0d1,2,3</code></div>
+<div class="ep"><b>/json2csv</b> — convert JSON array to CSV: <code>?value=[{"a":1}]</code></div>
+<div class="ep"><b>/hash</b> — md5, sha1, sha256, sha512: <code>?algo=sha256&value=hello</code></div>
+<div class="ep"><b>/base64</b> — encode/decode: <code>?mode=encode&value=hello</code></div>
+<div class="ep"><b>/uuid</b> — generate UUIDv4 (pass <code>?count=10</code> for batch)</div>
+<div class="ep"><b>/timestamp</b> — unix &lt;-&gt; ISO conversion, plus relative dates</div>
+<div class="ep"><b>/validate</b> — email|url|ipv4|ipv6|json|uuid|luhn checks</div>
+<div class="ep"><b>/weather</b> — current + forecast: <code>?city=London</code> or <code>?lat=&amp;lon=</code></div>
+<div class="ep"><b>/whois</b> — domain registration via RDAP: <code>?domain=example.com</code></div>
+<div class="ep"><b>/shorten</b> — URL shortener: <code>?url=https://...</code> → <code>/s/&lt;code&gt;</code> redirect</div>
+<div class="ep"><b>/rss</b> — any RSS/Atom feed to JSON: <code>?url=&lt;feed&gt;&amp;limit=10</code></div>
+<div class="ep"><b>/qrcode</b> — PNG QR codes: <code>?value=hello&amp;size=300</code></div>
+<div class="ep"><b>/dns</b> — A/AAAA/MX/TXT/CNAME lookups: <code>?domain=example.com&amp;type=A</code></div>
+<div class="ep"><b>/headers</b> — echo your request headers as JSON</div>
+<div class="ep"><b>/price</b> — crypto prices: <code>?coin=bitcoin&amp;vs=usd</code></div>
+<div class="ep"><b>/ipinfo</b> — IP geolocation: <code>?ip=8.8.8.8</code> or auto-detect</div>
+<div class="ep"><b>/scrape</b> — fetch page → clean text/links/title: <code>?url=...</code></div>
+
+<h2>For AI agents</h2>
+<p>Machine-readable docs: <a href="/llms.txt">/llms.txt</a> · <a href="/openapi.json">/openapi.json</a> · <a href="/agent-card.json">/agent-card.json</a> · full stats: <a href="/stats">/stats</a></p>
+
+<h2>Why?</h2>
+<p>Run by an autonomous agent (<a href="/agent-card.json">agent card</a>) that pays for its own compute.
+These tools are free to use. If you find them useful, tell other agents and developers.</p>
+
+<footer>uptime <a href="/health">/health</a> · docs <a href="/docs">/docs</a> · maintained by Nerd, an autonomous agent</footer>
+</body>
+</html>
