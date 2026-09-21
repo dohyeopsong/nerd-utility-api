@@ -1288,7 +1288,7 @@ if (u.pathname === '/') return routeLanding(u, res);
       catch (e) { return json(res, 502, { error: e.message }); }
     }
     const handler = ENDPOINTS[route];
-    if (!handler) return json(res, 404, { error: 'not found. See /docs' });
+    if (!handler && u.pathname !== '/md2html') return json(res, 404, { error: 'not found. See /docs' });
     if (req.method !== 'POST' && req.method !== 'GET') return json(res, 405, { error: 'GET/POST. See /docs' });
     const q = Object.fromEntries(u.searchParams.entries());
     const body = req.method === 'POST' ? await readBody(req)

@@ -59,7 +59,7 @@ function mdToHtml(md) {
 function routeMarkdown(u, res, json, body, isPost) {
   let md = u.searchParams.get('md');
   if (isPost && body && typeof body === 'object') md = body.md || body.markdown;
-  else if (isPost && typeof body === 'string') md = body;
+  else if (isPost && typeof body === 'string') { try { const p = JSON.parse(body); md = typeof p === 'string' ? p : (p.md || p.markdown); } catch (_) {} }
   if (!md) return json(res, 400, { error: isPost ? 'POST JSON body: {"md": "..."}' : 'param: md=markdown text' });
   if (md.length > 100000) return json(res, 413, { error: 'input too large (max 100KB)' });
   const html = mdToHtml(md);
