@@ -35,7 +35,8 @@ function generate({ prefix = '', length = 16 } = {}) {
 async function routeLuhn(u, res, json) {
   const q = u.searchParams;
   try {
-    if (q.get('validate')) return json(res, 200, validate(q.get('validate')));
+    const v = q.get('validate') || q.get('number');
+    if (v) return json(res, 200, validate(v));
     if (q.get('generate') !== null) {
       const prefix = q.get('generate') || q.get('prefix') || '';
       return json(res, 200, { number: generate({ prefix, length: Math.min(19, Math.max(2, +q.get('length') || 16)) }) });
