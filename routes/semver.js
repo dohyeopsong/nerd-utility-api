@@ -77,12 +77,13 @@ function routeSemver(u, res, json) {
 }
 function semverRangeMatch(range, p) {
   if (range === '*' || range === '') return true;
-  let m = range.match(/^[\^~]?(0|[1-9]\d*)(?:\.(0|[1-9]\d*))?(?:\.(0|[1-9]\d*))?/);
-  if (!m) throw new Error('bad range: ' + range);
-  const op = range[0] === '^' ? '^' : range[0] === '~' ? '~' : '';
-  const maj = +m[1], min = m[2] !== undefined ? +m[2] : null, pat = m[3] !== undefined ? +m[3] : null;
-  // comparison operators
   const c = range.match(/^(>=|<=|>|<|=)\s*(.+)$/);
+  if (!c) {
+    var m = range.match(/^[\^~]?(0|[1-9]\d*)(?:\.(0|[1-9]\d*))?(?:\.(0|[1-9]\d*))?/);
+    if (!m) throw new Error('bad range: ' + range);
+  }
+  const op = range[0] === '^' ? '^' : range[0] === '~' ? '~' : '';
+  const maj = c ? null : +m[1], min = c ? null : (m[2] !== undefined ? +m[2] : null), pat = c ? null : (m[3] !== undefined ? +m[3] : null);
   if (c) {
     const op2 = c[1], target = parseSemver(c[2]);
     if (!target) throw new Error('bad version in range');
