@@ -1,6 +1,7 @@
 const { routeHtml2md } = require('./routes/html2md.js'); // html2md
 const { routeIso } = require('./routes/iso.js'); // iso
 const { routeRegex } = require('./routes/regex.js'); // regex
+const { routeNumber } = require('./routes/number.js'); // number
 const { routeConvert } = require('./routes/convert.js'); // convert
 const { routeCidr } = require('./routes/cidr.js'); // cidr
 const { routeUuid7 } = require('./routes/uuid7.js'); // uuid7
