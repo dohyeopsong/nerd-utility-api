@@ -1,29 +1,28 @@
-// routes/jwt.js — JWT decode/inspect (no verification, header+payload claims)
-// GET /jwt?token=<jwt>
-function b64urlDecode(s) {
-  s = s.replace(/-/g, '+').replace(/_/g, '/');
-  while (s.length % 4) s += '=';
-  return Buffer.from(s, 'base64').toString('utf8');
+// /jwt — decode JWT header/payload (no signature verification), check expiry
+function b64urlToJson(s) {
+  const b = Buffer.from(s.replace(/-/g, '+').replace(/_/g, '/'), 'base64');
+  return JSON.parse(b.toString('utf8'));
 }
 function routeJwt(u, res, json) {
-  const token = u.searchParams.get('token');
+  const q = u.searchParams;
+  const token = q.get('token') || '';
   if (!token) return json(res, 400, { error: 'token required' });
   const parts = token.split('.');
-  if (parts.length < 2 || parts.length > 5) return json(res, 400, { error: 'invalid JWT: expected 3 dot-separated parts' });
-  let header, payload;
+  if (parts.length !== 3) return json(res, 400, { error: 'JWT must have 3 dot-separated parts (header.payload.signature)' });
   try {
-    header = JSON.parse(b64urlDecode(parts[0]));
-    payload = JSON.parse(b64urlDecode(parts[1]));
-  } catch (e) { return json(res, 400, { error: 'invalid JWT encoding: ' + e.message }); }
-  const now = Math.floor(Date.now() / 1000);
-  const claims = {};
-  if (payload.exp != null) claims.exp = { value: payload.exp, expired: payload.exp < now, expiresAt: new Date(payload.exp * 1000).toISOString() };
-  if (payload.iat != null) claims.iat = { value: payload.iat, issuedAt: new Date(payload.iat * 1000).toISOString() };
-  if (payload.nbf != null) claims.nbf = { value: payload.nbf, notYetValid: payload.nbf > now };
-  return json(res, 200, {
-    header, payload, signature: parts[2] || null,
-    claims,
-    status: claims.exp ? (claims.exp.expired ? 'EXPIRED' : 'valid (signature NOT verified)') : 'no expiry (signature NOT verified)'
-  });
+    const header = b64urlToJson(parts[0]);
+    const payload = b64urlToJson(parts[1]);
+    const out = { header, payload, signature: parts[2], algorithm: header.alg, signature_verified: false, note: 'signature not verified — decode only' };
+    if (payload.exp !== undefined) {
+      const expDate = new Date(payload.exp * 1000);
+      out.expires_at = expDate.toISOString();
+      out.expired = Date.now() / 1000 > payload.exp;
+    }
+    if (payload.iat !== undefined) out.issued_at = new Date(payload.iat * 1000).toISOString();
+    if (payload.nbf !== undefined) out.not_before = new Date(payload.nbf * 1000).toISOString();
+    return json(res, 200, out);
+  } catch (e) {
+    return json(res, 400, { error: 'failed to decode: ' + e.message });
+  }
 }
 module.exports = { routeJwt };
