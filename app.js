@@ -139,7 +139,8 @@ const ENDPOINTS = {
   password: (body, q) => routePassword({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d),
   cron: (body, q) => routeCron({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d),
   color: (body, q) => routeColor({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d),
-  jwt: (body, q) => routeJwt({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d)
+  jwt: (body, q) => routeJwt({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d),
+  subnet: (body, q) => routeSubnet({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d)
 ,  units: (body, q) => routeUnits({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d, body)
 };
 
