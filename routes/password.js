@@ -1,69 +1,88 @@
-// /password — cryptographically secure password generator + strength analysis
+// /password — secure password generator + strength analyzer
 const crypto = require('crypto');
 
 function routePassword(u, res, json) {
   const q = u.searchParams;
-
-  // Analyze mode
   const check = q.get('check');
-  if (check) return json(res, 200, analyze(check));
 
-  // Generate mode
-  let len = parseInt(q.get('length') || '16', 10);
-  if (isNaN(len) || len < 4 || len > 128)
-    return json(res, 400, { error: 'length must be 4-128' });
-  const sets = [];
-  if (q.get('symbols') !== 'false') sets.push("!@#$%^&*()-_=+[]{};:,.<>?");
-  if (q.get('digits') !== 'false') sets.push("0123456789");
-  if (q.get('lower') !== 'false') sets.push("abcdefghijklmnopqrstuvwxyz");
-  if (q.get('upper') !== 'false') sets.push("ABCDEFGHIJKLMNOPQRSTUVWXYZ");
-  if (q.get('ambiguous') === 'false') {
-    // remove lookalikes: 0O1lI|`'";:
-    for (let i = 0; i < sets.length; i++)
-      sets[i] = sets[i].replace(/[0O1lI|`'";:]/g, '');
+  // ---------- strength check mode ----------
+  if (check !== null) {
+    return json(res, 200, analyzeStrength(check));
   }
-  const pool = sets.join('');
-  if (!pool.length) return json(res, 400, { error: 'all character sets disabled' });
 
-  const count = Math.min(parseInt(q.get('count') || '1', 10) || 1, 50);
+  // ---------- generate mode ----------
+  const length = clamp(parseInt(q.get('length') || '20', 10), 4, 128);
+  const count = clamp(parseInt(q.get('count') || '1', 10), 1, 100);
+
+  const sets = {
+    lower:   'abcdefghijkmnopqrstuvwxyz',          // no l
+    upper:   'ABCDEFGHJKLMNPQRSTUVWXYZ',           // no I O
+    digits:  '23456789',                            // no 0 1
+    symbols: q.get('symbols') === 'none' ? '' : '!@#$%^&*-_=+?',
+  };
+  const use = {
+    lower:   q.get('lower')   !== '0',
+    upper:   q.get('upper')   !== '0',
+    digits:  q.get('digits')  !== '0',
+    symbols: q.get('symbols') !== '0',
+  };
+  const active = Object.keys(use).filter(k => use[k] && sets[k]);
+  if (!active.length) return json(res, 400, { error: 'enable at least one character set' });
+
+  const pool = active.map(k => sets[k]).join('');
   const passwords = [];
   for (let i = 0; i < count; i++) {
-    const bytes = crypto.randomBytes(len);
-    let pw = '';
-    for (let j = 0; j < len; j++) pw += pool[bytes[j] % pool.length];
-    // ensure at least one char from each requested set
-    if (sets.length > 1 && len >= sets.length) {
-      let ok = sets.every(s => s.split('').some(c => pw.includes(c)));
-      if (!ok) { i--; continue; } // regenerate
+    // per-set guarantee: one char from each active set, rest from pool
+    const chars = active.map(k => pick(sets[k]));
+    while (chars.length < length) chars.push(pick(pool));
+    // Fisher-Yates shuffle with crypto randomness
+    for (let j = chars.length - 1; j > 0; j--) {
+      const r = crypto.randomInt(j + 1);
+      [chars[j], chars[r]] = [chars[r], chars[j]];
     }
-    passwords.push(pw);
+    passwords.push(chars.slice(0, length).join(''));
   }
+
+  const entropy = Math.round(length * Math.log2(pool.length) * 10) / 10;
   return json(res, 200, {
-    passwords, length: len, count,
-    entropy_bits: Math.round(len * Math.log2(pool.length) * 10) / 10,
+    passwords, count, length,
+    charset: active,
     pool_size: pool.length,
+    entropy_bits: entropy,
+    strength: entropyBitsLabel(entropy)
   });
 }
 
-function analyze(pw) {
-  const pool = new Set(pw).size;
-  const entropy = Math.round(pw.length * Math.log2(pool || 1) * 10) / 10;
-  const common = ['password', '123456', 'qwerty', 'letmein', 'admin', 'welcome',
-    'iloveyou', 'monkey', 'dragon', 'abc123', 'password1', '12345678'];
+function pick(s) { return s[crypto.randomInt(s.length)]; }
+function clamp(n, lo, hi) { return isNaN(n) ? lo : Math.max(lo, Math.min(hi, n)); }
+
+function entropyBitsLabel(b) {
+  if (b < 40) return 'very-weak';
+  if (b < 60) return 'weak';
+  if (b < 80) return 'moderate';
+  if (b < 100) return 'strong';
+  return 'very-strong';
+}
+
+function analyzeStrength(pw) {
+  const distinct = new Set(pw).size;
+  const bits = Math.round(pw.length * Math.log2(Math.max(distinct, 2)) * 10) / 10;
+  const problems = [];
+  const common = ['password', '123456', 'qwerty', 'letmein', 'admin', 'welcome', 'iloveyou', 'monkey', 'dragon', 'abc123'];
   const lower = pw.toLowerCase();
-  let weak = common.some(c => lower.includes(c));
-  const variety = [/[a-z]/, /[A-Z]/, /\d/, /[^a-zA-Z0-9]/].filter(r => r.test(pw)).length;
-  let strength, note;
-  if (weak || entropy < 28) { strength = 'very-weak'; note = 'contains common password pattern or too little entropy'; }
-  else if (entropy < 36) { strength = 'weak';
-    note = 'brute-forceable offline in hours'; }
-  else if (entropy < 60) { strength = 'fair'; note = 'ok for low-stakes accounts'; }
-  else if (entropy < 100) { strength = 'strong'; note = 'resistant to offline attacks'; }
-  else { strength = 'very-strong'; note = 'excellent'; }
+  if (common.some(c => lower.includes(c))) problems.push('contains common word/pattern');
+  if (/^[a-zA-Z]+$/.test(pw)) problems.push('no digits or symbols');
+  if (/^\d+$/.test(pw)) problems.push('digits only');
+  if (pw.length < 8) problems.push('too short (<8)');
+  if (/(.)\1{2,}/.test(pw)) problems.push('repeated character run');
+  if (/(012|123|234|345|456|567|678|789|abc|bcd|cde|def)/i.test(pw)) problems.push('sequential pattern');
+
   return {
-    length: pw.length, distinct_chars: pool, entropy_bits: entropy,
-    character_variety: variety, strength, note,
-    contains_common_pattern: weak,
+    length: pw.length,
+    distinct_chars: distinct,
+    entropy_bits: bits,
+    strength: problems.length >= 2 ? 'very-weak' : entropyBitsLabel(bits),
+    problems: problems.length ? problems : null
   };
 }
 
