@@ -715,14 +715,14 @@ if (u.pathname === '/') return routeLanding(u, res);
             if (u.pathname === '/markdown') {
               return routeMarkdown(u, res, json);
             }
+            if (u.pathname === '/hash') {
+              try { return routeHash(u, res, json); }
+              catch (e) { return json(res, 400, { error: e.message }); }
+            }
             if (u.pathname === '/checksum') {
-      if (u.pathname === '/hash') {
-        try { return routeHash(u, res, json); }
-        catch (e) { return json(res, 400, { error: e.message }); }
-      }
-      try { return routeChecksum(u, res, json); }
-      catch (e) { return json(res, 500, { error: e.message }); }
-    }
+              try { return routeChecksum(u, res, json); }
+              catch (e) { return json(res, 500, { error: e.message }); }
+            }
             if (u.pathname === '/string') { return routeString(u, res, json); }
             if (u.pathname === '/slugify') { return routeSlugify(u, res, json); }
             if (u.pathname === '/escape') { return routeEscape(u, res, json); }
