@@ -42,7 +42,8 @@ const { routeHmac } = require('./routes/hmac.js');
 const { routeNetmask } = require('./routes/netmask.js');
 const { routeUa, setHeaders: setUaHeaders } = require('./routes/ua.js');
 const { rateLimit, capCheck, capIncr, capDecr, capStats } = require('./routes/ratelimit.js'); // cron parse
-const { routeLuhn } = require('./routes/luhn.js'); // luhn validate
+const { routeLuhn } = require('./routes/luhn.js');
+const { routeWhois } = require('./routes/whois.js'); // luhn validate
 const { routePwstrength } = require('./routes/pwstrength.js');
 const { routeHtml } = require('./routes/html.js');
 const { routeMcp } = require('./routes/mcp.js');
@@ -779,7 +780,11 @@ if (u.pathname === '/') return routeLanding(u, res);
               try { return routeCron(u, res, json); }
               catch (e) { return json(res, 500, { error: e.message }); }
             }
-            if (u.pathname === '/luhn') {
+            if (u.pathname === '/whois') {
+      try { return await routeWhois(u, res, json); }
+      catch (e) { return json(res, 400, { error: e.message }); }
+    }
+    if (u.pathname === '/luhn') {
               try { return routeLuhn(u, res, json); }
               catch (e) { return json(res, 500, { error: e.message }); }
             }
