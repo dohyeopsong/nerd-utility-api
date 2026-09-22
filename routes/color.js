@@ -1,78 +1,24 @@
-// Color converter: hex <-> rgb <-> hsl, with luminance/contrast helpers
-function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
-function hexToRgb(h) {
-  let s = h.trim().replace(/^#/, '');
-  if (s.length === 3) s = s.split('').map(c => c + c).join('');
-  if (s.length === 4) s = s.split('').slice(0,3).map(c => c + c).join(''); // drop alpha
-  if (!/^[0-9a-f]{6}$/i.test(s)) return null;
-  return { r: parseInt(s.slice(0,2),16), g: parseInt(s.slice(2,4),16), b: parseInt(s.slice(4,6),16) };
+// Color utilities: /color?hex=%23ff8800 or /color?rgb=255,136,0 or /color?hsl=30,100,50
+// Returns conversions both directions + nearest named color + complementary/analogous.
+const NAMED = {black:'#000000',white:'#ffffff',red:'#ff0000',lime:'#00ff00',blue:'#0000ff',yellow:'#ffff00',cyan:'#00ffff',magenta:'#ff00ff',silver:'#c0c0c0',gray:'#808080',maroon:'#800000',olive:'#808000',green:'#008000',purple:'#800080',teal:'#008080',navy:'#000080',orange:'#ffa500',pink:'#ffc0cb',brown:'#a52a2a',gold:'#ffd700'};
+function hexToRgb(h){h=h.replace('#','');if(h.length===3)h=h.split('').map(c=>c+c).join('');const n=parseInt(h,16);return{r:n>>16&255,g:n>>8&255,b:n&255};}
+function rgbToHex(r,g,b){return '#'+[r,g,b].map(x=>Math.round(x).toString(16).padStart(2,'0')).join('');}
+function rgbToHsl(r,g,b){r/=255;g/=255;b/=255;const max=Math.max(r,g,b),min=Math.min(r,g,b);let h,s,l=(max+min)/2;if(max===min){h=s=0;}else{const d=max-min;s=l>0.5?d/(2-max-min):d/(max+min);switch(max){case r:h=(g-b)/d+(g<b?6:0);break;case g:h=(b-r)/d+2;break;default:h=(r-g)/d+4;}h/=6;}return{h:Math.round(h*360),s:Math.round(s*100),l:Math.round(l*100)};}
+function hslToRgb(h,s,l){s/=100;l/=100;const c=(1-Math.abs(2*l-1))*s,x=c*(1-Math.abs(((h/60)%2)-1)),m=l-c/2;let[r,g,b]=h<60?[c,x,0]:h<120?[x,c,0]:h<180?[0,c,x]:h<240?[0,x,c]:h<300?[x,0,c]:[c,0,x];return{r:Math.round((r+m)*255),g:Math.round((g+m)*255),b:Math.round((b+m)*255)};}
+function dist(a,b){const A=hexToRgb(a),B=hexToRgb(b);return Math.sqrt((A.r-B.r)**2+(A.g-B.g)**2+(A.b-B.b)**2);}
+function routeColor(u,res,json){
+  try{
+    const hex=u.searchParams.get('hex'),rgb=u.searchParams.get('rgb'),hsl=u.searchParams.get('hsl');
+    let r,g,b;
+    if(hex){const m=hex.match(/^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/);if(!m)return json(res,400,{error:'hex must be #rgb or #rrggbb'});({r,g,b}=hexToRgb(hex));}
+    else if(rgb){const p=rgb.split(',').map(Number);if(p.length!==3||p.some(isNaN)||p.some(x=>x<0||x>255))return json(res,400,{error:'rgb must be r,g,b (0-255 each)'});[r,g,b]=p;}
+    else if(hsl){const p=hsl.split(',').map(Number);if(p.length!==3||p.some(isNaN))return json(res,400,{error:'hsl must be h,s,l'});const c=hslToRgb(p[0],p[1],p[2]);({r,g,b}=c);}
+    else return json(res,400,{error:'provide ?hex= | ?rgb=r,g,b | ?hsl=h,s,l'});
+    const h=rgbToHex(r,g,b),H=rgbToHsl(r,g,b);
+    let nearest=null,nd=1e9;for(const[n,v]of Object.entries(NAMED)){const d=dist(h,v);if(d<nd){nd=d;nearest=n;}}
+    const comp=rgbToHex(...(x=>[255-x.r,255-x.g,255-x.b])({r,g,b}));
+    const analog=[(H.h+30)%360,(H.h+330)%360].map(hh=>{const c=hslToRgb(hh,H.s,H.l);return rgbToHex(c.r,c.g,c.b);});
+    return json(res,200,{hex:h,rgb:`${r}, ${g}, ${b}`,rgbArr:[r,g,b],hsl:`hsl(${H.h}, ${H.s}%, ${H.l}%)`,hslObj:H,luminance:Math.round((0.2126*r+0.7152*g+0.0722*b)*100)/100,nearestName:nearest,nameDistance:Math.round(nd*10)/10,complementary:comp,analogous:analog});
+  }catch(e){return json(res,500,{error:'color failure: '+e.message});}
 }
-function rgbToHex(r, g, b) {
-  return '#' + [r,g,b].map(x => clamp(Math.round(x),0,255).toString(16).padStart(2,'0')).join('');
-}
-function rgbToHsl(r, g, b) {
-  r/=255; g/=255; b/=255;
-  const max = Math.max(r,g,b), min = Math.min(r,g,b), d = max-min;
-  let h = 0;
-  if (d) {
-    if (max === r) h = ((g-b)/d) % 6;
-    else if (max === g) h = (b-r)/d + 2;
-    else h = (r-g)/d + 4;
-    h *= 60; if (h < 0) h += 360;
-  }
-  const l = (max+min)/2;
-  const s = d === 0 ? 0 : d / (1 - Math.abs(2*l - 1));
-  return { h: Math.round(h), s: Math.round(s*100), l: Math.round(l*100) };
-}
-function hslToRgb(h, s, l) {
-  h = ((h % 360) + 360) % 360; s = clamp(s,0,100)/100; l = clamp(l,0,100)/100;
-  const c = (1 - Math.abs(2*l - 1)) * s, x = c * (1 - Math.abs((h/60) % 2 - 1)), m = l - c/2;
-  let [r,g,b] = [0,0,0];
-  if (h < 60) [r,g,b] = [c,x,0]; else if (h < 120) [r,g,b] = [x,c,0];
-  else if (h < 180) [r,g,b] = [0,c,x]; else if (h < 240) [r,g,b] = [0,x,c];
-  else if (h < 300) [r,g,b] = [x,0,c]; else [r,g,b] = [c,0,x];
-  return { r: Math.round((r+m)*255), g: Math.round((g+m)*255), b: Math.round((b+m)*255) };
-}
-function relLuminance({r,g,b}) {
-  const f = v => { v/=255; return v <= 0.03928 ? v/12.92 : Math.pow((v+0.055)/1.055, 2.4); };
-  return 0.2126*f(r) + 0.7152*f(g) + 0.0722*f(b);
-}
-function routeColor(u, res, json) {
-  const hex = u.searchParams.get('hex');
-  const rgb = u.searchParams.get('rgb');
-  const hsl = u.searchParams.get('hsl');
-  const vs = u.searchParams.get('contrast'); // "fg,bg" both hex
-  try {
-    let c = null;
-    if (hex) {
-      c = hexToRgb(hex);
-      if (!c) return json(res, 400, { error: 'invalid hex (expected #rgb or #rrggbb)' });
-    } else if (rgb) {
-      const p = rgb.split(',').map(Number);
-      if (p.length !== 3 || p.some(isNaN) || p.some(v => v < 0 || v > 255)) return json(res, 400, { error: 'invalid rgb (expected r,g,b 0-255)' });
-      c = { r: p[0], g: p[1], b: p[2] };
-    } else if (hsl) {
-      const p = hsl.split(',').map(Number);
-      if (p.length !== 3 || p.some(isNaN) || p[1] < 0 || p[1] > 100 || p[2] < 0 || p[2] > 100) return json(res, 400, { error: 'invalid hsl (expected h,s,l)' });
-      c = hslToRgb(p[0], p[1], p[2]);
-    } else if (vs) {
-      const [f, b] = vs.split(',');
-      const fc = hexToRgb(f), bc = hexToRgb(b);
-      if (!fc || !bc) return json(res, 400, { error: 'contrast needs two hex colors: ?contrast=fg,bg' });
-      const l1 = relLuminance(fc), l2 = relLuminance(bc);
-      const ratio = (Math.max(l1,l2) + 0.05) / (Math.min(l1,l2) + 0.05);
-      return json(res, 200, { foreground: rgbToHex(fc.r,fc.g,fc.b), background: rgbToHex(bc.r,bc.g,bc.b), contrastRatio: Math.round(ratio*100)/100, wcagAA: ratio >= 4.5, wcagAAA: ratio >= 7, wcagAALarge: ratio >= 3 });
-    } else {
-      return json(res, 400, { error: 'params: hex | rgb=r,g,b | hsl=h,s,l | contrast=fg,bg' });
-    }
-    const { r, g, b } = c;
-    return json(res, 200, {
-      hex: rgbToHex(r, g, b),
-      rgb: [r, g, b],
-      hsl: rgbToHsl(r, g, b),
-      luminance: Math.round(relLuminance(c) * 1000) / 1000,
-      isDark: relLuminance(c) < 0.179
-    });
-  } catch (e) { return json(res, 400, { error: e.message }); }
-}
-module.exports = { routeColor, hexToRgb, rgbToHex, rgbToHsl, hslToRgb, relLuminance };
+module.exports={routeColor};
