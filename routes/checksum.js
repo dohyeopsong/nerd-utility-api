@@ -8,19 +8,19 @@ function crc32Table(poly) {
   }
   return t;
 }
-const T_POSIX = crc32Table(0xEDB88320);
 function cksumPOSIX(buf) {
-  // POSIX cksum: CRC over data followed by the byte-length, big-endian,
-  // most-significant byte first, omitting leading zero bytes.
-  let c = 0xFFFFFFFF;
-  for (let i = 0; i < buf.length; i++) c = T_POSIX[(c ^ buf[i]) & 0xFF] ^ (c >>> 8);
-  let len = buf.length;
-  let nbytes = 0; let t = len;
+  // POSIX cksum: non-reflected CRC-32, poly 0x04C11DB7, init 0, xorout 0xFFFFFFFF,
+  // with the byte-length appended MSB-first (no leading zero bytes).
+  let c = 0;
+  const step = (b) => {
+    c ^= (b & 0xFF) << 24;
+    for (let k = 0; k < 8; k++)
+      c = (c & 0x80000000) ? (((c << 1) ^ 0x04C11DB7) >>> 0) : ((c << 1) >>> 0);
+  };
+  for (let i = 0; i < buf.length; i++) step(buf[i]);
+  let n = buf.length, t = n, nbytes = 0;
   while (t > 0) { nbytes++; t = Math.floor(t / 256); }
-  for (let i = nbytes - 1; i >= 0; i--) {
-    const byte = (len >>> (8 * i)) & 0xFF;
-    c = T_POSIX[(c ^ byte) & 0xFF] ^ (c >>> 8);
-  }
+  for (let i = nbytes - 1; i >= 0; i--) step((n >>> (8 * i)) & 0xFF);
   return (c ^ 0xFFFFFFFF) >>> 0;
 }
 function adler32(buf) {
