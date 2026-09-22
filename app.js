@@ -1272,6 +1272,10 @@ if (u.pathname === '/') return routeLanding(u, res);
     if (u.pathname === '/openapi.json' || u.pathname === '/openapi') {
       return json(res, 200, require('./openapi.json'));
     }
+    if (u.pathname === '/csv2json') {
+      try { return routeCsv2json(u, res, json); }
+      catch (e) { return json(res, 500, { error: e.message }); }
+    }
     if (u.pathname === '/docs') {
       const fs = require('fs');
       res.writeHead(200, { 'Content-Type': 'text/markdown' });
