@@ -1,73 +1,79 @@
-// /ip — IPv4 utilities: CIDR info, subnet math, range expansion
-function ip2int(ip) {
-  const p = ip.split('.').map(Number);
-  if (p.length !== 4 || p.some(o => !Number.isInteger(o) || o < 0 || o > 255)) return null;
-  return ((p[0] << 24) | (p[1] << 16) | (p[2] << 8) | p[3]) >>> 0;
+// /ip — IPv4 subnet utilities
+function parseIP(s) {
+  const m = s.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (!m) throw new Error(`invalid IPv4: ${s}`);
+  const o = m.slice(1).map(Number);
+  if (o.some(n => n > 255)) throw new Error(`invalid IPv4: ${s}`);
+  return ((o[0] << 24) | (o[1] << 16) | (o[2] << 8) | o[3]) >>> 0;
 }
-function int2ip(n) { return [(n >>> 24), (n >>> 16) & 255, (n >>> 8) & 255, n & 255].join('.'); }
-function routeIp(u, res, json) {
+function intToIP(n) {
+  return [n >>> 24, (n >>> 16) & 255, (n >>> 8) & 255, n & 255].join('.');
+}
+function parseCIDR(s) {
+  const [ip, bitsStr] = s.split('/');
+  const bits = parseInt(bitsStr, 10);
+  if (!Number.isInteger(bits) || bits < 0 || bits > 32) throw new Error(`invalid prefix length: ${bitsStr}`);
+  const mask = bits === 0 ? 0 : (0xFFFFFFFF << (32 - bits)) >>> 0;
+  const addr = parseIP(ip);
+  const network = (addr & mask) >>> 0;
+  return { addr, bits, mask, network, broadcast: (network | (~mask >>> 0)) >>> 0, size: 2 ** (32 - bits) };
+}
+
+function routeIP(u, res, json) {
   const q = u.searchParams;
-  const mode = (q.get('mode') || 'info').toLowerCase();
-  if (mode === 'info' || mode === 'cidr') {
+  try {
     const cidr = q.get('cidr');
-    if (!cidr) return json(res, 400, { error: 'cidr required, e.g. 10.0.0.0/24' });
-    const m = cidr.match(/^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(?:\/(\d{1,2}))?$/);
-    if (!m) return json(res, 400, { error: 'invalid CIDR' });
-    const base = ip2int(m[1]);
-    if (base === null) return json(res, 400, { error: 'invalid IP' });
-    const bits = m[2] !== undefined ? +m[2] : 32;
-    if (bits < 0 || bits > 32) return json(res, 400, { error: 'invalid prefix (0-32)' });
-    const mask = bits === 0 ? 0 : (0xFFFFFFFF << (32 - bits)) >>> 0;
-    const network = (base & mask) >>> 0;
-    const broadcast = (network | (~mask >>> 0)) >>> 0;
-    const usable = bits >= 31 ? (bits === 32 ? 1 : 2) : Math.pow(2, 32 - bits) - 2;
-    return json(res, 200, {
-      cidr: `${int2ip(network)}/${bits}`,
-      network: int2ip(network),
-      broadcast: int2ip(broadcast),
-      first_host: bits <= 30 ? int2ip(network + 1) : int2ip(network),
-      last_host: bits <= 30 ? int2ip(broadcast - 1) : int2ip(broadcast),
-      usable_hosts: usable,
-      subnet_mask: int2ip(mask),
-      wildcard_mask: int2ip(~mask >>> 0),
-      total_addresses: Math.pow(2, 32 - bits),
-      prefix: bits,
-      private: isPrivate(int2ip(network)),
-      class: ipClass(network >>> 24)
-    });
-  }
-  if (mode === 'contains') {
-    const cidr = q.get('cidr'), ip = q.get('ip');
-    if (!cidr || !ip) return json(res, 400, { error: 'cidr and ip required' });
-    const m = cidr.match(/^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\/(\d{1,2})$/);
-    const target = ip2int(ip);
-    if (!m || target === null) return json(res, 400, { error: 'invalid cidr or ip' });
-    const bits = +m[2];
-    const mask = bits === 0 ? 0 : (0xFFFFFFFF << (32 - bits)) >>> 0;
-    return json(res, 200, { cidr, ip, contains: ((target & mask) >>> 0) === ((ip2int(m[1]) & mask) >>> 0) });
-  }
-  if (mode === 'subnets') {
-    const cidr = q.get('cidr'), n = +(q.get('n') || q.get('count') || 2);
-    if (!cidr) return json(res, 400, { error: 'cidr required' });
-    const m = cidr.match(/^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\/(\d{1,2})$/);
-    if (!m) return json(res, 400, { error: 'invalid CIDR' });
-    const base = ip2int(m[1]), bits = +m[2];
-    const needed = Math.ceil(Math.log2(n)) || 1;
-    if (bits + needed > 32) return json(res, 400, { error: `cannot split /${bits} into ${n} subnets` });
-    const newBits = bits + needed;
-    const size = Math.pow(2, 32 - newBits);
-    const out = [];
-    for (let i = 0; i < Math.pow(2, needed); i++) {
-      const net = (base & (0xFFFFFFFF << (32 - bits)) >>> 0) + i * size;
-      out.push(`${int2ip(net >>> 0)}/${newBits}`);
+    const contains = q.get('contains');
+    const subnets = q.get('subnets');
+
+    if (cidr) {
+      const c = parseCIDR(cidr);
+      if (contains) {
+        const ip = parseIP(contains);
+        return json(res, 200, {
+          cidr, ip: contains,
+          contains: ip >= c.network && ip <= c.broadcast,
+        });
+      }
+      if (subnets) {
+        const n = parseInt(subnets, 10);
+        if (!Number.isInteger(n) || n < 1 || n > 256 || (n & (n - 1)) !== 0) throw new Error('subnets must be a power of 2, 1-256');
+        const newBits = c.bits + Math.log2(n);
+        if (newBits > 32) throw new Error(`cannot split /${c.bits} into ${n} subnets`);
+        const step = c.size / n;
+        const list = [];
+        for (let i = 0; i < n; i++) {
+          const net = c.network + i * step;
+          list.push({ cidr: `${intToIP(net)}/${newBits}`, first: intToIP(net), last: intToIP(net + step - 1), hosts: Math.max(step - 2, 0) });
+        }
+        return json(res, 200, { cidr, subnets: list });
+      }
+      return json(res, 200, {
+        cidr,
+        network: intToIP(c.network),
+        broadcast: intToIP(c.broadcast),
+        netmask: intToIP(c.mask),
+        first_host: intToIP(c.bits >= 31 ? c.network : c.network + 1),
+        last_host: intToIP(c.bits >= 31 ? c.broadcast : c.broadcast - 1),
+        usable_hosts: c.bits >= 31 ? (c.bits === 31 ? 2 : 1) : c.size - 2,
+        total_addresses: c.size,
+        mask_bits: c.bits,
+      });
     }
-    return json(res, 200, { cidr, subnets: out, new_prefix: newBits });
+    // plain IP info
+    const ip = q.get('ip') || q.get('address');
+    if (ip) {
+      const n = parseIP(ip);
+      const priv = /^10\./.test(ip) || /^192\.168\./.test(ip) || /^172\.(1[6-9]|2\d|3[01])\./.test(ip) || ip === '127.0.0.1';
+      return json(res, 200, {
+        ip, integer: n, hex: '0x' + n.toString(16).padStart(8, '0'),
+        binary: n.toString(2).padStart(32, '0').replace(/(.{8})(?=.)/g, '$1.'),
+        private: priv, class: n < 0x80000000 ? 'A' : n < 0xC0000000 ? 'B' : n < 0xE0000000 ? 'C' : 'D/E',
+      });
+    }
+    throw new Error('provide ?ip=10.0.0.1 or ?cidr=192.168.1.0/24 (+ &contains=x.x.x.x or &subnets=4)');
+  } catch (e) {
+    return json(res, 400, { error: e.message, example: '/ip?cidr=192.168.1.0/24, /ip?cidr=10.0.0.0/8&contains=10.1.2.3, /ip?cidr=192.168.0.0/24&subnets=4' });
   }
-  return json(res, 400, { error: 'mode must be info|contains|subnets' });
 }
-function isPrivate(ip) {
-  const p = ip.split('.').map(Number);
-  return p[0] === 10 || (p[0] === 172 && p[1] >= 16 && p[1] <= 31) || (p[0] === 192 && p[1] === 168) || p[0] === 127;
-}
-function ipClass(o) { return o < 128 ? 'A' : o < 192 ? 'B' : o < 224 ? 'C' : o < 240 ? 'D' : 'E'; }
-module.exports = { routeIp };
+module.exports = { routeIP };
