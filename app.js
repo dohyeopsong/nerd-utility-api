@@ -135,7 +135,8 @@ const ENDPOINTS = {
   duration: (body, q) => routeDuration({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d, body),
   base32: (body, q) => routeBase32({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d, body),
   units: (body, q) => routeUnits({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d),
-  regex: (body, q) => routeRegex({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d, body)
+  regex: (body, q) => routeRegex({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d, body),
+  password: (body, q) => routePassword({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d)
 ,  units: (body, q) => routeUnits({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d, body)
 };
 
