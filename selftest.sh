@@ -45,3 +45,6 @@ check html       "/html?text=%3Cscript%3Ealert(1)%3C/script%3E" 200
 check uuid7      "/uuid7?count=3" 200
 check uuid7      "/uuid7?n=3" 200
 check subnet    "/subnet?cidr=192.168.1.0/24"
+# checksum
+A=$(curl -s --get --data-urlencode "text=hello" http://localhost:8080/checksum | python3 -c "import sys,json;print(json.load(sys.stdin)['cksum'])")
+[ "$A" = "3287646509" ] && echo PASS checksum || echo FAIL checksum
