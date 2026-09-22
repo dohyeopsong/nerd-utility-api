@@ -154,3 +154,4 @@ Full spec: /openapi.json — Docs: /docs
 - GET /imei?check=... — IMEI/IMEISV validation (Luhn check, TAC/serial parsing)
 - GET /useragent?ua=<string> — User-Agent parsing (browser, engine, OS, device, bot detection)
 - GET /case?text=hello world — case conversions (camel/pascal/snake/kebab/constant/title/sentence/path/upper/lower, ?to= for single)
+- GET /rot13?text=hello — ROT-n substitution cipher (default 13, self-inverse)
