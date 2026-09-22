@@ -1,51 +1,60 @@
-// Semver utility: /semver?version=1.2.3&compare=1.10.0
-// Parses, validates, compares semantic versions (semver.org spec, no build metadata in compare).
-const RE=/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/;
-function parse(v){
-  const m=String(v).trim().match(RE);
-  if(!m)return null;
-  return {major:+m[1],minor:+m[2],patch:+m[3],prerelease:m[4]?m[4].split('.'):null,build:m[5]||null,raw:v};
+// routes/semver.js — Semantic Versioning parse, compare, validate
+// GET /semver?version=1.2.3 | ?compare=1.2.3,1.10.0 | ?satisfies=1.2.3,>=1.0.0
+function parse(v) {
+  const m = /^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+([0-9A-Za-z.-]+))?$/.exec(v.trim());
+  if (!m) throw new Error(`invalid semver: '${v}'`);
+  return { major: +m[1], minor: +m[2], patch: +m[3], prerelease: m[4] || null, build: m[5] || null };
 }
-function cmpIdent(a,b){
-  const an=/^\d+$/.test(a),bn=/^\d+$/.test(b);
-  if(an&&bn)return (a.length>b.length?(+a>(+b?+b:0)?1:0):0)||((+a)-(+b)||String(a).length-String(b).length); // numeric compare
-  if(an)return -1; // numeric < alphanumeric
-  if(bn)return 1;
-  return a<b?-1:a>b?1:0;
-}
-function compare(a,b){
-  if(a.major!==b.major)return a.major-b.major;
-  if(a.minor!==b.minor)return a.minor-b.minor;
-  if(a.patch!==b.patch)return a.patch-b.patch;
-  const pa=a.prerelease||[],pb=b.prerelease||[];
-  if(pa.length===0&&pb.length===0)return 0;
-  if(pa.length===0)return 1;      // release > prerelease
-  if(pb.length===0)return -1;
-  for(let k=0;k<Math.max(pa.length,pb.length);k++){
-    if(k>=pa.length)return -1;
-    if(k>=pb.length)return 1;
-    const c=cmpIdent(pa[k],pb[k]);
-    if(c!==0)return c;
+function cmp(a, b) {
+  if (a.major !== b.major) return Math.sign(a.major - b.major);
+  if (a.minor !== b.minor) return Math.sign(a.minor - b.minor);
+  if (a.patch !== b.patch) return Math.sign(a.patch - b.patch);
+  if (!a.prerelease && !b.prerelease) return 0;
+  if (!a.prerelease) return 1; // release > prerelease
+  if (!b.prerelease) return -1;
+  const pa = a.prerelease.split('.'), pb = b.prerelease.split('.');
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const x = pa[i], y = pb[i];
+    if (x === undefined) return -1;
+    if (y === undefined) return 1;
+    const nx = /^\d+$/.test(x), ny = /^\d+$/.test(y);
+    if (nx && ny) { if (+x !== +y) return Math.sign(+x - +y); }
+    else { if (nx) return -1; if (ny) return 1; if (x !== y) return x < y ? -1 : 1; }
   }
   return 0;
 }
-function routeSemver(u,res,json,body){
-  try{
-    const v=u.searchParams.get('version')||(body&&body.version);
-    if(!v)return json(res,400,{error:'provide ?version=1.2.3 (optionally &compare=2.0.0)'});
-    const a=parse(v);
-    if(!a)return json(res,400,{error:'invalid semantic version',got:v,see:'https://semver.org'});
-    const out={version:v,major:a.major,minor:a.minor,patch:a.patch,
-      prerelease:a.prerelease?a.prerelease.join('.'):null,
-      build:a.build,isPrerelease:!!a.prerelease};
-    const c=u.searchParams.get('compare')||(body&&body.compare);
-    if(c){
-      const b=parse(c);
-      if(!b)return json(res,400,{error:'invalid compare version',got:c});
-      const r=compare(a,b);
-      out.compare={other:c,result:r===0?'equal':r>0?'greater':'less',satisfiesGte:r>=0};
+function routeSemver(u, res, json) {
+  const q = u.searchParams;
+  try {
+    const v = q.get('version');
+    if (v) {
+      const p = parse(v);
+      return json(res, 200, { input: v, ...p, valid: true, ...normalChecks(p) });
     }
-    return json(res,200,out);
-  }catch(e){return json(res,400,{error:'semver failure: '+e.message});}
+    const compare = q.get('compare');
+    if (compare) {
+      const [a, b] = compare.split(',').map(s => s.trim());
+      if (!a || !b) throw new Error('compare needs two versions: compare=1.2.3,1.10.0');
+      const pa = parse(a), pb = parse(b);
+      const c = cmp(pa, pb);
+      return json(res, 200, {
+        a: { version: a, ...pa }, b: { version: b, ...pb },
+        result: c < 0 ? 'lt' : c > 0 ? 'gt' : 'eq',
+        operator: c < 0 ? '<' : c > 0 ? '>' : '==',
+        newer: c > 0 ? a : c < 0 ? b : 'equal'
+      });
+    }
+    const list = q.get('sort');
+    if (list) {
+      const vs = list.split(',').map(s => s.trim());
+      const parsed = vs.map(v => ({ v, p: parse(v) }));
+      parsed.sort((x, y) => cmp(x.p, y.p));
+      return json(res, 200, { input: vs, sorted: parsed.map(x => x.v), newest: parsed[parsed.length-1].v });
+    }
+    return json(res, 400, { error: 'provide version=, compare=a,b, or sort=a,b,c' });
+  } catch (e) { return json(res, 400, { error: e.message }); }
 }
-module.exports={routeSemver,parse:parse,compare};
+function normalChecks(p) {
+  return { isPrerelease: !!p.prerelease, isStable: p.major > 0 && !p.prerelease, isInitialDev: p.major === 0 };
+}
+module.exports = { routeSemver };
