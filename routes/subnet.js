@@ -1,55 +1,47 @@
-// Subnet calculator: /subnet?cidr=192.168.1.0/24 — network, broadcast, first/last host, mask, wildcard, class, total/usable hosts
-function ipToInt(ip){
-  const p=ip.split('.');
-  if(p.length!==4)throw new Error('IPv4 must have 4 octets');
-  let n=0;
-  for(const o of p){
-    if(!/^\d{1,3}$/.test(o)||+o>255)throw new Error('invalid octet "'+o+'"');
-    n=(n<<8)+ +o;
-  }
-  return n>>>0;
+// IPv4 subnet calculator: /subnet?cidr=192.168.1.0/24
+// Returns network, broadcast, first/last host, mask, wildcard, host count, class, private/public.
+function ip2int(ip){
+  const p=ip.split('.').map(Number);
+  if(p.length!==4||p.some(x=>isNaN(x)||x<0||x>255))return null;
+  return ((p[0]<<24)>>>0)+(p[1]<<16)+(p[2]<<8)+p[3];
 }
-function intToIp(n){
-  return [(n>>>24)&255,(n>>>16)&255,(n>>>8)&255,n&255].join('.');
+function int2ip(n){
+  return [n>>>24&255,n>>>16&255,n>>>8&255,n&255].join('.');
 }
 function routeSubnet(u,res,json,body){
   try{
-    let cidr=u.searchParams.get('cidr')||u.searchParams.get('ip');
-    if(!cidr&&body&&typeof body==='object'&&(body.cidr||body.ip))cidr=body.cidr||body.ip;
+    const cidr=u.searchParams.get('cidr')||(body&&body.cidr);
     if(!cidr)return json(res,400,{error:'provide ?cidr=<ip>/<prefix> e.g. 192.168.1.0/24'});
-    const m=cidr.match(/^(\d{1,3}(?:\.\d{1,3}){3})(?:\/(\d{1,2}))?$/);
-    if(!m)throw new Error('invalid CIDR format');
-    const ip=m[1];
-    let prefix=m[2]!==undefined?parseInt(m[2],10):null;
-    const ipInt=ipToInt(ip);
-    let mask,ipClass;
-    const first=ipInt>>>24;
-    if(first<128)ipClass='A';
-    else if(first<192)ipClass='B';
-    else if(first<224)ipClass='C';
-    else if(first<240)ipClass='D (multicast)';
-    else ipClass='E (reserved)';
-    const result={ip,cidr:prefix!==null?cidr:ip+'/?',class:ipClass};
-    if(prefix!==null){
-      if(prefix<0||prefix>32)throw new Error('prefix must be 0-32');
-      mask=prefix===0?0:(0xFFFFFFFF<<(32-prefix))>>>0;
-      const network=(ipInt&mask)>>>0;
-      const broadcast=(network|(~mask>>>0))>>>0;
-      const total=prefix===32?1:Math.pow(2,32-prefix);
-      const usable=prefix>=31?(prefix===31?2:1):total-2;
-      const firstHost=prefix>=31?network:network+1;
-      const lastHost=prefix>=31?broadcast:broadcast-1;
-      Object.assign(result,{
-        prefix,mask:intToIp(mask),wildcard:intToIp(~mask>>>0),
-        network:intToIp(network),broadcast:intToIp(broadcast),
-        firstHost:prefix>=31?null:intToIp(firstHost),
-        lastHost:prefix>=31?null:intToIp(lastHost),
-        totalHosts:total,usableHosts:usable,
-        isPrivate:(first===10)||(first===172&&(ipInt>>>16&255)>=16&&(ipInt>>>16&255)<=31)||(first===192&&(ipInt>>>16&255)===168),
-        binaryMask:mask.toString(2).padStart(32,'0'),
-      });
-    }
-    return json(res,200,result);
+    const m=String(cidr).match(/^(\d{1,3}(?:\.\d{1,3}){3})\/(\d{1,2})$/);
+    if(!m)return json(res,400,{error:'invalid CIDR format, expected a.b.c.d/prefix'});
+    const prefix=parseInt(m[2]);
+    if(prefix<0||prefix>32)return json(res,400,{error:'prefix must be 0-32'});
+    const ipInt=ip2int(m[1]);
+    if(ipInt===null)return json(res,400,{error:'invalid IP address'});
+    const maskInt=prefix===0?0:(0xFFFFFFFF<<(32-prefix))>>>0;
+    const netInt=(ipInt&maskInt)>>>0;
+    const bcastInt=(netInt|(~maskInt>>>0))>>>0;
+    const hosts=prefix>=31?(prefix===32?1:2):(bcastInt-netInt-1);
+    const first=prefix>=31?int2ip(netInt):int2ip(netInt+1);
+    const last=prefix>=31?int2ip(bcastInt):int2ip(bcastInt-1);
+    const o1=m[1].split('.')[0];
+    const cls=o1<128?'A':o1<192?'B':o1<224?'C':o1<240?'D':'E';
+    const priv=/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.)/.test(m[1])||prefix===32&&o1==='127';
+    return json(res,200,{
+      cidr:m[0],
+      network:prefix===0?'0.0.0.0':int2ip(netInt),
+      broadcast:prefix<=30?int2ip(bcastInt):null,
+      netmask:int2ip(maskInt),
+      wildcard:int2ip((~maskInt)>>>0),
+      prefix,
+      hostBits:32-prefix,
+      totalAddresses:Math.pow(2,32-prefix),
+      usableHosts:hosts,
+      firstHost:first,
+      lastHost:last,
+      ipClass:cls,
+      isPrivate:priv,
+    });
   }catch(e){return json(res,400,{error:'subnet failure: '+e.message});}
 }
 module.exports={routeSubnet};
