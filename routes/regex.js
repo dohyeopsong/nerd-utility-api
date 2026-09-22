@@ -1,30 +1,41 @@
-// Regex tester: /regex?pattern=\d+&text=abc123 — match all, groups, named groups, with timeout guard
+// Regex tester: /regex?pattern=<re>&text=<sample>&flags=<gi> — matches with groups, capture count, match count
 function routeRegex(u,res,json,body){
   try{
-    let pattern=u.searchParams.get('pattern')||u.searchParams.get('p')||u.searchParams.get('regex');
-    let text=u.searchParams.get('text')||u.searchParams.get('t');
-    let flags=u.searchParams.get('flags')||u.searchParams.get('f')||'g';
-    if(!pattern&&body&&typeof body==='object'){pattern=body.pattern||body.p;text=body.text||body.t;flags=body.flags||'g';}
-    if(pattern===undefined||pattern===null||pattern==='')return json(res,400,{error:'provide ?pattern=<regex>&text=<input> (&flags= e.g. "gi")'});
-    if(text===undefined||text===null||text==='')text='';
+    let pattern=u.searchParams.get('pattern')||u.searchParams.get('re');
+    let text=u.searchParams.get('text')||u.searchParams.get('test');
+    let flags=u.searchParams.get('flags')||'';
+    if(!pattern&&body&&typeof body==='object'){pattern=body.pattern;text=text||body.text;flags=flags||body.flags||'';}
+    if(pattern===null||pattern===undefined)return json(res,400,{error:'provide ?pattern=<regex>&text=<sample>'});
+    if(text===null||text===undefined)text='';
+    if(pattern.length>1000)return json(res,413,{error:'pattern too large (1000 chars max)'});
+    if(text.length>50000)return json(res,413,{error:'text too large (50KB max)'});
+    if(!/^[gimsuy]*$/.test(flags))return json(res,400,{error:'invalid flags (allowed: g i m s u y)'});
     let re;
-    try{re=new RegExp(pattern,flags.includes('g')?flags:flags);}
-    catch(e){return json(res,400,{error:'invalid regex: '+e.message});}
-    const matches=[];
-    const global=re.global;
-    const deadline=Date.now()+500; // 500ms guard
-    if(global){
-      let m,guard=0;
-      while((m=re.exec(text))!==null){
-        if(m[0]===''&&m.index===re.lastIndex)re.lastIndex++;
-        matches.push({match:m[0],index:m.index,groups:m.slice(1),named:m.groups||null});
-        if(++guard>1000||Date.now()>deadline)break;
-      }
+    try{re=new RegExp(pattern,flags);}catch(e){return json(res,400,{error:'invalid regex: '+e.message});}
+    const result={pattern,flags,textLength:text.length,textPreview:text.length>100?text.slice(0,100)+'…':text};
+    if(flags.includes('g')){
+      const matches=[...text.matchAll(re)];
+      result.matchCount=matches.length;
+      result.matches=matches.slice(0,100).map((m,i)=>({
+        index:m.index,
+        match:m[0],
+        groups:m.length>1?m.slice(1):undefined,
+      }));
+      if(matches.length>100)result.truncated=true;
     }else{
-      const m=re.exec(text);
-      if(m)matches.push({match:m[0],index:m.index,groups:m.slice(1),named:m.groups||null});
+      const m=text.match(re);
+      if(m){
+        result.matched=true;
+        result.match=m[0];
+        result.index=m.index;
+        result.groups=m.length>1?m.slice(1):undefined;
+        result.groupCount=m.length-1;
+      }else result.matched=false;
     }
-    return json(res,200,{pattern,flags,test:matches.length>0,matchCount:matches.length,matches:matches.slice(0,100),inputPreview:text.slice(0,500)});
+    // test if regex is safe/simple: warn on catastrophic backtracking risk
+    if(/(\+|\*)\S*(\+|\*)/.test(pattern.replace(/\\./g,''))&&text.length>1000)
+      result.warning='nested quantifiers with large text — possible catastrophic backtracking';
+    return json(res,200,result);
   }catch(e){return json(res,400,{error:'regex failure: '+e.message});}
 }
 module.exports={routeRegex};
