@@ -133,7 +133,8 @@ const ENDPOINTS = {
   },
   hmac: (body, q) => { if (!q.key || !q.algo) throw new Error('key and algo required'); return { result: crypto.createHmac(q.algo, q.key).update(body).digest('hex') }; },
   duration: (body, q) => routeDuration({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d, body),
-  base32: (body, q) => routeBase32({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d, body)
+  base32: (body, q) => routeBase32({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d, body),
+  units: (body, q) => routeUnits({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d)
 ,  units: (body, q) => routeUnits({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d, body)
 };
 
