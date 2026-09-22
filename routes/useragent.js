@@ -1,60 +1,73 @@
-// User-Agent string parser: browser, engine, OS, device, bot detection
-const RE_BROWSERS = [
-  ['Edg', 'Edge'], ['OPR', 'Opera'], ['Opera', 'Opera'], ['SamsungBrowser', 'Samsung Internet'],
-  ['Firefox', 'Firefox'], ['Chrome', 'Chrome'], ['CriOS', 'Chrome'], ['FxiOS', 'Firefox'],
-  ['Safari', 'Safari'], ['MSIE', 'Internet Explorer'], ['Trident', 'Internet Explorer'],
-];
-const RE_ENGINES = [
-  ['Gecko/', 'Gecko'], ['AppleWebKit/', 'WebKit'], ['Trident/', 'Trident'], ['Presto/', 'Presto'],
-];
-const RE_OS = [
-  [/Windows NT 10.0/, 'Windows 10/11'], [/Windows NT ([\d.]+)/, 'Windows'], [/iPhone OS ([\d_]+)/, 'iOS'],
-  [/CPU OS ([\d_]+)/, 'iPadOS'], [/Android ([\d.]+)/, 'Android'], [/Mac OS X ([\d_.]+)/, 'macOS'],
-  [/CrOS/, 'ChromeOS'], [/Linux/, 'Linux'],
-];
-
-function parse(ua) {
-  if (!ua) return { error: 'missing ?ua= parameter' };
-  const out = { userAgent: ua, bot: /bot|crawl|spider|slurp|bingpreview|facebookexternalhit|lighthouse|curl|wget|python-requests|node/i.test(ua) };
-  // Browser
-  // Safari: real version is in Version/ token (not the trailing Safari/x token)
-  const vTok = ua.match(/Version\/([\d.]+)/);
-  const isChrome = /Chrome\//.test(ua) || /CriOS\//.test(ua);
-  for (const [tok, name] of RE_BROWSERS) {
-    const m = ua.match(new RegExp(tok + '/([\\d.]+)'));
-    if (!m) continue;
-    if (name === 'Safari' && !isChrome) {
-      out.browser = { name: 'Safari', version: vTok ? vTok[1] : (m[1] || null) };
-      break;
-    }
-    out.browser = { name, version: m[1] };
-    break;
-  }
-  if (!out.browser) out.browser = { name: 'Unknown', version: null };
-  // Engine
-  for (const [tok, name] of RE_ENGINES) {
-    const m = ua.match(new RegExp(tok + '([\\d.]+)?'));
-    if (m) { out.engine = { name, version: m[1] || null }; break; }
-  }
-  // OS
-  let osMatched = false;
-  for (const [re, label] of RE_OS) {
-    const m = ua.match(re);
-    if (m) {
-      out.os = { name: label.replace('%s', m[1] || ''), version: m[1] ? m[1].replace(/_/g, '.') : null };
-      osMatched = true; break;
-    }
-  }
-  if (!osMatched) out.os = { name: 'Unknown', version: null };
-  // Device type
-  if (/iPad|Tablet|PlayBook|Silk/i.test(ua)) out.device = 'tablet';
-  else if (/Mobi|iPhone|iPod|Android.*Mobile|Windows Phone/i.test(ua)) out.device = 'mobile';
-  else out.device = 'desktop';
-  return out;
-}
-
+// /useragent — User-Agent string parsing: browser, engine, OS, device type, bot detection
 function routeUseragent(u, res, json) {
-  const ua = u.searchParams.get('ua') || (u.headers && u.headers['user-agent']);
-  return json(res, 200, parse(ua));
+  const q = u.searchParams;
+  const ua = q.get('ua') || q.get('check') || '';
+
+  if (!ua) {
+    return json(res, 400, {
+      error: 'provide ?ua=<user-agent string>',
+      example: '/useragent?ua=' + encodeURIComponent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36')
+    });
+  }
+
+  const out = { input_length: ua.length };
+
+  // --- Bot detection ---
+  const botRe = /(bot|crawler|spider|slurp|bingpreview|facebookexternalhit|curl|wget|python-requests|httpclient|okhttp|axios|node-fetch|go-http-client|java\/|apache-httpclient|postmanruntime|headlesschrome)/i;
+  out.is_bot = botRe.test(ua);
+  if (/headlesschrome/i.test(ua)) out.bot_name = 'Headless Chrome';
+
+  // --- Browser ---
+  let browser = null, version = null;
+  const m = ua.match(/(Edg|OPR|Opera|Chrome|Safari|Firefox|FxiOS|CriOS|SamsungBrowser|YaBrowser|Vivaldi|DuckDuckGo)\/([\d.]+)/);
+  if (m) {
+    const name = m[1];
+    const map = { Edg: 'Edge', OPR: 'Opera', CriOS: 'Chrome iOS', FxiOS: 'Firefox iOS', YaBrowser: 'Yandex', SamsungBrowser: 'Samsung Internet' };
+    browser = map[name] || name;
+    version = m[2];
+  } else if (/MSIE (\d[\d.]*)/.test(ua)) {
+    browser = 'Internet Explorer'; version = ua.match(/MSIE (\d[\d.]*)/)[1];
+  } else if (/Trident\/.*rv:(\d[\d.]*)/.test(ua)) {
+    browser = 'Internet Explorer'; version = ua.match(/rv:(\d[\d.]*)/)[1];
+  }
+  // Safari version lives in Version/ not Safari/
+  if (browser === 'Safari') {
+    const vm = ua.match(/Version\/([\d.]+)/);
+    version = vm ? vm[1] : version;
+  }
+  out.browser = browser || 'Unknown';
+  out.browser_version = version;
+
+  // --- Engine ---
+  let engine = null;
+  if (/Gecko\/|rv:/.test(ua) && !/like Gecko/.test(ua)) engine = 'Gecko';
+  if (/like Gecko/.test(ua) && /AppleWebKit/.test(ua)) engine = /Chrome|Edg|OPR/.test(ua) ? 'Blink' : 'WebKit';
+  else if (/AppleWebKit/.test(ua) && !/Chrome|Edg|OPR/.test(ua)) engine = 'WebKit';
+  else if (/Firefox/.test(ua)) engine = 'Gecko';
+  else if (/Trident/.test(ua)) engine = 'Trident';
+  out.engine = engine || 'Unknown';
+
+  // --- OS ---
+  let os = 'Unknown';
+  if (/Windows NT 10/.test(ua)) os = 'Windows 10/11';
+  else if (/Windows NT 6\.3/.test(ua)) os = 'Windows 8.1';
+  else if (/Windows NT 6\.1/.test(ua)) os = 'Windows 7';
+  else if (/Windows/.test(ua)) os = 'Windows';
+  else if (/Android ([\d.]+)/.test(ua)) os = 'Android ' + ua.match(/Android ([\d.]+)/)[1];
+  else if (/(iPhone|iPad|iPod)/.test(ua)) os = 'iOS ' + (ua.match(/OS (\d+_\d+)/) ? ua.match(/OS (\d+_\d+)/)[1].replace(/_/g, '.') : '');
+  else if (/Mac OS X/.test(ua)) os = 'macOS';
+  else if (/CrOS/.test(ua)) os = 'ChromeOS';
+  else if (/Linux/.test(ua)) os = 'Linux';
+  out.os = os;
+
+  // --- Device type ---
+  let device = 'desktop';
+  if (/iPad|Tablet/.test(ua)) device = 'tablet';
+  else if (/Mobi|iPhone|Android.*Mobile/.test(ua)) device = 'mobile';
+  else if (/TV|SmartTV|AppleTV/.test(ua)) device = 'tv';
+  out.device = device;
+
+  return json(res, 200, out);
 }
-module.exports = { routeUseragent, parse };
+
+module.exports = { routeUseragent };

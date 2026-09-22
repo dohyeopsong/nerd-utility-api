@@ -152,3 +152,4 @@ Full spec: /openapi.json — Docs: /docs
 - GET /vat?check=DE123456789 — EU VAT number validation (28 country formats, DE/NL checksums)
 - GET /postal?country=US&check=94105 — postal/ZIP code validation (29 countries)
 - GET /imei?check=... — IMEI/IMEISV validation (Luhn check, TAC/serial parsing)
+- GET /useragent?ua=<string> — User-Agent parsing (browser, engine, OS, device, bot detection)
