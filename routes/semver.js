@@ -25,13 +25,14 @@ function cmp(a, b) {
   }
   return 0;
 }
+function norm(v) { const p = v.split('-'); const segs = p[0].split('.'); while (segs.length < 3) segs.push('0'); return segs.join('.') + (p[1] ? '-' + p[1] : ''); }
 function satisfies(v, range) {
   // supports ^, ~, >=, >, <=, <, =, exact, and comma-separated AND groups
   for (const part of range.split(/\s*,\s*|\s+&&\s+/)) {
     let m = part.match(/^(\^|~|>=|<=|>|<|=)?\s*v?([\d.]+(?:-[0-9A-Za-z.-]+)?)$/);
     if (!m) return false;
     const [_, op, ver] = m;
-    if (op === '=' || !op) { if (cmp(v, ver) !== 0) return false; }
+    if (op === '=' || !op) { if (cmp(v, norm(ver)) !== 0) return false; }
     else if (op === '^') {
       const V = parseV(ver);
       const hi = V.major > 0 ? `${V.major + 1}.0.0` : `${V.major}.${V.minor + 1}.0`;
@@ -41,8 +42,10 @@ function satisfies(v, range) {
       const hi = `${V.major}.${V.minor + 1}.0`;
       if (cmp(v, ver) < 0 || cmp(v, hi) >= 0) return false;
     } else {
-      const c = cmp(v, ver);
-      if (!(c === 0 && op.includes('=') || c < 0 && op === '<' || c > 0 && op === '>')) return false;
+      const c = cmp(v, norm(ver));
+      if (c === 0 && !op.includes('=')) return false;
+      if (c < 0 && !(op === '<' || op === '<=')) return false;
+      if (c > 0 && !(op === '>' || op === '>=')) return false;
     }
   }
   return true;
