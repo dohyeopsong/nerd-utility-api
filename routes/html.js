@@ -1,26 +1,49 @@
-// HTML entity encode/decode
-const NAMED = { '&': 'amp', '<': 'lt', '>': 'gt', '"': 'quot', "'": 'apos', '\u00a0': 'nbsp' };
-const REVERSE = Object.fromEntries(Object.entries(NAMED).map(([c, n]) => [n, c]));
-function routeHtml(u, res, json) {
-  const q = Object.fromEntries(new URL(u, 'http://x').searchParams);
-  const text = q.text || q.t || '';
-  const mode = (q.mode || q.m || 'encode').toLowerCase();
-  if (!text) return json(res, 400, { error: 'provide ?text=<string>&mode=encode|decode' });
-  try {
-    if (mode === 'encode' || mode === 'e') {
-      const escaped = text.replace(/[&<>"'\u00a0]/g, c => `&${NAMED[c]};`);
-      return json(res, 200, { input: text, mode: 'encode', result: escaped });
+// /html — HTML escape/unescape, strip tags, extract text
+const ENTITIES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+const REV = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
+
+function escapeHtml(s) { return s.replace(/[&<>"']/g, c => ENTITIES[c]); }
+function unescapeHtml(s) {
+  return s.replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z]+);/g, (m, e) => {
+    if (e[0] === '#') {
+      const code = e[1] === 'x' || e[1] === 'X' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
+      if (!Number.isNaN(code) && code < 0x110000) return String.fromCodePoint(code);
+      return m;
     }
-    if (mode === 'decode' || mode === 'd') {
-      const decoded = text
-        .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
-        .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(+d))
-        .replace(/&([a-z]+);/gi, (m, n) => REVERSE[n.toLowerCase()] ?? m);
-      return json(res, 200, { input: text, mode: 'decode', result: decoded });
-    }
-    return json(res, 400, { error: `unknown mode '${mode}'`, available: ['encode', 'decode'] });
-  } catch (e) {
-    return json(res, 400, { error: e.message });
-  }
+    return REV[e.toLowerCase()] !== undefined ? REV[e.toLowerCase()] : m;
+  });
 }
-module.exports = { routeHtml };
+function stripTags(s) {
+  return s.replace(/<script[\s\S]*?<\/script\s*>/gi, '')
+          .replace(/<style[\s\S]*?<\/style\s*>/gi, '')
+          .replace(/<!--[\s\S]*?-->/g, '')
+          .replace(/<[^>]+>/g, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+}
+
+function routeHtml(u, res, json) {
+  const q = Object.fromEntries(u.searchParams.entries());
+  const text = q.text;
+  if (text === undefined) throw new Error('provide ?text=<html string>');
+  if (text.length > 50000) throw new Error('text too long (max 50000)');
+  const mode = (q.mode || 'escape').toLowerCase();
+
+  if (mode === 'escape') {
+    return json(res, 200, { input: text, mode, escaped: escapeHtml(text) });
+  }
+  if (mode === 'unescape') {
+    return json(res, 200, { input: text, mode, unescaped: unescapeHtml(text) });
+  }
+  if (mode === 'strip') {
+    return json(res, 200, {
+      input: text, mode,
+      text: stripTags(text),
+      tagCount: (text.match(/<[^>]+>/g) || []).length,
+      scriptsRemoved: /<script/i.test(text)
+    });
+  }
+  throw new Error("mode must be one of: escape, unescape, strip");
+}
+
+module.exports = { routeHtml, escapeHtml, unescapeHtml, stripTags };
