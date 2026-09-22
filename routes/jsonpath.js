@@ -37,7 +37,7 @@ function query(data, path) {
       cur = cur[t];
     }
   }
-  return cur;
+  return cur === undefined ? null : cur;
 }
 
 function readBody(req) {
