@@ -21,6 +21,7 @@ const { routeUlid } = require('./routes/ulid.js');
 const { routeCuid } = require('./routes/cuid.js');
 const { routePassword } = require('./routes/password.js');
 const { routeJwt } = require('./routes/jwt.js');
+const { routeXml2json } = require('./routes/xml2json.js');
 const { routeUseragent } = require('./routes/useragent.js');
 const { routeGeoip } = require("./routes/geoip.js");
 const { routeSemver } = require('./routes/semver.js'); // semver sort
