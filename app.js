@@ -1,6 +1,5 @@
 const { routeHtml2md } = require('./routes/html2md.js'); // html2md
 const { routeIso } = require('./routes/iso.js'); // iso
-const { routeRegex } = require('./routes/regex.js'); // regex
 const { routeNumber } = require('./routes/number.js'); // number
 const { routeConvert } = require('./routes/convert.js'); // convert
 const { routeCidr } = require('./routes/cidr.js'); // cidr
@@ -165,7 +164,6 @@ const ENDPOINTS = {
   duration: (body, q) => routeDuration({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d, body),
   base32: (body, q) => routeBase32({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d, body),
   units: (body, q) => routeUnits({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d),
-  regex: (body, q) => routeRegex({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d, body),
   password: (body, q) => routePassword({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d),
   cron: (body, q) => routeCron({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d),
   color: (body, q) => routeColor({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d),
@@ -790,9 +788,6 @@ http.createServer(async (req, res) => {
             if (u.pathname === '/escape') { return routeEscape(u, res, json); }
             if (u.pathname === '/crc32') {
               return routeCrc32(u, res, json);
-            }
-            if (u.pathname === '/regex') {
-              return routeRegex(u, res, json);
             }
             if (u.pathname === '/convert') {
               return routeConvert(u, res, json);
