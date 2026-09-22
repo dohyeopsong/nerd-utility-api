@@ -45,6 +45,7 @@ const { routeMd2Html } = require('./routes/md2html.js');
 const { routeHtmlEntities } = require('./routes/htmlentities.js');
 const { routeJson2Sql } = require('./routes/json2sql.js');
 const { routeBase32 } = require('./routes/base32.js');
+const { routeSlugify } = require('./routes/slugify.js');
 const { routePem } = require('./routes/pem.js'); // subnet calc
 
 restoreCrons();
