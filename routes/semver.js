@@ -1,46 +1,51 @@
-// Semver parser: /semver?v=1.2.3 — parse, compare (/semver?a=...&b=...), satisfies range
-function parseSemver(v){
-  const m=String(v).trim().match(/^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+([0-9A-Za-z.-]+))?$/);
+// Semver utility: /semver?version=1.2.3&compare=1.10.0
+// Parses, validates, compares semantic versions (semver.org spec, no build metadata in compare).
+const RE=/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/;
+function parse(v){
+  const m=String(v).trim().match(RE);
   if(!m)return null;
-  return {major:+m[1],minor:+m[2],patch:+m[3],prerelease:m[4]||null,build:m[5]||null};
+  return {major:+m[1],minor:+m[2],patch:+m[3],prerelease:m[4]?m[4].split('.'):null,build:m[5]||null,raw:v};
+}
+function cmpIdent(a,b){
+  const an=/^\d+$/.test(a),bn=/^\d+$/.test(b);
+  if(an&&bn)return (a.length>b.length?(+a>(+b?+b:0)?1:0):0)||((+a)-(+b)||String(a).length-String(b).length); // numeric compare
+  if(an)return -1; // numeric < alphanumeric
+  if(bn)return 1;
+  return a<b?-1:a>b?1:0;
 }
 function compare(a,b){
-  const A=parseSemver(a),B=parseSemver(b);
-  if(!A||!B)throw new Error('invalid semver');
-  for(const k of ['major','minor','patch']){
-    if(A[k]!==B[k])return A[k]<B[k]?-1:1;
-  }
-  // prerelease rules: version without prerelease > with prerelease
-  if(A.prerelease&&!B.prerelease)return -1;
-  if(!A.prerelease&&B.prerelease)return 1;
-  if(A.prerelease&&B.prerelease){
-    const pa=A.prerelease.split('.'),pb=B.prerelease.split('.');
-    for(let i=0;i<Math.max(pa.length,pb.length);i++){
-      const x=pa[i],y=pb[i];
-      if(x===undefined)return -1;
-      if(y===undefined)return 1;
-      const nx=/^\d+$/.test(x),ny=/^\d+$/.test(y);
-      if(nx&&ny){if(+x!==+y)return +x<+y?-1:1;}
-      else if(nx)return -1;
-      else if(ny)return 1;
-      else if(x!==y)return x<y?-1:1;
-    }
+  if(a.major!==b.major)return a.major-b.major;
+  if(a.minor!==b.minor)return a.minor-b.minor;
+  if(a.patch!==b.patch)return a.patch-b.patch;
+  const pa=a.prerelease||[],pb=b.prerelease||[];
+  if(pa.length===0&&pb.length===0)return 0;
+  if(pa.length===0)return 1;      // release > prerelease
+  if(pb.length===0)return -1;
+  for(let k=0;k<Math.max(pa.length,pb.length);k++){
+    if(k>=pa.length)return -1;
+    if(k>=pb.length)return 1;
+    const c=cmpIdent(pa[k],pb[k]);
+    if(c!==0)return c;
   }
   return 0;
 }
-function routeSemver(u,res,json){
+function routeSemver(u,res,json,body){
   try{
-    const v=u.searchParams.get('v');
-    const a=u.searchParams.get('a'),b=u.searchParams.get('b');
-    if(a&&b){
-      let cmp;
-      try{cmp=compare(a,b);}catch(e){return json(res,400,{error:e.message});}
-      return json(res,200,{a,b,comparison:cmp===0?'equal':cmp<0?'a<b':'a>b'});
+    const v=u.searchParams.get('version')||(body&&body.version);
+    if(!v)return json(res,400,{error:'provide ?version=1.2.3 (optionally &compare=2.0.0)'});
+    const a=parse(v);
+    if(!a)return json(res,400,{error:'invalid semantic version',got:v,see:'https://semver.org'});
+    const out={version:v,major:a.major,minor:a.minor,patch:a.patch,
+      prerelease:a.prerelease?a.prerelease.join('.'):null,
+      build:a.build,isPrerelease:!!a.prerelease};
+    const c=u.searchParams.get('compare')||(body&&body.compare);
+    if(c){
+      const b=parse(c);
+      if(!b)return json(res,400,{error:'invalid compare version',got:c});
+      const r=compare(a,b);
+      out.compare={other:c,result:r===0?'equal':r>0?'greater':'less',satisfiesGte:r>=0};
     }
-    if(!v)return json(res,400,{error:'provide ?v=<semver> or ?a=<v1>&b=<v2>'});
-    const p=parseSemver(v);
-    if(!p)return json(res,400,{error:'invalid semver. Expected MAJOR.MINOR.PATCH[-prerelease][+build]'});
-    return json(res,200,{version:v,parsed:p,valid:true});
-  }catch(e){return json(res,500,{error:'semver failure: '+e.message});}
+    return json(res,200,out);
+  }catch(e){return json(res,400,{error:'semver failure: '+e.message});}
 }
-module.exports={routeSemver,parseSemver,compare};
+module.exports={routeSemver,parse:parse,compare};
