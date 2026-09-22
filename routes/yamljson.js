@@ -54,12 +54,13 @@ function parseYAML(text) {
   const lines = text.replace(/\t/g, '  ').split('\n')
     .filter(l => !/^\s*(#|$)/.test(l)); // drop blanks & comments
   let i = 0;
-  function parseBlock(indent) {
+  function parseBlock(minIndent) {
     // list or map based on first line
     if (i >= lines.length) return null;
     const line = lines[i];
     const curIndent = line.length - line.trimStart().length;
-    if (curIndent < indent) return null;
+    if (curIndent < minIndent) return null;
+    const indent = curIndent; // adopt actual child indent
     if (/^\s*-\s/.test(line) || line.trim() === '-') {
       const list = [];
       while (i < lines.length) {
