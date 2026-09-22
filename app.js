@@ -13,6 +13,7 @@ const { routeMarkdown } = require('./routes/markdown.js'); // markdown
 const { routeSlugify, routeEscape } = require('./routes/textutils.js');
 const { routeString } = require('./routes/string.js');
 const { routeJsonpath } = require('./routes/jsonpath.js');
+const { routeJson: routeJsonUtil } = require('./routes/json.js');
 const { routeCrc32 } = require('./routes/crc32.js'); // crc32
 const { routeChmod } = require('./routes/chmod.js'); // chmod converter
 const { routeSlug } = require('./routes/slug.js'); // slug/case
@@ -1326,6 +1327,10 @@ if (u.pathname === '/') return routeLanding(u, res);
       : (() => { const v = q.json || q.csv || q.text || q.data || q.input || q.domain || q.url || q.email; return v === undefined || v === '' ? '' : JSON.stringify({ domain: q.domain, url: q.url, email: q.email, json: q.json, csv: q.csv, text: q.text, data: q.data, input: q.input }); })();
     if (u.pathname === '/pem') {
               try { return routePem(u, res, json, reqBody, req.method); }
+              catch (e) { return json(res, 400, { error: e.message }); }
+            }
+            if (u.pathname === '/json') {
+              try { return routeJsonUtil(u, res, json); }
               catch (e) { return json(res, 400, { error: e.message }); }
             }
             if (u.pathname === '/jsonpath') { return await routeJsonpath(u, res, json, reqBody, req.method); }
