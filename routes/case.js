@@ -1,50 +1,63 @@
 // /case — text case conversions
-function splitWords(s) {
-  return s
-    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')   // camelCase splits
-    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2') // HTTPServer -> HTTP Server
-    .split(/[\s_\-.]+/)
-    .filter(Boolean);
+function words(s) {
+  return s.replace(/[_\-\.]+/g, ' ').split(/\s+/).filter(Boolean);
 }
+
+function toCamel(ws) {
+  return ws.map((w, i) => {
+    const l = w.toLowerCase();
+    return i === 0 ? l : l[0].toUpperCase() + l.slice(1);
+  }).join('');
+}
+
+function toPascal(ws) {
+  return ws.map(w => w[0].toUpperCase() + w.slice(1).toLowerCase()).join('');
+}
+
+function toSnake(ws) { return ws.map(w => w.toLowerCase()).join('_'); }
+function toKebab(ws) { return ws.map(w => w.toLowerCase()).join('-'); }
+function toConstant(ws) { return ws.map(w => w.toUpperCase()).join('_'); }
+function toTitle(ws) { return ws.map(w => w[0].toUpperCase() + w.slice(1).toLowerCase()).join(' '); }
+function toSentence(ws) {
+  const s = ws.join(' ').toLowerCase();
+  return s ? s[0].toUpperCase() + s.slice(1) : s;
+}
+function toPath(ws) { return ws.map(w => w.toLowerCase()).join('/'); }
+
 function routeCase(u, res, json) {
   const q = u.searchParams;
-  const text = q.get('text') || q.get('t') || '';
-  if (!text) return json(res, 400, { error: 'text required' });
-  const words = splitWords(text);
-  const lower = words.map(w => w.toLowerCase());
-  const cap = words.map(w => w[0].toUpperCase() + w.slice(1).toLowerCase());
-  const r = {
-    original: text,
-    camelCase: lower.length ? lower[0] + cap.slice(1).map(w => w[0].toUpperCase() + w.slice(1)).join('') : '',
-    PascalCase: cap.join(''),
-    snake_case: lower.join('_'),
-    SCREAMING_SNAKE_CASE: lower.join('_').toUpperCase(),
-    kebab_case: lower.join('-'),
-    'Title Case': cap.join(' '),
-    'Sentence case': lower.length ? lower[0][0].toUpperCase() + (lower[0].slice(1) + ' ' + lower.slice(1).join(' ')).trim() : '',
-    'dot.case': lower.join('.'),
-    CONSTANT_CASE: lower.join('_').toUpperCase(),
-    path_case: '/' + lower.join('/'),
-    'css-kebab-case': lower.join('-')
-  };
-  if (q.get('to')) {
-    const to = q.get('to').toLowerCase().replace(/[^a-z]/g, '');
-    const aliases = {
-      camel: 'camelCase', camelcase: 'camelCase',
-      pascal: 'PascalCase', pascalcase: 'PascalCase',
-      snake: 'snake_case', snakecase: 'snake_case',
-      screaming: 'SCREAMING_SNAKE_CASE', screamingsnake: 'SCREAMING_SNAKE_CASE', screaming_snake: 'SCREAMING_SNAKE_CASE',
-      constant: 'CONSTANT_CASE', constantcase: 'CONSTANT_CASE', upper: 'CONSTANT_CASE',
-      kebab: 'kebab-case', kebabcase: 'kebab-case', csskebab: 'css-kebab-case', css: 'css-kebab-case', slug: 'kebab-case',
-      title: 'Title Case', titlecase: 'Title Case',
-      sentence: 'Sentence case', sentencecase: 'Sentence case',
-      dot: 'dot.case', dotcase: 'dot.case',
-      path: 'path_case', pathcase: 'path_case'
-    };
-    const key = aliases[to];
-    if (!key) return json(res, 400, { error: `unknown case: ${q.get('to')}. Valid: camel, pascal, snake, screaming, constant, kebab, slug, title, sentence, dot, path, css` });
-    return json(res, 200, { original: text, to: q.get('to'), result: r[key] });
+  const text = q.get('text') || '';
+  const mode = (q.get('to') || 'all').toLowerCase();
+
+  if (!text) {
+    return json(res, 400, {
+      error: 'provide ?text=hello world',
+      note: 'Case conversions. ?to= camel|pascal|snake|kebab|constant|title|sentence|path (default: all)'
+    });
   }
-  return json(res, 200, r);
+
+  const ws = words(text);
+  const all = {
+    camel: toCamel(ws),
+    pascal: toPascal(ws),
+    snake: toSnake(ws),
+    kebab: toKebab(ws),
+    constant: toConstant(ws),
+    title: toTitle(ws),
+    sentence: toSentence(ws),
+    path: toPath(ws),
+    upper: text.toUpperCase(),
+    lower: text.toLowerCase()
+  };
+
+  if (mode !== 'all') {
+    if (!(mode in all)) {
+      return json(res, 400, { error: 'unknown mode: ' + mode, valid_modes: Object.keys(all) });
+    }
+    return json(res, 200, { input: text, to: mode, result: all[mode] });
+  }
+
+  return json(res, 200, { input: text, conversions: all });
 }
+
 module.exports = { routeCase };
