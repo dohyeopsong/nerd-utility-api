@@ -137,3 +137,4 @@ Full spec: /openapi.json — Docs: /docs
 - GET /loan?principal=300000&rate=6.5&years=30 — loan/mortgage payment calculator (+amortization=1)
 - GET /interest?principal=10000&rate=5&years=10 — compound interest calculator (+monthly contribution, mode=simple)
 - GET /currency?code=USD — ISO 4217 currency lookup (name, symbol, decimals); ?q= search; no params = full list
+- GET /country?code=jp — ISO 3166 country lookup (name, capital, currency, phone, tld; search by name)
