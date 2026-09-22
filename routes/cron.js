@@ -1,58 +1,90 @@
-// Cron expression parser: /cron?expr=5 4 * * sun — next runs, human-readable description (5-field, no deps)
-function parseField(f,min,max,alias){
-  if(alias)for(const[k,v]of Object.entries(alias))f=f.replace(new RegExp('\\b'+k+'\\b','gi'),v);
-  const vals=new Set();
-  for(const part of f.split(',')){
-    const[m,step]=part.split('/');
-    let from=min,to=max;
-    if(m==='*'){from=min;to=max;}
-    else if(m.includes('-')){const[a,b]=m.split('-');from=+a;to=+b;}
-    else{from=to=+m;}
-    if(isNaN(from)||isNaN(to)||from<min||to>max||from>to)throw new Error(`field "${f}" out of range [${min}-${max}]`);
-    const s=step===undefined?1:+step;
-    if(isNaN(s)||s<1)throw new Error(`invalid step in "${part}"`);
-    for(let v=from;v<=to;v+=s)vals.add(v);
+// Cron parser: /cron?expr=0 9 * * 1-5 — field breakdown, human-readable description, next 3 runs (UTC)
+const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const DOWS=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+function parseField(field,min,max,names){
+  // returns array of allowed values or throws
+  const map={}; // value -> true
+  const nameToVal=n=>{const i=names?names.findIndex(x=>x.toLowerCase().startsWith(n.toLowerCase())):-1;return i>=0?i:null;};
+  for(const part of field.split(',')){
+    const [range,stepRaw]=part.split('/');
+    const step=stepRaw?parseInt(stepRaw,10):1;
+    if(!step||step<1)throw new Error('invalid step in "'+field+'"');
+    let lo,hi;
+    if(range==='*'){lo=min;hi=max;}
+    else if(range.includes('-')){
+      const [a,b]=range.split('-');
+      lo=/^\d+$/.test(a)?parseInt(a,10):nameToVal(a);
+      hi=/^\d+$/.test(b)?parseInt(b,10):nameToVal(b);
+      if(lo===null||hi===null)throw new Error('invalid name in "'+field+'"');
+    }else{
+      const v=/^\d+$/.test(range)?parseInt(range,10):nameToVal(range);
+      if(v===null)throw new Error('invalid value "'+range+'"');
+      lo=v;hi=stepRaw?v:max; // single value with step = start..max
+      if(!stepRaw)hi=v;
+    }
+    if(lo<min||hi>max||lo>hi)throw new Error('value out of range ('+min+'-'+max+') in "'+field+'"');
+    for(let v=lo;v<=hi;v+=step)map[v]=true;
   }
-  return[...vals].sort((a,b)=>a-b);
+  return Object.keys(map).map(Number).sort((a,b)=>a-b);
 }
-const DOW=['sun','mon','tue','wed','thu','fri','sat'],MON=['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
-const DOW_AL={sun:0,mon:1,tue:2,wed:3,thu:4,fri:5,sat:6},MON_AL={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
-function nextRuns(mins,hours,doms,months,dows,count){
-  const runs=[];let d=new Date();
-  d.setSeconds(0,0);d.setMinutes(d.getMinutes()+1);
-  while(runs.length<count){
-    if(d.getFullYear()>d.getFullYear()+5)break;
-    if(!months.includes(d.getMonth()+1)){d=new Date(d.getFullYear(),d.getMonth()+1,1,0,0);continue;}
-    if(!doms.includes(d.getDate())||!dows.includes(d.getDay())){d=new Date(d.getFullYear(),d.getMonth(),d.getDate()+1,0,0);continue;}
-    const hm=d.getHours()*60+d.getMinutes();
-    const found=mins.find(m=>{const h=Math.floor(m/60);return hours.includes(h)&&(h*60+m%60)>=hm;});
-    let hit=-1;
-    for(const m of mins){const h=Math.floor(m/60),mm=m%60;if(hours.includes(h)&&h*60+mm>=hm){hit=m;break;}}
-    if(hit>=0){d.setHours(Math.floor(hit/60),hit%60,0,0);runs.push(new Date(d));d=new Date(d.getFullYear(),d.getMonth(),d.getDate()+1,0,0);continue;}
-    d=new Date(d.getFullYear(),d.getMonth(),d.getDate()+1,0,0);
+function describeCron(f){
+  const [min,h,dom,mon,dow]=f;
+  const time=`${String(h[0]).padStart(2,'0')}:${String(min[0]).padStart(2,'0')}`+(h.length>1?` and ${h.length-1} other time${h.length>2?'s':''}`:'');
+  let when='every day';
+  if(dow.length<7&&dom[0]!==undefined&&dom.length>=28)when='on '+(dow.length===1?DOWS[dow[0]]+'s':dow.map(d=>DOWS[d]).join(', '));
+  else if(dow.length===7&&dom.length<28)when='on day'+(dom.length>1?'s':'')+' '+dom.join(', ')+' of '+(mon.length===12?'every month':mon.map(m=>MONTHS[m-1]).join(', '));
+  else if(dow.length<7&&dom.length<28)when=`on day ${dom.join(',')} or ${dow.map(d=>DOWS[d]).join(', ')}`;
+  return `Runs at ${time} UTC, ${when}`;
+}
+function nextRuns(f,from,count){
+  const [min,h,dom,mon,dow]=f;
+  const runs=[];
+  let d=new Date(from);d.setSeconds(0,0);d.setMinutes(d.getMinutes()+1);
+  while(runs.length<count&&d.getTime()<from+366*86400000){
+    if(!mon.includes(d.getUTCMonth()+1)){d.setUTCMonth(d.getUTCMonth()+1,1);d.setUTCHours(0,0,0,0);continue;}
+    const domOK=dom.includes(d.getUTCDate());
+    const dowOK=dow.includes(d.getUTCDay());
+    // standard cron: if both restricted, OR; else the restricted one
+    const domRestricted=dom.length<31, dowRestricted=dow.length<7;
+    const dayOK=(domRestricted&&dowRestricted)?(domOK||dowOK):(domOK&&dowOK&&dowOK?true:(domRestricted?domOK:dowOK));
+    if(!dayOK){d.setUTCDate(d.getUTCDate()+1);d.setUTCHours(0,0,0,0);continue;}
+    if(!h.includes(d.getUTCHours())){d.setUTCHours(d.getUTCHours()+1,0,0,0);continue;}
+    if(!min.includes(d.getUTCMinutes())){d.setUTCMinutes(d.getUTCMinutes()+1);continue;}
+    runs.push(d.toISOString().replace('T',' ').slice(0,16)+' UTC');
+    d.setUTCMinutes(d.getUTCMinutes()+1);
   }
   return runs;
 }
-function human(mins,hours,doms,months,dows){
-  const every=(arr,min,max)=>arr.length===max-min+1;
-  let s=[];
-  s.push(every(mins,0,59)?'every minute':(mins.length===1?`at minute ${mins[0]}`:`at minutes ${mins.join(',')}`));
-  s.push(every(hours,0,23)?'every hour':(hours.length===1?`at hour ${hours[0]}`:`at hours ${hours.join(',')}`));
-  if(!every(doms,1,31))s.push(`on day-of-month ${doms.join(',')}`);
-  if(!every(months,1,12))s.push(`in ${months.map(m=>MON[m-1]).join(',')}`);
-  if(!every(dows,0,6))s.push(`on ${dows.map(d=>DOW[d]).join(',')}`);
-  return s.join(', ');
-}
 function routeCron(u,res,json,body){
   try{
-    let expr=u.searchParams.get('expr')||u.searchParams.get('c')||u.searchParams.get('cron');
-    if(!expr&&body&&typeof body==='object'&&(body.expr||body.cron||body.expression))expr=body.expr||body.cron||body.expression;
-    if(!expr)return json(res,400,{error:'provide ?expr=<5-field cron> e.g. 5 4 * * sun'});
-    const f=expr.trim().split(/\s+/);
-    if(f.length!==5)return json(res,400,{error:'expected 5 fields (min hour dom month dow), got '+f.length});
-    const mins=parseField(f[0],0,59),hours=parseField(f[1],0,23),doms=parseField(f[2],1,31),months=parseField(f[3],1,12,MON_AL),dows=parseField(f[4],0,6,DOW_AL);
-    const runs=nextRuns(mins,hours,doms,months,dows,5);
-    return json(res,200,{expression:expr.trim(),description:human(mins,hours,doms,months,dows),fields:{minutes:mins,hours,daysOfMonth:doms,months,daysOfWeek:dows},nextRuns:runs.map(r=>r.toISOString())});
-  }catch(e){return json(res,400,{error:'cron failure: '+e.message});}
+    let expr=u.searchParams.get('expr')||u.searchParams.get('cron');
+    if(!expr&&body&&typeof body==='object'&&(body.expr||body.cron))expr=body.expr||body.cron;
+    if(!expr)return json(res,400,{error:'provide ?expr=<cron expression>'});
+    expr=expr.trim().replace(/\s+/g,' ');
+    const fields=expr.split(' ');
+    if(fields.length<5||fields.length>6)return json(res,400,{error:'cron must have 5 or 6 fields (min hour dom month dow [sec])'});
+    const specs=[
+      {name:'minute',field:fields[0],min:0,max:59},
+      {name:'hour',field:fields[1],min:0,max:23},
+      {name:'day-of-month',field:fields[2],min:1,max:31},
+      {name:'month',field:fields[3],min:1,max:12,names:MONTHS},
+      {name:'day-of-week',field:fields[4],min:0,max:7,names:DOWS},
+    ];
+    if(fields.length===6)specs.unshift({name:'second',field:fields[0],min:0,max:59});
+    const parsed={};
+    for(const s of specs){
+      let f=s.field;
+      if(s.name==='day-of-week'&&f==='7')f='0';
+      parsed[s.name]={raw:s.field,values:parseField(f,s.min,s.max,s.names)};
+      if(s.name==='day-of-week'&&parsed[s.name].values.includes(7))parsed[s.name].values=parsed[s.name].values.map(v=>v===7?0:v).sort((a,b)=>a-b);
+    }
+    const f5=[parsed.minute.values,parsed.hour.values,parsed['day-of-month'].values,parsed.month.values,parsed['day-of-week'].values];
+    return json(res,200,{
+      expr,
+      fields:parsed,
+      description:describeCron(f5),
+      nextRuns:nextRuns(f5,Date.now(),3),
+    });
+  }catch(e){return json(res,400,{error:'cron parse failure: '+e.message});}
 }
 module.exports={routeCron};
