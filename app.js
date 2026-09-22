@@ -45,7 +45,7 @@ const { routeIban } = require('./routes/iban.js'); // iban validate
 const { routeSubnet } = require('./routes/subnet.js');
 const { routeBase } = require('./routes/base.js');
 const { routeHtmlEsc } = require('./routes/htmlesc.js');
-const { routeMd2Html } = require('./routes/md2html.js');
+const { routeMarkdown } = require('./routes/md2html.js');
 const { routeHtmlEntities } = require('./routes/htmlentities.js');
 const { routeJson2Sql } = require('./routes/json2sql.js');
 const { routeUnits } = require('./routes/units.js');
@@ -958,7 +958,7 @@ if (u.pathname === '/') return routeLanding(u, res);
               catch (e) { return json(res, 400, { error: e.message }); }
             }
             if (u.pathname === '/md2html') {
-              try { return routeMd2Html(u, res, json, reqBody, req.method); }
+              try { return routeMarkdown(u, res, json, reqBody, req.method); }
               catch (e) { return json(res, 400, { error: e.message }); }
             }
             if (u.pathname === '/html-entities') {
