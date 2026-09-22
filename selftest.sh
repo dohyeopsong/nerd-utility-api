@@ -44,3 +44,4 @@ check html       "/html?text=%3Cb%3Ehi%3C%2Fb%3E&mode=decode" 200
 check html       "/html?text=%3Cscript%3Ealert(1)%3C/script%3E" 200
 check uuid7      "/uuid7?count=3" 200
 check uuid7      "/uuid7?n=3" 200
+check subnet    "/subnet?cidr=192.168.1.0/24"
