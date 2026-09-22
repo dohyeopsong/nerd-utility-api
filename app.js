@@ -52,7 +52,6 @@ const { routeHtmlEntities } = require('./routes/htmlentities.js');
 const { routeJson2Sql } = require('./routes/json2sql.js');
 const { routeUnits } = require('./routes/units.js');
 const { routeBase32 } = require('./routes/base32.js');
-const { routeSlugify } = require('./routes/slugify.js');
 const { routeDuration } = require('./routes/duration.js');
 const { routePem } = require('./routes/pem.js'); // subnet calc
 
@@ -1191,12 +1190,6 @@ if (u.pathname === '/') return routeLanding(u, res);
       let text = out.join(' ');
       if (q.start !== 'false') text = 'Lorem ipsum ' + text;
       return json(res, 200, { words: n, text });
-    }
-    if (u.pathname === '/slugify') {
-      const q = Object.fromEntries(u.searchParams);
-      if (!q.text) return json(res, 400, { error: 'text required' });
-      const slug = q.text.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
-      return json(res, 200, { slug });
     }
     if (u.pathname === '/case') {
       const q = Object.fromEntries(u.searchParams);
