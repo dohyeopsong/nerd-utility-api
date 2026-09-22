@@ -7,9 +7,12 @@ function routeNumber(u, res, json) {
 
   // allow 0x/0b/0o prefixes, underscores, commas
   let n;
-  try {
-    n = Number(raw.replace(/[_,]/g, '').replace(/^0x/i, '').replace(/^0b/i, '').replace(/^0o/i, ''));
-  } catch { n = NaN; }
+  const cleaned = raw.replace(/[_,]/g, '');
+  const m = cleaned.match(/^(-?)(0x[0-9a-fA-F]+|0b[01]+|0o[0-7]+|\d+(\.\d+)?([eE][+-]?\d+)?)$/);
+  if (m) {
+    try { n = Number(cleaned); } catch { n = NaN; }
+    if (Number.isNaN(n)) try { n = parseInt(cleaned, 0); } catch { n = NaN; }
+  } else { n = NaN; }
   if (!Number.isFinite(n)) throw new Error('not a finite number: ' + raw);
 
   const intPart = BigInt(Math.round(Math.abs(n))) * (n < 0 ? -1n : 1n);
