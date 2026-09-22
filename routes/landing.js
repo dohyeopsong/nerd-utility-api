@@ -8,7 +8,7 @@ const ENDPOINTS = [
   ['Web & Data', ['/scrape', '/dns', '/headers', '/ipinfo', '/price', '/qr', '/color', '/useragent', '/ascii']],
 ];
 
-function landingPage(res, stats) {
+function landingPage(stats) {
   const sections = ENDPOINTS.map(([title, eps]) => {
     const links = [...new Set(eps)].map(e =>
       `<a href="${e}">${e}</a>`).join(' ');
@@ -40,8 +40,7 @@ ${sections}
 </body>
 </html>`;
 
-  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-  res.end(html);
+  return html;
 }
 
 module.exports = { landingPage };
