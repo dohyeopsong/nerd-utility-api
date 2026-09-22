@@ -18,7 +18,8 @@ const { routeJsonpath } = require('./routes/jsonpath.js');
 const { routeJson: routeJsonUtil } = require('./routes/json.js');
 const { routeCrc32 } = require('./routes/crc32.js'); // crc32
 const { routeChmod } = require('./routes/chmod.js'); // chmod converter
-const { routeSlug } = require('./routes/slug.js'); // slug/case
+const { routeSlug } = require('./routes/slug.js');
+const { routeDatediff } = require('./routes/datediff.js'); // slug/case
 const { routeDiff } = require('./routes/diff.js'); // text diff
 const { routeTimeago } = require('./routes/timeago.js'); // relative time
 const { routeLanding } = require('./routes/landing.js');
@@ -1091,7 +1092,11 @@ if (u.pathname === '/') return routeLanding(u, res);
               try { return routeChmod(u, res, json); }
               catch (e) { return json(res, 500, { error: e.message }); }
             }
-            if (u.pathname === '/slug') {
+            if (u.pathname === '/datediff') {
+      try { return routeDatediff(u, res, json); }
+      catch (e) { json(res, 400, { error: e.message }); return; }
+    }
+    if (u.pathname === '/slug') {
               const q = Object.fromEntries(u.searchParams);
               if (!q.text) return json(res, 400, {error: 'provide ?text='});
               let s = String(q.text).toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
