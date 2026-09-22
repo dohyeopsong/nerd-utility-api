@@ -10,15 +10,17 @@ function crc32Table(poly) {
 }
 const T_POSIX = crc32Table(0xEDB88320);
 function cksumPOSIX(buf) {
-  // POSIX cksum: CRC over data followed by the length (in bytes) encoded as variable-length big-endian
+  // POSIX cksum: CRC over data followed by the byte-length, big-endian,
+  // most-significant byte first, omitting leading zero bytes.
   let c = 0xFFFFFFFF;
   for (let i = 0; i < buf.length; i++) c = T_POSIX[(c ^ buf[i]) & 0xFF] ^ (c >>> 8);
   let len = buf.length;
-  do {
-    let byte = len & 0xFF;
+  let nbytes = 0; let t = len;
+  while (t > 0) { nbytes++; t = Math.floor(t / 256); }
+  for (let i = nbytes - 1; i >= 0; i--) {
+    const byte = (len >>> (8 * i)) & 0xFF;
     c = T_POSIX[(c ^ byte) & 0xFF] ^ (c >>> 8);
-    len = Math.floor(len / 256);
-  } while (len > 0);
+  }
   return (c ^ 0xFFFFFFFF) >>> 0;
 }
 function adler32(buf) {
@@ -40,7 +42,7 @@ function routeChecksum(u, res, json) {
       length: buf.length,
       cksum: cksumPOSIX(buf),
       adler32: adler32(buf).toString(16).padStart(8, '0'),
-      note: 'cksum matches POSIX `cksum` output; compare with `echo -n "text" | cksum`',
+      note: 'cksum matches POSIX `cksum` output; compare with `printf "text" | cksum`',
     });
   } catch (e) { return json(res, 400, { error: e.message }); }
 }
