@@ -25,6 +25,7 @@ const { routeUseragent } = require('./routes/useragent.js');
 const { routeGeoip } = require("./routes/geoip.js");
 const { routeSemver } = require('./routes/semver.js'); // semver sort
 const { routeCron } = require('./routes/cron.js');
+const { routeUa, setHeaders: setUaHeaders } = require('./routes/ua.js');
 const { rateLimit, capCheck, capIncr, capDecr, capStats } = require('./routes/ratelimit.js'); // cron parse
 const { routeLuhn } = require('./routes/luhn.js'); // luhn validate
 const { routePwstrength } = require('./routes/pwstrength.js');
