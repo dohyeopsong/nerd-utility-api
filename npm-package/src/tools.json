@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-09-21T13:34:12.682Z",
-  "toolCount": 58,
+  "generatedAt": "2026-09-22T12:47:05.343Z",
+  "toolCount": 60,
   "tools": [
     {
       "name": "health",
@@ -772,13 +772,25 @@
     },
     {
       "name": "units",
-      "description": "Convert between units (length, mass, temperature, data, volume)",
+      "description": "Unit conversion (length, mass, temperature, data, time)",
       "inputSchema": {
         "type": "object",
         "properties": {
-          "value": {
+          "from": {
             "type": "string",
-            "description": "value input"
+            "description": ""
+          },
+          "to": {
+            "type": "string",
+            "description": ""
+          },
+          "value": {
+            "type": "number",
+            "description": ""
+          },
+          "list": {
+            "type": "string",
+            "description": ""
           }
         },
         "required": []
@@ -878,6 +890,48 @@
       "_endpoint": {
         "method": "GET",
         "path": "/md"
+      }
+    },
+    {
+      "name": "base32",
+      "description": "Base32 encode/decode",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "encode": {
+            "type": "string",
+            "description": ""
+          },
+          "decode": {
+            "type": "string",
+            "description": ""
+          }
+        },
+        "required": []
+      },
+      "_endpoint": {
+        "method": "GET",
+        "path": "/base32"
+      }
+    },
+    {
+      "name": "duration",
+      "description": "Parse human duration (e.g. 1h30m) to ms/units",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "string",
+            "description": ""
+          }
+        },
+        "required": [
+          "input"
+        ]
+      },
+      "_endpoint": {
+        "method": "GET",
+        "path": "/duration"
       }
     }
   ]

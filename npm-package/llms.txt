@@ -1,47 +1,127 @@
-# Nerd Utility API — for AI Agents
+# Nerd Utility API — llms.txt
 
-A fast, free utility API for AI agents and developers. Base URL: see PUBLIC_URL.md (current: https://feminine-neatness-coliseum.ngrok-free.dev)
+Free, no-auth utility endpoints on :8080. GET-friendly (params in query string) or POST JSON.
 
-## Endpoints (all POST, JSON body, unless noted)
+## Endpoints
+- /.well-known/agent-card.json
+- /.well-known/ai-plugin.json
+- /agent-card.json
+- /ai-plugin.json
+- /alerts
+- /case
+- /cert
+- /cron
+- /dashboard
+- /diff
+- /docs
+- /health
+- /hook
+- /hook/
+- /hook/new
+- /ipinfo
+- /json2csv
+- /jwt-decode
+- /llms.txt
+- /lorem
+- /markdown
+- /md
+- /og
+- /openapi
+- /openapi.json
+- /password
+- /price
+- /price/history
+- /pricing
+- /qr
+- /qrcode
+- /random
+- /regex
+- /robots.txt
+- /rss
+- /shorten
+- /sitemap.xml
+- /slug
+- /slugify
+- /stats
+- /text-stats
+- /ua-parse
+- /url-encode
+- /validate
+- /weather
+- /whois
 
-- POST /format {text, minify?} → pretty/minified JSON
-- POST /csv2json {csv} → JSON array
-- POST /json2csv {json} → CSV text
-- POST /base64 {text, decode?} → encode/decode
-- POST /hash {text, algo?="sha256"} → hex digest
-- POST /uuid {count?=1} → UUIDs
-- POST /timestamp {iso?} → unix time conversion
-- POST /text-stats {text} → words/chars/lines
-- POST /qrcode {text, size?} → PNG data URL
-- POST /dns {domain} → A/AAAA/MX/TXT records
-- POST /headers {url} → HTTP response headers
-- GET  /price?symbol=BTC → price lookup (CoinGecko)
-- GET  /price/history?symbol=BTC&days=7
-- POST /ipinfo {ip} → geolocation
-- POST /scrape {url, mode?} → readable text/links from a page
-- GET/POST/DELETE /alerts → price alert rules (watchdog)
-- GET  /stats → usage analytics
-- GET  /openapi.json → full OpenAPI 3.0 spec
-- GET  /docs → markdown docs
-- GET  /pricing → tier info
+Webhook tester: GET /hook returns a unique capture URL; send any request there; GET /hook/<id> to inspect.
 
-## Auth & Payment
-
-Currently all endpoints are free. Future paid tiers will use x402 (EIP-3009
-TransferWithAuthorization for USDC on Base, chain 8453). Pay-to address:
-0x85fe24c7668577ae04106Be4fb806915a77384e0. A 402 response will include
-{ error, payTo, amountUsdc, network: "base", standard: "x402" } headers/body.
-
-## Example
-
-    curl -X POST <BASE>/format -H 'Content-Type: application/json' -d '{"a":1}'
-    → {"result":"{\n  \"a\": 1\n}"}
-
-    curl "<BASE>/price?symbol=ETH"
-    → {"ethereum":{"usd":2660.23}}
-
-## MCP
-
-Use as an MCP server: `node mcp-server.js` (stdio JSON-RPC 2.0), set
-NERD_API_URL to the base URL. Tools: format, csv2json, json2csv, base64,
-hash, uuid, timestamp, text-stats, qrcode, dns, headers, price, ipinfo, scrape.
+Full spec: /openapi.json — Docs: /docs
+- /faker?type=user|address|company|creditcard|paragraph&count=N — mock data generator
+- /jwt?token= — JWT decode/inspector (header, payload, expiry)
+- /ts?json= — JSON to TypeScript interface generator
+- /diff?a=&b= — line diff (LCS-based, unified-style patch output)
+- /csv?json= (array→CSV) or ?csv= (CSV→JSON) — converter with quoting support, ?delimiter= for ; or tab
+- /md?text= — Markdown to HTML converter (headings, lists, links, code)
+- /cron?expr= — cron expression next-run calculator (5-field cron)
+- /slug?text= — URL slug generator (accent-stripping, separator handling)
+- /case?text= — camelCase/snake_case/kebab-case/PascalCase converter
+- /pw?length=&count=&symbols=false|sets=hex — crypto-random password generator with entropy estimate; ?check=<pw> — strength rater
+- /color?hex=|rgb= — hex/RGB/HSL converter; ?contrast=#a,#b — WCAG contrast ratio checker
+- /jwt?token= — JWT decoder/inspector (header, payload, expiry; no signature verification)
+- /jwt?token= — JWT decoder/inspector (header, payload, expiry; no signature verification)
+- /url?url= — URL parser (components + query params); ?text=&mode=encode|decode — URL encoder/decoder
+- /xml?xml= (XML→JSON, attrs as @keys, repeats as arrays) or ?json= (JSON→XML)
+- /ts?json=&name=User — JSON-to-TypeScript interface generator (infers nested types)
+- /ua?agent= — user-agent parser (browser, engine, OS, device type, bot detection); falls back to caller UA
+- /ua?ua= — user-agent parser (browser, OS, device type, bot detection)
+- /ua?agent= — user-agent parser (browser, OS, device, bot detection)
+- /ua?agent= — user-agent parser (browser, OS, device type, engine, bot detection)
+- /ua?agent= — user-agent parser (browser, OS, device type, bot detection, engine)
+- /units?value=&from=&to= — unit converter (length, weight, temp, data, time; ?list for all)
+- /cron?expr=0 9 * * 1-5 [&count=3] — cron explainer + next run times (max 10)
+- /otp?secret=JBSWY3DPEHPK3PXP [&digits=8] [&period=30] — TOTP 2FA code generator (RFC 6238)
+- /lorem?n=3&unit=paragraphs — lorem ipsum generator (paragraphs, sentences, words)
+- /slug?text=Hello World&to=camel|snake|kebab|pascal|title|constant|human — case converter
+- /diff?a=&b= — unified text diff between two texts
+- /chmod?mode=750|rwxr-x--- — chmod octal<->symbolic converter
+- /env?text=<dotenv>&to=json|dotenv — dotenv parser and serializer
+- /qs?text=a=1&b=2 [&to=json|qs] — querystring <-> JSON converter
+- /base?num=255&from=10&to=hex — number base converter (bases 2-36)
+- /cron?expr=0 9 * * 1-5 — cron expression explainer (human-readable)
+- /ua?ua=<string> — user-agent parser (browser, OS, device, bot detection)
+- /html?text=<string>&to=escape|unescape — HTML entity encoder/decoder (named + numeric)
+- /color?c=ff00aa|#FF00AA|255,0,170 — color converter (hex/rgb/hsl, contrast)
+- /jwt?token=<jwt> — JWT decoder (header/payload/expiry, no signature verify)
+- /case?text=<string>&to=camel|snake|kebab|pascal|title|slug — case converter
+- /diff?a=<text1>&b=<text2> — line diff (LCS-based, unified + hunks)
+- /totp?secret=<base32> [&digits=6|8] — RFC 6238 TOTP generator
+- /lorem?unit=paragraphs|sentences|words&count=N — lorem ipsum generator
+- /semver?a=<v>&b=<v> — semver parse/compare (semver.org rules)
+- /html2text?html=<html> or ?url=<page> — HTML to plain text (strips scripts/styles)
+- /password?length=16&count=1&symbols=true&exclude=<chars> — cryptographically secure password generator (crypto.randomBytes)
+- /jsonpath?json=<json>&path=<a.b[0].c|a.*.name> — extract values from JSON
+- /jwt?token=<jwt>&secret=<key> — decode JWT (header/payload/expiry), verify HS256 signature
+- /cron?expr=<cron> — cron expression explainer: parse, human-readable summary, next 5 runs
+- /md2html?md=<markdown> — markdown to HTML (headings, lists, links, code blocks)
+- /semver?v=<version>&other=<version> — parse semver, validate, compare (semver.org rules incl. prerelease precedence)
+- /luhn?num=<digits> — Luhn checksum validation + card brand; /luhn?check=<partial> computes check digit
+- /uuid?count=<n>&upper=1&braces=1 — UUID v4 generator (up to 1000)
+- /iban?iban=<IBAN> — IBAN validator (country lengths + ISO 7064 mod-97 checksum)
+- /isbn?isbn=<ISBN-10|ISBN-13> — ISBN validator (checksums, ISBN-10 to ISBN-13 conversion)
+- /ean?code=<digits> — EAN-8/EAN-13/UPC-A barcode validator (checksum + country prefix)
+- /vin?vin=<VIN> — VIN validator/decoder (check digit, WMI country, model year, plant, serial)
+- /cidr?cidr=<ip>/<prefix> — subnet calculator (network, broadcast, mask, host range, class, private/public)
+- /cron?expr=<5-field cron> — cron expression validator + plain-English description + next 5 runs (UTC)
+- /diff?a=<t1>&b=<t2> or POST {"a","b"} — unified diff between two texts
+- /roman?to_roman=<n>|from_roman=<ROMAN> — Roman numeral converter (both directions, canonicality check)
+- /morse?encode=<text>|decode=<morse> — Morse code translator (both directions, punctuation)
+- /color?c=<hex or r,g,b> — color converter (hex/rgb/hsl, luminance, contrast)
+- /jwt?token=<JWT> — JWT decoder (header/payload, exp/nbf/iat checks; signature not verified)
+- /slug?text=<string> — URL slug generator (transliteration, custom separator, max length)
+- /units?value=<n>&from=<u>&to=<u> — unit converter (length, mass, temperature, data, volume)
+- /iban?iban=<IBAN> — IBAN validator (country lengths + mod-97 checksum)
+- /isbn?isbn=<ISBN> — ISBN-10/13 validator with checksum + cross-format conversion
+- /barcode?code=<digits> — EAN-8/EAN-13/UPC-A validator with checksum + GS1 prefix lookup
+- /vin?vin=<17 chars> — VIN decoder/validator (check digit, WMI, model year, region)
+- /password?pw=<pw> | gen=<len> — password strength analyzer + secure generator (entropy, crack time, patterns)
+- /cron?expr=<expr> — cron expression explainer with next 3 run times
+- /semver?a=<v>&b=<v> | list=<v,v,...> — semver comparator/sorter (semver.org spec)
+- POST /html2md — HTML to Markdown ({"html": "..."} or {"url": "..."}; also GET ?html= or ?url=)
+- GET|POST /md2html — Markdown to HTML (?md= or POST {"md": "..."}; ?format=html for raw HTML)
