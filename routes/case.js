@@ -1,37 +1,38 @@
-// Text case converter: camel, pascal, snake, kebab, constant, title, upper, lower, sentence, alternateng
-function words(s) {
-  return s.replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-          .replace(/[_\-\.]+/g, ' ')
-          .split(/\s+/).filter(Boolean);
-}
+// /case — convert text between naming conventions
 function routeCase(u, res, json) {
-  const q = Object.fromEntries(new URL(u, 'http://x').searchParams);
-  const text = q.text || q.t || q.s || '';
-  if (!text) return json(res, 400, { error: 'provide ?text=<string>' });
-  const to = (q.to || q.case_ || '').toLowerCase() || 'all';
-  const w = words(text);
-  const cap = s => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
-  const lower = w.map(s => s.toLowerCase());
-  const camel = lower.map((s, i) => i ? cap(s) : s).join('');
-  const pascal = lower.map(cap).join('');
-  const snake = lower.join('_');
-  const kebab = lower.join('-');
-  const constant = lower.join('_').toUpperCase();
-  const title = w.map(cap).join(' ');
-  const upper = text.toUpperCase();
-  const low = text.toLowerCase();
-  const sentence = cap(text.toLowerCase());
-  const alternating = [...text].map((c, i) => i % 2 ? c.toUpperCase() : c.toLowerCase()).join('');
-  const all = { camelCase: camel, PascalCase: pascal, snake_case: snake, 'kebab-case': kebab,
-    CONSTANT_CASE: constant, 'Title Case': title, UPPERCASE: upper, lowercase: low,
-    'Sentence case': sentence, aLtErNaTiNg: alternating, wordCount: w.length };
-  if (to === 'all') return json(res, 200, { input: text, ...all });
-  const norm = to.replace(/[^a-z]/g, '');
-  const key = Object.keys(all).find(k => {
-    const kk = k.toLowerCase().replace(/[^a-z]/g, '');
-    return kk === norm || kk.startsWith(norm) || kk.includes(norm);
-  });
-  if (!key) return json(res, 400, { error: `unknown case '${to}'`, available: Object.keys(all).filter(k => k !== 'wordCount') });
-  return json(res, 200, { input: text, case: key, result: all[key] });
+  const q = u.searchParams;
+  const text = (q.get('text') || '').trim();
+  const to = (q.get('to') || 'camel').toLowerCase();
+  if (!text) return json(res, 400, { error: 'text required' });
+
+  // First normalize to a word list
+  let words;
+  if (q.get('from') === 'words' || text.includes(' ')) {
+    words = text.split(/[\s_-]+/).filter(Boolean);
+  } else {
+    // split camelCase, snake_case, kebab-case boundaries
+    words = text
+      .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+      .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+      .split(/[\s_-]+/).filter(Boolean);
+  }
+
+  const lower = words.map(w => w.toLowerCase());
+  const cap = lower.map(w => w.charAt(0).toUpperCase() + w.slice(1));
+
+  let result;
+  switch (to) {
+    case 'camel':    result = lower.map((w, i) => i ? cap[i] : w).join(''); break;
+    case 'pascal':   result = cap.join(''); break;
+    case 'snake':    result = lower.join('_'); break;
+    case 'kebab':
+    case 'dash':     result = lower.join('-'); break;
+    case 'constant': result = lower.join('_').toUpperCase(); break;
+    case 'title':    result = cap.join(' '); break;
+    case 'upper':    result = text.toUpperCase(); break;
+    case 'lower':    result = text.toLowerCase(); break;
+    default: return json(res, 400, { error: 'unknown to=; use camel, pascal, snake, kebab, constant, title, upper, lower' });
+  }
+  return json(res, 200, { input: text, to, result, words: lower });
 }
 module.exports = { routeCase };

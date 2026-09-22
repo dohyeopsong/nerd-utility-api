@@ -33,6 +33,7 @@ const { routeCsv2json } = require('./routes/csv2json.js');
 const { routeYamljson } = require('./routes/yamljson.js');
 const { routeChecksum } = require('./routes/checksum.js');
 const { routeHash } = require('./routes/hash.js');
+const { routeCase } = require('./routes/case.js');
 const { routeCron } = require('./routes/cron.js');
 const { routeUa, setHeaders: setUaHeaders } = require('./routes/ua.js');
 const { rateLimit, capCheck, capIncr, capDecr, capStats } = require('./routes/ratelimit.js'); // cron parse
@@ -714,6 +715,10 @@ if (u.pathname === '/') return routeLanding(u, res);
             }
             if (u.pathname === '/markdown') {
               return routeMarkdown(u, res, json);
+            }
+            if (u.pathname === '/case') {
+              try { return routeCase(u, res, json); }
+              catch (e) { return json(res, 400, { error: e.message }); }
             }
             if (u.pathname === '/hash') {
               try { return routeHash(u, res, json); }
