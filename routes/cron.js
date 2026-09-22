@@ -21,13 +21,13 @@ function parseField(f,min,max,names){
 }
 function nextRun(fields,after){
   const d=new Date(after.getTime());
-  d.setSeconds(0,0);
-  d.setMinutes(d.getMinutes()+1);
+  d.setUTCSeconds(0,0);
+  d.setUTCMinutes(d.getUTCMinutes()+1);
   const[mins,hours,doms,months,dows]=fields;
   for(let i=0;i<525960;i++){
-    if(months.includes(d.getMonth()+1)&&doms.includes(d.getDate())&&dows.includes(d.getDay())&&hours.includes(d.getHours())&&mins.includes(d.getMinutes()))
+    if(months.includes(d.getUTCMonth()+1)&&doms.includes(d.getUTCDate())&&dows.includes(d.getUTCDay())&&hours.includes(d.getUTCHours())&&mins.includes(d.getUTCMinutes()))
       return new Date(d.getTime());
-    d.setMinutes(d.getMinutes()+1);
+    d.setUTCMinutes(d.getUTCMinutes()+1);
   }
   return null;
 }
