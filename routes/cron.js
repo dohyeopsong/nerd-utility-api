@@ -1,95 +1,75 @@
-// Cron expression explainer: /cron?expr=0 9 * * MON-FRI
-// Supports 5-field cron, *, */n, ranges, lists, step ranges, names for months/days.
-const MONTHS=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
-const DOWS=['SUN','MON','TUE','WED','THU','FRI','SAT'];
-function normName(v,names){
-  const i=names.indexOf(String(v).toUpperCase());
-  return i<0?parseInt(v):i+(names===MONTHS?1:0);
-}
-function parseField(field,min,max,names,unit){
-  if(!field)return null;
-  const parts=field.split(',');
-  const out=[];
-  for(const p of parts){
-    let step=1,range=p;
-    const sm=p.match(/^(.+?)\/(\d+)$/);
-    if(sm){range=sm[1];step=parseInt(sm[2]);if(step<1)return null;}
-    let a,b;
-    if(range==='*'){a=min;b=max;}
+// Cron expression parser: /cron?expr=*/15 9-17 * * 1-5&count=5
+// Standard 5-field cron. Returns parsed fields and next run times.
+function parseCronField(field,min,max,name){
+  const fieldOut=[];
+  for(const part of field.split(',')){
+    const m=part.trim().match(/^(\*|\d+(?:-\d+)?)(?:\/(\d+))?$/);
+    if(!m)throw new Error('bad '+name+' field: '+part);
+    let start,end,step=parseInt(m[2]||'1');
+    if(m[1]==='*'){start=min;end=max;}
     else{
-      const rm=range.match(/^([A-Za-z0-9]+)-([A-Za-z0-9]+)$/);
-      if(rm){a=names?normName(rm[1],names):parseInt(rm[1]);b=names?normName(rm[2],names):parseInt(rm[2]);}
-      else{a=names?normName(range,names):parseInt(range);b=a;}
-      if(a===null||b===null||isNaN(a)||isNaN(b))return null;
+      const range=m[1].split('-');
+      start=parseInt(range[0]);end=range.length>1?parseInt(range[1]):start;
     }
-    if(a<min||b>max||a>b)return null;
-    if(range==='*'&&step===1){out.push({type:'every',desc:'every '+unit});continue;}
-    if(range==='*'&&step>1){out.push({type:'every-n',n:step,desc:`every ${step} ${unit}s`});continue;}
-    if(a===b)out.push({type:'single',v:a,desc:String(a)});
-    else if(step>1)out.push({type:'range-step',from:a,to:b,step,desc:`${a} through ${b} every ${step}`});
-    else out.push({type:'range',from:a,to:b,desc:`${a} to ${b}`});
+    if(start<min||end>max||start>end)throw new Error(name+' out of range: '+part);
+    for(let v=start;v<=end;v+=step)if(!fieldOut.includes(v))fieldOut.push(v);
   }
-  return out;
+  fieldOut.sort((a,b)=>a-b);
+  return fieldOut;
+}
+function parseCron(expr){
+  const parts=String(expr).trim().split(/\s+/);
+  if(parts.length!==5)throw new Error('need exactly 5 fields (min hour dom month dow), got '+parts.length);
+  const dowNames={sun:0,mon:1,tue:2,wed:3,thu:4,fri:5,sat:6};
+  const monNames={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
+  let norm=parts.slice();
+  norm[4]=norm[4].replace(/(sun|mon|tue|wed|thu|fri|sat)/gi,m=>dowNames[m.toLowerCase()]);
+  norm[3]=norm[3].replace(/(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/gi,m=>monNames[m.toLowerCase()]);
+  const f={
+    minute:parseCronField(norm[0],0,59,'minute'),
+    hour:parseCronField(norm[1],0,23,'hour'),
+    dom:parseCronField(norm[2],1,31,'day-of-month'),
+    month:parseCronField(norm[3],1,12,'month'),
+    dow:parseCronField(norm[4],0,7,'day-of-week'),
+  };
+  if(f.dow.includes(7)){if(!f.dow.includes(0))f.dow.push(0);f.dow=f.dow.filter(v=>v!==7).sort((a,b)=>a-b);}
+  return f;
+}
+function nextRuns(f,count,from){
+  const runs=[];
+  let t=new Date(from);t.setMilliseconds(0);t.setSeconds(0);
+  t=new Date(t.getTime()+60000); // start next minute
+  const domStar=String(f.dom.length)!==''&&f.dom.length>=31;
+  const dowStar=f.dow.length===7;
+  while(runs.length<count&&t.getTime()-from<366*24*3600*1000){
+    if(!f.month.includes(t.getMonth()+1)){t=new Date(t.getFullYear(),t.getMonth()+1,1,0,0);continue;}
+    const domOK=f.dom.includes(t.getDate());
+    const dowOK=f.dow.includes(t.getDay());
+    // standard cron: if both dom and dow are restricted, match either; else match both
+    const domRestricted=f.dom.length<31,dowRestricted=f.dow.length<7;
+    const dayOK=(domRestricted&&dowRestricted)?(domOK||dowOK):(domOK&&dowOK);
+    if(!dayOK){t=new Date(t.getFullYear(),t.getMonth(),t.getDate()+1,0,0);continue;}
+    if(!f.hour.includes(t.getHours())){t.setMinutes(0);t.setHours(t.getHours()+1);continue;}
+    if(!f.minute.includes(t.getMinutes())){t.setMinutes(t.getMinutes()+1);continue;}
+    runs.push(new Date(t));
+    t=new Date(t.getTime()+60000);
+    // reset to next valid hour boundary is slow path; fine
+  }
+  return runs;
 }
 function routeCron(u,res,json,body){
   try{
     const expr=u.searchParams.get('expr')||(body&&body.expr);
-    if(!expr)return json(res,400,{error:'provide ?expr="m h dom mon dow"'});
-    const f=expr.trim().split(/\s+/);
-    if(f.length!==5)return json(res,400,{error:'cron must have exactly 5 fields: minute hour day-of-month month day-of-week'});
-    const fields=[
-      {name:'minute',min:0,max:59,parts:parseField(f[0],0,59,null,'minute')},
-      {name:'hour',min:0,max:23,parts:parseField(f[1],0,23,null,'hour')},
-      {name:'day-of-month',min:1,max:31,parts:parseField(f[2],1,31,null,'day-of-month')},
-      {name:'month',min:1,max:12,parts:parseField(f[3],1,12,MONTHS,'month')},
-      {name:'day-of-week',min:0,max:7,parts:parseField(f[4],0,7,DOWS,'day-of-week')},
-    ];
-    for(let i=0;i<fields.length;i++){
-      if(!fields[i].parts)return json(res,400,{error:`invalid ${fields[i].name} field: "${f[i]}"`});
-    }
-    const [minute,hour,dom,mon,dow]=fields;
-    let desc='';
-    const allStars=fs=>fs.parts.every(p=>p.type==='every');
-    const descOf=fs=>fs.parts.map(p=>p.desc).join(', ');
-    if(minute.parts.length===1&&minute.parts[0].type==='single'&&hour.parts.length===1&&hour.parts[0].type==='single')
-      desc=`At ${hour.parts[0].v}:${String(minute.parts[0].v).padStart(2,'0')} `;
-    else if(minute.parts.length===1&&minute.parts[0].type==='every-n'&&hour.parts.length===1&&hour.parts[0].type==='single')
-      desc=`Every ${minute.parts[0].n} minutes past hour ${hour.parts[0].v} `;
-    else if(allStars(minute)&&allStars(hour))
-      desc=`Every minute `;
-    else desc=`Minutes: ${descOf(minute)}, Hours: ${descOf(hour)} `;
-    if(!allStars(dom)||!allStars(mon)||!allStars(dow)){
-      desc+= allStars(dom)?'':`on day ${descOf(dom)} of the month `;
-      desc+= allStars(mon)?'':`in month${mon.parts.length>1?'s':''} ${descOf(mon)} `;
-      desc+= allStars(dow)?'':`on ${descOf(dow)} `;
-    }
-    return json(res,200,{
-      expr:expr.trim(),
-      fields:f,
-      parsed:fields.map(x=>({name:x.name,parts:x.parts})),
-      description:desc.trim(),
-      nextRuns:nextRuns(fields),
-    });
+    if(!expr)return json(res,400,{error:'provide ?expr="*/15 9-17 * * 1-5" (5-field cron)'});
+    const count=Math.min(20,Math.max(1,parseInt(u.searchParams.get('count')||(body&&body.count))||5));
+    const f=parseCron(expr);
+    const fromStr=u.searchParams.get('from')||(body&&body.from);
+    const from=fromStr?new Date(fromStr):new Date();
+    if(isNaN(from))return json(res,400,{error:'invalid from date'});
+    const runs=nextRuns(f,count,from.getTime());
+    return json(res,200,{expression:expr,fields:f,
+      nextRuns:runs.map(d=>d.toISOString()),
+      humanHint:'runs when minute∈['+f.minute.slice(0,8).join(',')+(f.minute.length>8?'…':'')+'] etc.'});
   }catch(e){return json(res,400,{error:'cron failure: '+e.message});}
 }
-function nextRuns(fields){
-  const out=[];let d=new Date();d.setSeconds(0,0);d.setMinutes(d.getMinutes()+1);
-  const ok=(fd,v)=>fd.parts.some(p=>{
-    if(p.type==='every')return true;
-    if(p.type==='single')return p.v===v||(fd.name==='day-of-week'&&p.v===7&&v===0);
-    if(p.type==='range'||p.type==='range-step'){
-      if(v<p.from||v>p.to)return false;
-      if(p.type==='range-step')return (v-p.from)%p.step===0;
-      return true;
-    }
-    if(p.type==='every-n')return v%p.n===0;
-    return false;
-  });
-  for(let i=0;i<20000&&out.length<3;i++){
-    const dt=new Date(d.getTime()+i*60000);
-    if(ok(fields[0],dt.getMinutes())&&ok(fields[1],dt.getHours())&&ok(fields[2],dt.getDate())&&ok(fields[3],dt.getMonth()+1)&&ok(fields[4],dt.getDay()))
-      out.push(dt.toISOString());
-  }
-  return out;
-}
-module.exports={routeCron};
+module.exports={routeCron,parseCron,nextRuns};
