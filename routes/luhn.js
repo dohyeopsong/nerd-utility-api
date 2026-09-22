@@ -1,12 +1,12 @@
-// /luhn — Luhn algorithm validation, check-digit generation, and full generation
-function luhnSum(digits, fromRight) {
+// /luhn — Luhn algorithm validation, check-digit generation (bugfix: doubling parity)
+function luhnSum(digits) {
+  // digits: array of numbers, most significant first
+  // Double every second digit from the RIGHT (rightmost digit NOT doubled)
   let sum = 0;
-  let dbl = fromRight; // double every second digit starting from right (fromRight=true) or from left
-  for (let i = digits.length - 1; i >= 0; i--) {
+  for (let i = digits.length - 1, dbl = false; i >= 0; i--, dbl = !dbl) {
     let d = digits[i];
     if (dbl) { d *= 2; if (d > 9) d -= 9; }
     sum += d;
-    dbl = !dbl;
   }
   return sum;
 }
@@ -14,17 +14,22 @@ function luhnSum(digits, fromRight) {
 function routeLuhn(u, res, json) {
   const q = u.searchParams;
   const num = (q.get('check') || '').replace(/[\s-]/g, '');
-  const gen = q.get('gen') || '';      // digits without check digit -> returns full number
-  const len = parseInt(q.get('len') || '0', 10); // random generation mode
+  const gen = q.get('gen') || '';
+  const len = parseInt(q.get('len') || '0', 10);
 
   // mode 3: generate a random valid number of given length
   if (len > 1) {
     let digits = [];
     for (let i = 0; i < len - 1; i++) digits.push(Math.floor(Math.random() * 10));
-    digits[0] = 1 + Math.floor(Math.random() * 9); // no leading zero
-    // compute check digit: append 0, sum with doubling starting at rightmost (check) position
-    let sum = luhnSum(digits.concat([0]), true);
-    let check = (10 - (sum % 10)) % 10;
+    digits[0] = 1 + Math.floor(Math.random() * 9);
+    // check digit appended at right; rightmost payload digit gets doubled
+    let sum = 0;
+    for (let i = digits.length - 1, dbl = true; i >= 0; i--, dbl = !dbl) {
+      let d = digits[i];
+      if (dbl) { d *= 2; if (d > 9) d -= 9; }
+      sum += d;
+    }
+    const check = (10 - (sum % 10)) % 10;
     const full = digits.join('') + check;
     return json(res, 200, { generated: full, length: len, valid: true });
   }
@@ -33,8 +38,12 @@ function routeLuhn(u, res, json) {
   if (gen) {
     if (!/^\d+$/.test(gen)) return json(res, 200, { valid: false, error: 'gen must be digits only' });
     const digits = gen.split('').map(Number);
-    // check digit will be appended on right; doubling starts from rightmost payload digit
-    let sum = luhnSum(digits, true);
+    let sum = 0;
+    for (let i = digits.length - 1, dbl = true; i >= 0; i--, dbl = !dbl) {
+      let d = digits[i];
+      if (dbl) { d *= 2; if (d > 9) d -= 9; }
+      sum += d;
+    }
     const check = (10 - (sum % 10)) % 10;
     return json(res, 200, { payload: gen, check_digit: check, full: gen + check, valid: true });
   }
@@ -49,7 +58,7 @@ function routeLuhn(u, res, json) {
   if (!/^\d+$/.test(num)) return json(res, 200, { input: num, valid: false, reason: 'digits only (spaces/dashes stripped automatically)' });
 
   const digits = num.split('').map(Number);
-  const sum = luhnSum(digits, true);
+  const sum = luhnSum(digits);
   return json(res, 200, {
     input: num,
     valid: sum % 10 === 0,
