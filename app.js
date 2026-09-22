@@ -8,6 +8,7 @@ const { routeMorse } = require('./routes/morse.js'); // morse
 const { routeRot13 } = require('./routes/rot13.js'); // rot13
 const { routeLorem } = require('./routes/lorem.js'); // lorem
 const { routeCase } = require('./routes/case.js');
+const { routeUrl } = require('./routes/url.js');
 const { routeBase64Url } = require('./routes/base64url.js'); // case
 const { routeMarkdown } = require('./routes/markdown.js'); // markdown
 const { routeSlugify, routeEscape } = require('./routes/textutils.js');
@@ -1322,6 +1323,10 @@ if (u.pathname === '/') return routeLanding(u, res);
     const handler = ENDPOINTS[route];
     if (u.pathname === '/json') {
       try { return routeJsonUtil(u, res, json); }
+      catch (e) { return json(res, 400, { error: e.message }); }
+    }
+    if (u.pathname === '/url') {
+      try { return routeUrl(u, res, json); }
       catch (e) { return json(res, 400, { error: e.message }); }
     }
     if (!handler && u.pathname !== '/md2html' && u.pathname !== '/html2md' && u.pathname !== '/jsonpath') return json(res, 404, { error: 'not found. See /docs' });
