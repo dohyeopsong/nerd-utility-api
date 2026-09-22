@@ -46,6 +46,7 @@ const { routeHtmlEntities } = require('./routes/htmlentities.js');
 const { routeJson2Sql } = require('./routes/json2sql.js');
 const { routeBase32 } = require('./routes/base32.js');
 const { routeSlugify } = require('./routes/slugify.js');
+const { routeDuration } = require('./routes/duration.js');
 const { routePem } = require('./routes/pem.js'); // subnet calc
 
 restoreCrons();
@@ -716,6 +717,7 @@ if (u.pathname === '/') return routeLanding(u, res);
               return routeIso(u, res, json);
             }
             if (u.pathname === '/cron') {
+  if (u.pathname === '/duration') return routeDuration(u, res, json, reqBody);
               try { return routeCron(u, res, json); }
               catch (e) { return json(res, 500, { error: e.message }); }
             }
