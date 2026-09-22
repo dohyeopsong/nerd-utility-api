@@ -146,3 +146,4 @@ Full spec: /openapi.json — Docs: /docs
 - GET /datediff?from=2024-01-01&to=2025-01-01 — date difference in days/weeks/months + y-m-d breakdown
 - GET /cronexpr?expr=0+9+*+*+* — cron expression explainer + next-run calculator (mode=describe, count=N, from=ISO)
 - GET /qr?text=hello — QR code generator (mode=svg|png|text, size=64-1024, ec=L/M/Q/H)
+- GET /email?email=user@example.com — email syntax validation, gmail normalization, disposable-domain check, gravatar URL
