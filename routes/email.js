@@ -19,7 +19,7 @@ function routeEmail(u, res, json) {
 
   if (local.length === 0) { out.valid = false; out.reason = 'empty local part'; return json(res, 200, out); }
   if (local.length > 64) { out.valid = false; out.reason = 'local part > 64 chars'; return json(res, 200, out); }
-  if (!/^[a-z0-9!#$%&'*+/=?^_`{|}~.-]+$/.test(local)) { out.valid = false; out.reason = 'invalid characters in local part'; return json(res, 200, out); }
+  if (!/^[a-z0-9!#$%&'*+\\/=?^_`{|}~.-]+$/.test(local)) { out.valid = false; out.reason = 'invalid characters in local part'; return json(res, 200, out); }
   if (local.startsWith('.') || local.endsWith('.') || local.includes('..')) { out.valid = false; out.reason = 'invalid dot placement in local part'; return json(res, 200, out); }
 
   if (!domain.includes('.') || domain.startsWith('.') || domain.endsWith('.') || domain.includes('..')) {
