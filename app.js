@@ -28,6 +28,7 @@ const { routeSemver } = require('./routes/semver.js');
 const { routeTimediff } = require('./routes/timediff.js');
 const { routeCsv2json } = require('./routes/csv2json.js');
 const { routeYamljson } = require('./routes/yamljson.js');
+const { routeChecksum } = require('./routes/checksum.js');
 const { routeCron } = require('./routes/cron.js');
 const { routeUa, setHeaders: setUaHeaders } = require('./routes/ua.js');
 const { rateLimit, capCheck, capIncr, capDecr, capStats } = require('./routes/ratelimit.js'); // cron parse
@@ -712,7 +713,11 @@ if (u.pathname === '/') return routeLanding(u, res);
             if (u.pathname === '/markdown') {
               return routeMarkdown(u, res, json);
             }
-            if (u.pathname === '/crc32') {
+            if (u.pathname === '/checksum') {
+      try { return routeChecksum(u, res, json); }
+      catch (e) { return json(res, 500, { error: e.message }); }
+    }
+    if (u.pathname === '/crc32') {
               return routeCrc32(u, res, json);
             }
             if (u.pathname === '/regex') {
