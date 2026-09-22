@@ -39,3 +39,7 @@
 ## Pricing
 
 All endpoints are currently free. No payment required.
+
+## New endpoints (2026-09-22)
+- /base32?encode=<text> | /base32?decode=<text> — RFC 4648 base32 encode/decode
+- /duration?input=1h30m — parse human durations to ms/seconds/minutes/hours/days

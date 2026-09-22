@@ -874,6 +874,42 @@
           }
         }
       }
+    },
+    "/base32": {
+      "get": {
+        "summary": "Base32 encode/decode",
+        "parameters": [
+          {
+            "name": "encode",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "decode",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/duration": {
+      "get": {
+        "summary": "Parse human duration (e.g. 1h30m) to ms/units",
+        "parameters": [
+          {
+            "name": "input",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
     }
   }
 }
