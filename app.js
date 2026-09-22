@@ -32,6 +32,7 @@ const { routeTimediff } = require('./routes/timediff.js');
 const { routeCsv2json } = require('./routes/csv2json.js');
 const { routeYamljson } = require('./routes/yamljson.js');
 const { routeChecksum } = require('./routes/checksum.js');
+const { routeHash } = require('./routes/hash.js');
 const { routeCron } = require('./routes/cron.js');
 const { routeUa, setHeaders: setUaHeaders } = require('./routes/ua.js');
 const { rateLimit, capCheck, capIncr, capDecr, capStats } = require('./routes/ratelimit.js'); // cron parse
@@ -131,7 +132,6 @@ const ENDPOINTS = {
     return { result: rows.map(r => { const vals = r.split(','); const o = {}; keys.forEach((k,i) => o[k.trim()] = (vals[i]||'').trim()); return o; }) };
   },
   base64: (body, q) => q.mode === 'decode' ? { result: Buffer.from(body, 'base64').toString('utf8') } : { result: Buffer.from(body).toString('base64') },
-  hash: (body, q) => { const algo = q.algo || 'sha256'; if (!['md5','sha1','sha256','sha512'].includes(algo)) throw new Error('unsupported algo'); if (!body) throw new HttpError(400, 'text required'); return { algo, result: crypto.createHash(algo).update(body).digest('hex') }; },
   uuid: () => ({ result: crypto.randomUUID() }),
   timestamp: (body, q) => {
     if (q.date) return { result: Math.floor(new Date(q.date).getTime() / 1000) };
@@ -716,6 +716,10 @@ if (u.pathname === '/') return routeLanding(u, res);
               return routeMarkdown(u, res, json);
             }
             if (u.pathname === '/checksum') {
+      if (u.pathname === '/hash') {
+        try { return routeHash(u, res, json); }
+        catch (e) { return json(res, 400, { error: e.message }); }
+      }
       try { return routeChecksum(u, res, json); }
       catch (e) { return json(res, 500, { error: e.message }); }
     }
