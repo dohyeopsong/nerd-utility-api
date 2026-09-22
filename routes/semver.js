@@ -1,69 +1,69 @@
-// /semver — semantic version parsing, comparison, range checks
-function parse(v) {
-  const m = String(v).trim().match(/^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+([0-9A-Za-z.-]+))?$/);
+// /semver — semantic version parsing, validation, comparison
+function parseSemver(v) {
+  const m = v.match(/^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+([0-9A-Za-z.-]+))?$/);
   if (!m) return null;
-  return { major: +m[1], minor: +m[2], patch: +m[3], prerelease: m[4] || null, build: m[5] || null };
+  return {
+    major: +m[1], minor: +m[2], patch: +m[3],
+    prerelease: m[4] || null,
+    build: m[5] || null
+  };
 }
 
-function cmp(a, b) {
-  // a, b already parsed
-  for (const k of ['major', 'minor', 'patch']) {
-    if (a[k] !== b[k]) return a[k] - b[k];
-  }
-  // prerelease rules: version without prerelease > version with prerelease
-  if (!a.prerelease && b.prerelease) return 1;
-  if (a.prerelease && !b.prerelease) return -1;
-  if (a.prerelease && b.prerelease) {
-    const pa = a.prerelease.split('.'), pb = b.prerelease.split('.');
-    for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
-      const x = pa[i], y = pb[i];
-      if (x === undefined) return -1;
-      if (y === undefined) return 1;
-      const nx = /^\d+$/.test(x), ny = /^\d+$/.test(y);
-      if (nx && ny) { if (+x !== +y) return +x - +y; }
-      else if (nx) return -1; // numeric < alphanumeric
-      else if (ny) return 1;
-      else if (x !== y) return x < y ? -1 : 1;
-    }
+function cmpCore(a, b) {
+  if (a.major !== b.major) return a.major - b.major;
+  if (a.minor !== b.minor) return a.minor - b.minor;
+  return a.patch - b.patch;
+}
+
+function cmpPre(a, b) {
+  const pa = a.prerelease ? a.prerelease.split('.') : [];
+  const pb = b.prerelease ? b.prerelease.split('.') : [];
+  if (pa.length === 0 && pb.length === 0) return 0;
+  if (pa.length === 0) return 1;  // no prerelease > prerelease
+  if (pb.length === 0) return -1;
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const x = pa[i], y = pb[i];
+    if (x === undefined) return -1;
+    if (y === undefined) return 1;
+    const xn = /^\d+$/.test(x), yn = /^\d+$/.test(y);
+    if (xn && yn) { const d = +x - +y; if (d) return d; }
+    else if (xn) return -1;   // numeric < alphanumeric
+    else if (yn) return 1;
+    else { const c = x.localeCompare(y); if (c) return c; }
   }
   return 0;
 }
 
 function routeSemver(u, res, json) {
   const q = u.searchParams;
-  const a = q.get('a') || q.get('version') || '';
-  const b = q.get('b') || '';
-  const c = q.get('compare') || '';
+  const v = (q.get('v') || '').trim();
+  const other = (q.get('compare') || '').trim();
 
-  if (!a && !b && !c) {
+  if (!v) {
     return json(res, 400, {
-      error: 'provide ?version=1.2.3 (parse) or ?a=1.2.3&b=1.10.0 (compare)',
-      examples: ['/semver?version=1.2.3-alpha.1+build.5', '/semver?a=1.2.3&b=1.10.0']
+      error: 'provide ?v=1.2.3',
+      note: 'Semver 2.0.0 parsing/validation. Add ?compare=1.2.4 to compare two versions.',
+      example: '/semver?v=1.2.3&compare=2.0.0'
     });
   }
 
-  // parse mode
-  if (a && !b) {
-    const p = parse(a);
-    if (!p) return json(res, 200, { input: a, valid: false, reason: 'not valid semver (expected MAJOR.MINOR.PATCH[-prerelease][+build])' });
-    return json(res, 200, Object.assign({ input: a, valid: true }, p));
+  const p = parseSemver(v);
+  if (!p) {
+    return json(res, 200, { valid: false, version: v, error: 'not valid semver (expected [v]MAJOR.MINOR.PATCH[-prerelease][+build])' });
   }
 
-  // compare mode
-  const va = parse(a), vb = parse(b);
-  if (!va || !vb) {
-    return json(res, 200, {
-      valid: false,
-      error: !va ? `invalid semver: ${a}` : `invalid semver: ${b}`
-    });
+  const out = { valid: true, version: v, parsed: p };
+  if (p.prerelease) out.is_prerelease = true;
+
+  if (other) {
+    const o = parseSemver(other);
+    if (!o) return json(res, 200, { valid: false, version: v, error: 'compare value not valid semver: ' + other });
+    const c = cmpCore(p, o) || cmpPre(p, o);
+    out.comparison = c < 0 ? 'lt' : c > 0 ? 'gt' : 'eq';
+    out.result = c < 0 ? `${v} < ${other}` : c > 0 ? `${v} > ${other}` : `${v} == ${other}`;
   }
-  const c2 = cmp(va, vb);
-  return json(res, 200, {
-    a, b,
-    valid: true,
-    result: c2 === 0 ? 'equal' : c2 < 0 ? 'a < b' : 'a > b',
-    newer: c2 === 0 ? 'neither' : c2 < 0 ? 'b' : 'a'
-  });
+
+  return json(res, 200, out);
 }
 
-module.exports = { routeSemver, parse, cmp };
+module.exports = { routeSemver };
