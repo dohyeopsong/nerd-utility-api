@@ -7,7 +7,8 @@ const { routeUuid7 } = require('./routes/uuid7.js'); // uuid7
 const { routeMorse } = require('./routes/morse.js'); // morse
 const { routeRot13 } = require('./routes/rot13.js'); // rot13
 const { routeLorem } = require('./routes/lorem.js'); // lorem
-const { routeCase } = require('./routes/case.js'); // case
+const { routeCase } = require('./routes/case.js');
+const { routeBase64Url } = require('./routes/base64url.js'); // case
 const { routeMarkdown } = require('./routes/markdown.js'); // markdown
 const { routeSlugify, routeEscape } = require('./routes/textutils.js');
 const { routeString } = require('./routes/string.js');
@@ -33,7 +34,6 @@ const { routeCsv2json } = require('./routes/csv2json.js');
 const { routeYamljson } = require('./routes/yamljson.js');
 const { routeChecksum } = require('./routes/checksum.js');
 const { routeHash } = require('./routes/hash.js');
-const { routeCase } = require('./routes/case.js');
 const { routeCron } = require('./routes/cron.js');
 const { routeUa, setHeaders: setUaHeaders } = require('./routes/ua.js');
 const { rateLimit, capCheck, capIncr, capDecr, capStats } = require('./routes/ratelimit.js'); // cron parse
@@ -715,6 +715,10 @@ if (u.pathname === '/') return routeLanding(u, res);
             }
             if (u.pathname === '/markdown') {
               return routeMarkdown(u, res, json);
+            }
+            if (u.pathname === '/base64url') {
+              try { return routeBase64Url(u, res, json); }
+              catch (e) { return json(res, 400, { error: e.message }); }
             }
             if (u.pathname === '/case') {
               try { return routeCase(u, res, json); }
