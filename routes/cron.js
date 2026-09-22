@@ -35,19 +35,19 @@ function nextRuns(expr,from,count){
   const runs=[];
   const d=new Date(from);
   d.setSeconds(0,0);
-  d.setMinutes(d.getMinutes()+1);
-  for(let i=0;i<500000&&runs.length<count;d.setMinutes(d.getMinutes()+1)){
+  d.setUTCMinutes(d.getUTCMinutes()+1);
+  for(let i=0;i<500000&&runs.length<count;d.setUTCMinutes(d.getUTCMinutes()+1)){
     i++;
-    if(!ok(month,d.getMonth()+1))continue;
-    const dayOk=ok(dom,d.getDate());
-    const dowOk=ok(dow,d.getDay());
+    if(!ok(month,d.getUTCMonth()+1))continue;
+    const dayOk=ok(dom,d.getUTCDate());
+    const dowOk=ok(dow,d.getUTCDay());
     // standard cron: if both dom and dow are restricted, match either
     let dayMatch;
     if(dom.type!=='*'&&dow.type!=='*')dayMatch=dayOk||dowOk;
     else dayMatch=dayOk&&dowOk;
     if(!dayMatch)continue;
-    if(!ok(hour,d.getHours()))continue;
-    if(!ok(minute,d.getMinutes()))continue;
+    if(!ok(hour,d.getUTCHours()))continue;
+    if(!ok(minute,d.getUTCMinutes()))continue;
     runs.push(new Date(d));
   }
   return runs;
