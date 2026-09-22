@@ -31,7 +31,8 @@ function satisfies(v, range) {
   for (const part of range.split(/\s*,\s*|\s+&&\s+/)) {
     let m = part.match(/^(\^|~|>=|<=|>|<|=)?\s*v?([\d.]+(?:-[0-9A-Za-z.-]+)?)$/);
     if (!m) return false;
-    const [_, op, ver] = m;
+    const [_, op, rawVer] = m;
+    const ver = norm(rawVer);
     if (op === '=' || !op) { if (cmp(v, norm(ver)) !== 0) return false; }
     else if (op === '^') {
       const V = parseV(ver);
