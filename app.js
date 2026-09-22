@@ -44,6 +44,7 @@ const { routeHtmlEsc } = require('./routes/htmlesc.js');
 const { routeMd2Html } = require('./routes/md2html.js');
 const { routeHtmlEntities } = require('./routes/htmlentities.js');
 const { routeJson2Sql } = require('./routes/json2sql.js');
+const { routeUnits } = require('./routes/units.js');
 const { routeBase32 } = require('./routes/base32.js');
 const { routeSlugify } = require('./routes/slugify.js');
 const { routeDuration } = require('./routes/duration.js');
@@ -133,6 +134,7 @@ const ENDPOINTS = {
   hmac: (body, q) => { if (!q.key || !q.algo) throw new Error('key and algo required'); return { result: crypto.createHmac(q.algo, q.key).update(body).digest('hex') }; },
   duration: (body, q) => routeDuration({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d, body),
   base32: (body, q) => routeBase32({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d, body)
+,  units: (body, q) => routeUnits({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d, body)
 };
 
 function hookRoutes(req, res, u) {
