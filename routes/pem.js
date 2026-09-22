@@ -22,11 +22,17 @@ function analyzeBlock(type, label, der) {
       return info;
     }
     if (/PRIVATE KEY/.test(label) && !label.includes('ENCRYPTED')) {
-      const key = crypto.createPrivateKey({ key: der, format: 'der', type: /RSA/.test(label) ? 'pkcs1' : /EC/.test(label) ? 'sec1' : 'pkcs8' });
       info.kind = 'private-key';
-      info.keyType = key.asymmetricKeyType;
-      info.keyDetails = key.asymmetricKeyDetails || null;
-      info.matchesCert = null;
+      const types = [/RSA/.test(label) ? 'pkcs1' : null, /EC/.test(label) && !/RSA/.test(label) ? 'sec1' : null, 'pkcs8', 'pkcs1', 'sec1'].filter(Boolean);
+      for (const t of types) {
+        try {
+          const key = crypto.createPrivateKey({ key: der, format: 'der', type: t });
+          info.keyType = key.asymmetricKeyType;
+          info.keyDetails = key.asymmetricKeyDetails || null;
+          return info;
+        } catch {}
+      }
+      info.parseError = 'could not parse as any key type (maybe encrypted)';
       return info;
     }
   } catch (e) { info.parseError = e.message; }
@@ -34,6 +40,7 @@ function analyzeBlock(type, label, der) {
   return info;
 }
 async function routePem(u, res, json, body, method) {
+  try {
   let pem = u.searchParams.get('pem') ?? u.searchParams.get('inspect');
   if (method === 'POST') { try { const b = JSON.parse(body || '{}'); if (typeof b.pem === 'string') pem = b.pem; } catch {} }
   if (!pem) return json(res, 400, { error: 'provide ?pem=<PEM string> or POST {"pem": "..."}' });
@@ -49,5 +56,7 @@ async function routePem(u, res, json, body, method) {
   }
   if (!found) return json(res, 400, { error: 'no PEM blocks found (expected -----BEGIN/END-----)' });
   return json(res, 200, { blockCount: blocks.length, blocks });
+}
+} catch (e) { return json(res, 500, { error: 'parse failure: ' + e.message }); }
 }
 module.exports = { routePem };
