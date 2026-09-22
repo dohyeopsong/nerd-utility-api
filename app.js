@@ -142,7 +142,8 @@ const ENDPOINTS = {
   color: (body, q) => routeColor({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d),
   jwt: (body, q) => routeJwt({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d),
   subnet: (body, q) => routeSubnet({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d),
-  base: (body, q) => routeBase({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d)
+  base: (body, q) => routeBase({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d),
+  luhn: (body, q) => routeLuhn({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d)
 ,  units: (body, q) => routeUnits({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d, body)
 };
 
