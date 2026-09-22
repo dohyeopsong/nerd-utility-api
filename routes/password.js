@@ -1,69 +1,51 @@
-// Password utilities: /password?generate=1&length=20&symbols=0&count=5 — generate
-// /password?strength=... or POST {strength} — analyze entropy/crack time
-// /password?hash=...&algo=sha256 — hash (bcrypt-style algorithms not included)
-const crypto = require('crypto');
-function genPassword(length, useSymbols, noAmbiguous) {
-  let upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ' + (noAmbiguous ? '' : 'IO');
-  let lower = 'abcdefghijkmnpqrstuvwxyz' + (noAmbiguous ? '' : 'lo');
-  let digits = '23456789' + (noAmbiguous ? '' : '01');
-  let symbols = '!@#$%^&*()-_=+[]{};:,.<>?';
-  const pool = upper + lower + digits + (useSymbols ? symbols : '');
-  let out = '';
-  const rnd = crypto.randomBytes(length * 2);
-  let i = 0;
-  while (out.length < length) {
-    const b = rnd[i++];
-    if (b / 255 < length / (length + 20)) { out += pool[b % pool.length]; }
-    else out += pool[b % pool.length];
-    if (i >= rnd.length) break;
-  }
-  return out.slice(0, length);
+// Password strength: /password?pw=<string> — entropy, crack time, weakness reasons
+function entropyBits(pw){
+  let pool=0;
+  if(/[a-z]/.test(pw))pool+=26;
+  if(/[A-Z]/.test(pw))pool+=26;
+  if(/[0-9]/.test(pw))pool+=10;
+  if(/[^a-zA-Z0-9]/.test(pw))pool+=33;
+  if(pool===0)return 0;
+  // unique chars reduce repetition bonus
+  const uniq=new Set(pw).size;
+  return pw.length*Math.log2(pool)*(uniq/pw.length)*0.9+pw.length*Math.log2(uniq||1)*0.1;
 }
-function analyze(pw) {
-  const len = pw.length;
-  let pool = 0;
-  if (/[a-z]/.test(pw)) pool += 26;
-  if (/[A-Z]/.test(pw)) pool += 26;
-  if (/[0-9]/.test(pw)) pool += 10;
-  if (/[^a-zA-Z0-9]/.test(pw)) pool += 33;
-  const entropy = len * Math.log2(pool || 1);
-  // guesses at 10^10/s (modern GPU)
-  const seconds = Math.pow(2, entropy) / 1e10;
-  const fmt = s => {
-    if (s < 1) return 'instant';
-    const units = [['year', 31557600], ['day', 86400], ['hour', 3600], ['minute', 60], ['second', 1]];
-    for (const [name, sec] of units) { if (s >= sec) { const v = s / sec; return v > 1e6 ? v.toExponential(2) + ' ' + name + 's' : v.toFixed(v < 10 ? 1 : 0) + ' ' + name + 's'; } }
-  };
-  let score = 0;
-  if (entropy >= 28) score = 1;
-  if (entropy >= 36) score = 2;
-  if (entropy >= 60) score = 3;
-  if (entropy >= 80) score = 4;
-  if (entropy >= 100) score = 5;
-  const feedback = [];
-  if (len < 12) feedback.push('use at least 12 characters');
-  if (!/[a-z]/.test(pw) || !/[A-Z]/.test(pw)) feedback.push('mix upper and lower case');
-  if (!/[0-9]/.test(pw)) feedback.push('add digits');
-  if (!/[^a-zA-Z0-9]/.test(pw)) feedback.push('add symbols');
-  if (/(.)\1{2,}/.test(pw)) feedback.push('repeated characters detected');
-  const common = ['password', '123456', 'qwerty', 'letmein', 'admin', 'welcome', 'iloveyou', 'dragon', 'monkey', 'abc123'];
-  if (common.some(c => pw.toLowerCase().includes(c))) feedback.push('contains a common dictionary word');
-  return { length: len, charsetPoolSize: pool, entropyBits: +entropy.toFixed(1), guesses: Math.pow(2, entropy), crackTimeAt10BperSec: fmt(seconds), score: score + '/5', feedback };
+function crackTime(bits){
+  // assume 1e10 guesses/sec (modern GPU cluster)
+  const secs=Math.pow(2,bits-1)/1e10;
+  const units=[[3.154e7,'years'],[86400,'days'],[3600,'hours'],[60,'minutes'],[1,'seconds']];
+  if(secs<1)return 'instantly';
+  for(const[s,n]of units){if(secs>=s){const v=secs/s;return v>1e6?v.toExponential(2)+' '+n:Math.round(v)+' '+n;}}
+  return 'instantly';
 }
-async function routePassword(u, res, json, body, method) {
-  const aliasLength = u.searchParams.get('length');
-  if (u.searchParams.get('generate') || aliasLength) {
-    const length = Math.min(128, Math.max(4, +(u.searchParams.get('length') || 20)));
-    const symbols = u.searchParams.get('symbols') !== '0';
-    const noAmbiguous = u.searchParams.get('noambiguous') === '1';
-    const count = Math.min(100, Math.max(1, +(u.searchParams.get('count') || 1)));
-    const passwords = Array.from({ length: count }, () => genPassword(length, symbols, noAmbiguous));
-    return json(res, 200, { passwords, length, symbols, count });
-  }
-  const strengthInput = u.searchParams.get('strength') ?? (method === 'POST' ? (() => { try { return JSON.parse(body || '{}').strength; } catch { return null; } })() : null);
-  if (strengthInput) {
-    return json(res, 200, { password: strengthInput, ...analyze(strengthInput) });
-  }
-  return json(res, 400, { error: 'provide ?generate=1[&length=&symbols=&count=] or ?strength=yourpassword' });
+function routePassword(u,res,json,body){
+  try{
+    let pw=null;
+    if(body&&body.pw!==undefined)pw=body.pw;
+    else pw=u.searchParams.get('pw')||u.searchParams.get('password');
+    if(pw===null)return json(res,400,{error:'provide ?pw=<password> (or POST JSON {pw})'});
+    if(pw===null||pw===undefined)return json(res,400,{error:'provide ?pw=<password>'});
+    const bits=Math.round(entropyBits(pw));
+    const weaknesses=[];
+    if(pw.length<8)weaknesses.push('too short (<8 chars)');
+    if(pw.length<12)weaknesses.push('short (<12 chars)');
+    if(!/[A-Z]/.test(pw))weaknesses.push('no uppercase');
+    if(!/[a-z]/.test(pw))weaknesses.push('no lowercase');
+    if(!/[0-9]/.test(pw))weaknesses.push('no digits');
+    if(!/[^a-zA-Z0-9]/.test(pw))weaknesses.push('no symbols');
+    if(/^(.)\1+$/.test(pw))weaknesses.push('all same character');
+    if(/^[a-zA-Z]+\d{1,4}!?$/.test(pw))weaknesses.push('common word+digits pattern');
+    if(/password|123456|qwerty|letmein|admin|welcome|iloveyou/i.test(pw))weaknesses.push('contains common word');
+    let score=0;
+    if(bits>28)score+=1;
+    if(bits>36)score+=1;
+    if(bits>60)score+=1;
+    if(bits>80)score+=1;
+    const labels=['very weak','weak','fair','strong','very strong'];
+    return json(res,200,{
+      length:pw.length,entropyBits:bits,crackTime:crackTime(bits),
+      score:score,strength:labels[score],weaknesses:weaknesses
+    });
+  }catch(e){return json(res,400,{error:'pw failure: '+e.message});}
 }
-module.exports = { routePassword, genPassword, analyze };
+module.exports={routePassword,entropyBits,crackTime};
