@@ -59,11 +59,11 @@ function nextRuns(fields, count, from) {
   const [min, hour, dom, mon, dow] = fields;
   const runs = [];
   let d = new Date(from);
-  d.setSeconds(0, 0);
-  d.setMinutes(d.getMinutes() + 1); // start from next minute
+  d.setUTCSeconds(0, 0);
+  d.setUTCMinutes(d.getUTCMinutes() + 1); // start from next minute
   while (runs.length < count) {
     if (d.getFullYear() > from.getFullYear() + 5) break; // 5-year safety cap
-    const minute = d.getMinutes(), hr = d.getHours(), day = d.getDate(), month = d.getMonth() + 1, wd = d.getDay();
+    const minute = d.getUTCMinutes(), hr = d.getUTCHours(), day = d.getUTCDate(), month = d.getUTCMonth() + 1, wd = d.getUTCDay();
     if (fieldMatches(mon, month) && fieldMatches(dom, day) && fieldMatches(dow, wd) && fieldMatches(hour, hr) && fieldMatches(min, minute)) {
       runs.push(d.toISOString());
       d = new Date(d.getTime() + 60000);
