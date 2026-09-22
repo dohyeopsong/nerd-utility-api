@@ -27,6 +27,7 @@ const { routeGeoip } = require("./routes/geoip.js");
 const { routeSemver } = require('./routes/semver.js');
 const { routeTimediff } = require('./routes/timediff.js');
 const { routeCsv2json } = require('./routes/csv2json.js');
+const { routeYamljson } = require('./routes/yamljson.js');
 const { routeCron } = require('./routes/cron.js');
 const { routeUa, setHeaders: setUaHeaders } = require('./routes/ua.js');
 const { rateLimit, capCheck, capIncr, capDecr, capStats } = require('./routes/ratelimit.js'); // cron parse
@@ -1274,6 +1275,10 @@ if (u.pathname === '/') return routeLanding(u, res);
     }
     if (u.pathname === '/csv2json') {
       try { return routeCsv2json(u, res, json); }
+      catch (e) { return json(res, 500, { error: e.message }); }
+    }
+    if (u.pathname === '/yamljson') {
+      try { return routeYamljson(u, res, json); }
       catch (e) { return json(res, 500, { error: e.message }); }
     }
     if (u.pathname === '/docs') {
