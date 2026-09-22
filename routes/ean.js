@@ -1,66 +1,75 @@
-// EAN-8/13/UPC-A barcode validator + GS1 prefix lookup + UPC-E expansion
-const GS1 = {'00-13':'GS1 US','30-37':'GS1 France','40-44':'GS1 Germany','45-49':'GS1 Japan','50':'GS1 UK','57':'GS1 Denmark','64':'GS1 Finland','70-79':'GS1 Norway','80-83':'GS1 Italy','84':'GS1 Spain','90-91':'GS1 Austria','93':'GS1 Australia','94':'GS1 New Zealand','600-601':'GS1 South Africa','690-699':'GS1 China','754-755':'GS1 Canada','87':'GS1 Netherlands','88':'GS1 Korea, South','888':'GS1 Singapore','890':'GS1 India','893':'GS1 Vietnam','899':'GS1 Indonesia','900-919':'GS1 Austria','930-939':'GS1 Australia','955':'GS1 Malaysia','958':'GS1 Macau'};
-function clean(s) { return String(s).replace(/[\s-]/g, ''); }
-function checksum(d) {
-  // EAN-13/UPC-A: weight 3 on odd positions from right
-  let sum = 0;
-  const rev = d.split('').reverse();
-  for (let i = 0; i < rev.length - 1; i++) sum += +rev[i] * (i % 2 === 0 ? 3 : 1);
-  return (10 - (sum % 10)) % 10;
-}
-function eanChecksum(d, len) {
-  // For EAN-8: weight 3 on even positions from right; standard: alternate starting 3 from rightmost-of-body
-  let sum = 0;
-  const n = d.length;
-  for (let i = n - 1, w = 3; i >= 0; i--, w = 4 - w) sum += +d[i] * w; // w alternates 3,1
-  return (10 - (sum % 10)) % 10;
-}
-function upcEexpand(u) {
-  // UPC-E 8 digits incl leading 0 and check; expand to UPC-A
-  if (!/^\d{8}$/.test(u) || u[0] !== '0') return null;
-  const mid = u.slice(1, 7), last = u[6];
-  let body;
-  if (last <= 2) body = mid.slice(0, 2) + last + '0000' + mid.slice(2);
-  else if (last === 3) body = mid + '00000';
-  else if (last === 4) body = mid + '0000';
-  else body = mid + '000' + last;
-  return body + u[7];
-}
-function gs1Lookup(full) {
-  const num = parseInt(full.slice(0, 3), 10);
-  for (const [range, name] of Object.entries(GS1)) {
-    const [lo, hi] = range.split('-').map(x => parseInt(x, 10));
-    if (num >= lo && num <= hi) return name;
-  }
-  return null;
-}
+// /ean — EAN-8/UPC-A/EAN-13/EAN-14 check-digit validate + generate
 function routeEan(u, res, json) {
-  const q = Object.fromEntries(new URL(u, 'http://x').searchParams);
-  const input = q.ean || q.number || q.code;
-  if (!input) return json(res, 400, { error: 'provide ?ean=<EAN-8, EAN-13, UPC-A, or UPC-E>' });
-  const c = clean(input);
-  if (!/^\d{8}$|^\d{12}$|^\d{13}$/.test(c))
-    return json(res, 400, { error: 'expected 8 (UPC-E), 12 (UPC-A), 13 (EAN-13), or 8 (EAN-8) digits' });
-  try {
-    if (c.length === 13) {
-      const ok = eanChecksum(c.slice(0, 12)) === +c[12];
-      return json(res, 200, { input, normalized: c, type: 'EAN-13', valid: ok, gs1: gs1Lookup(c), checkDigit: +c[12] });
-    }
-    if (c.length === 12) {
-      const ok = eanChecksum(c.slice(0, 11)) === +c[11];
-      return json(res, 200, { input, normalized: c, type: 'UPC-A', valid: ok, gs1: gs1Lookup(c), checkDigit: +c[11] });
-    }
-    if (c.length === 8 && c[0] === '0') {
-      // ambiguous: try UPC-E expansion first
-      const upcA = upcEexpand(c);
-      if (upcA) {
-        const ok = eanChecksum(upcA.slice(0, 11)) === +upcA[11];
-        return json(res, 200, { input, normalized: c, type: 'UPC-E', valid: ok, expanded: upcA, gs1: gs1Lookup(upcA), checkDigit: +c[7] });
-      }
-    }
-    // EAN-8
-    const ok = eanChecksum(c.slice(0, 7), 8) === +c[7];
-    return json(res, 200, { input, normalized: c, type: 'EAN-8', valid: ok, checkDigit: +c[7] });
-  } catch (e) { return json(res, 400, { error: e.message }); }
+  const q = u.searchParams;
+  const code = (q.get('code') || q.get('text') || '').replace(/[\s-]/g, '');
+  if (!code) return json(res, 400, { error: 'provide ?code=', example: '/ean?code=4006381333931' });
+  if (!/^\d+$/.test(code)) return json(res, 400, { error: 'code must contain digits only' });
+
+  const validLens = [8, 12, 13, 14];
+  if (q.get('check') === 'digit' || q.get('mode') === 'generate') {
+    // generate: input without check digit, append computed one
+    const body = code.replace(/\d$/, '').length === code.length - 1 && validLens.includes(code.length) ? code : code;
+    if (!validLens.includes(body.length + 1)) return json(res, 400, { error: 'body length must be 7, 11, 12, or 13 digits for generate mode' });
+    return json(res, 200, { body, check_digit: eanCheckDigit(body), full_code: body + eanCheckDigit(body), type: body.length + 1 === 8 ? 'EAN-8' : body.length + 1 === 12 ? 'UPC-A' : body.length + 1 === 13 ? 'EAN-13' : 'EAN-14' });
+  }
+
+  if (!validLens.includes(code.length)) return json(res, 400, { error: 'code length must be 8, 12, 13, or 14 digits' });
+  const body = code.slice(0, -1);
+  const given = +code.slice(-1);
+  const expected = eanCheckDigit(body);
+  const type = code.length === 8 ? 'EAN-8' : code.length === 12 ? 'UPC-A' : code.length === 13 ? 'EAN-13' : 'EAN-14';
+  return json(res, 200, {
+    code, type,
+    valid: given === expected,
+    check_digit_given: given,
+    check_digit_expected: expected,
+    corrected_code: body + expected,
+    country_prefix: code.length === 13 ? countryPrefix(+code.slice(0, 3)) : code.length === 12 ? countryPrefix(+code.slice(0, 1)) : null,
+  });
 }
-module.exports = { routeEan, eanChecksum, upcEexpand, gs1Lookup };
+function eanCheckDigit(body) {
+  let sum = 0;
+  const digits = [...body].map(Number).reverse();
+  for (let i = 0; i < digits.length; i++) sum += digits[i] * (i % 2 === 0 ? 3 : 1);
+  return (10 - (sum % 10)) % 10;
+}
+function countryPrefix(p) {
+  if (p >= 0 && p <= 19) return 'US/Canada (UPC-A)';
+  if (p >= 20 && p <= 29) return 'in-store';
+  if (p >= 30 && p <= 39) return 'US drugs (NDC)';
+  if (p >= 40 && p <= 49) return 'restricted distribution';
+  if (p >= 50 && p <= 59) return 'coupons';
+  if (p === 60) return null;
+  if (p >= 61 && p <= 69) return null;
+  if (p >= 490 && p <= 499) return 'Japan';
+  if (p >= 450 && p <= 459) return 'Japan';
+  if (p >= 380 && p <= 389) return 'Bulgaria';
+  if (p >= 500 && p <= 509) return 'UK';
+  if (p >= 570 && p <= 579) return 'Denmark';
+  if (p >= 590 && p <= 599) return 'Poland';
+  if (p >= 600 && p <= 601) return 'South Africa';
+  if (p >= 640 && p <= 649) return 'Finland';
+  if (p >= 690 && p <= 699) return 'China';
+  if (p >= 700 && p <= 709) return 'Norway';
+  if (p >= 730 && p <= 739) return 'Sweden';
+  if (p >= 750) return 'Mexico';
+  if (p >= 760 && p <= 769) return 'Switzerland';
+  if (p >= 800 && p <= 839) return 'Italy';
+  if (p >= 840 && p <= 849) return 'Spain';
+  if (p >= 850) return 'Cuba';
+  if (p >= 870) return 'Netherlands';
+  if (p >= 880) return 'South Korea';
+  if (p >= 885) return 'Thailand';
+  if (p >= 888) return 'Singapore';
+  if (p >= 890) return 'India';
+  if (p >= 900 && p <= 919) return 'Austria';
+  if (p >= 930 && p <= 939) return 'Australia';
+  if (p >= 940 && p <= 949) return 'New Zealand';
+  if (p >= 977) return 'ISSN (periodicals)';
+  if (p >= 978 && p <= 979) return 'ISBN (books)';
+  if (p === 980) return 'refund receipts';
+  if (p >= 981 && p <= 984) return 'coupons';
+  if (p === 99) return 'coupons';
+  return 'other GS1 prefix';
+}
+module.exports = { routeEan };
