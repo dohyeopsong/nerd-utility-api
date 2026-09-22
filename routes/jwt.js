@@ -1,54 +1,63 @@
-// /jwt — decode JWT payload and check expiry (no verification, informational)
+// /jwt — JWT decode and inspection (no signature verification)
 function b64urlDecode(s) {
   s = s.replace(/-/g, '+').replace(/_/g, '/');
   while (s.length % 4) s += '=';
   return Buffer.from(s, 'base64').toString('utf8');
 }
+
 function routeJwt(u, res, json) {
   const q = u.searchParams;
-  const mode = (q.get('mode') || 'decode').toLowerCase();
-  const token = q.get('token') || q.get('jwt') || q.get('t');
-  if (!token) return json(res, 400, { error: 'token required' });
+  const token = (q.get('token') || '').trim();
+
+  if (!token) {
+    return json(res, 400, {
+      error: 'provide ?token=<jwt>',
+      note: 'Decodes header and payload; reports expiry status. Does NOT verify signatures.',
+      example: '/jwt?token=eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.abc'
+    });
+  }
+
   const parts = token.split('.');
-  if (parts.length < 2 || parts.length > 3) return json(res, 400, { error: 'malformed JWT (expected header.payload.signature)' });
+  if (parts.length !== 3 || !parts[0] || !parts[1]) {
+    return json(res, 200, { valid: false, reason: 'not a JWS compact token (expected 3 dot-separated parts)' });
+  }
+
   let header, payload;
   try {
     header = JSON.parse(b64urlDecode(parts[0]));
     payload = JSON.parse(b64urlDecode(parts[1]));
   } catch (e) {
-    return json(res, 400, { error: 'invalid base64url or JSON: ' + e.message });
+    return json(res, 200, { valid: false, reason: 'base64/JSON decode failed: ' + e.message });
   }
-  if (mode === 'decode') {
-    return json(res, 200, {
-      header, payload,
-      signature: parts[2] ? parts[2] : null,
-      note: 'decoded only; signature NOT verified'
-    });
+
+  const now = Math.floor(Date.now() / 1000);
+  let expiry = { present: false };
+  if (payload.exp !== undefined) {
+    const expired = now >= payload.exp;
+    expiry = {
+      present: true,
+      exp: payload.exp,
+      exp_iso: new Date(payload.exp * 1000).toISOString(),
+      expired,
+      seconds_remaining: payload.exp - now
+    };
   }
-  if (mode === 'check' || mode === 'expiry') {
-    const now = Math.floor(Date.now() / 1000);
-    const exp = payload.exp, nbf = payload.nbf, iat = payload.iat;
-    let state = 'valid';
-    if (exp !== undefined) {
-      if (now >= exp) state = 'expired';
-      else if (exp - now < 300) state = 'expiring soon';
-    }
-    if (nbf !== undefined && now < nbf && state !== 'expired') state = 'not yet valid';
-    return json(res, 200, {
-      header, payload,
-      signature: parts[2] || null,
-      state,
-      now,
-      exp: exp ?? null,
-      expires_in_seconds: exp !== undefined ? exp - now : null,
-      expired: exp !== undefined ? now >= exp : false,
-      valid_range: iat || nbf || exp ? {
-        iat: iat ?? null, nbf: nbf ?? null, exp: exp ?? null,
-        iat_human: iat ? new Date(iat * 1000).toISOString() : null,
-        exp_human: exp ? new Date(exp * 1000).toISOString() : null
-      } : null
-    });
-  }
-  return json(res, 400, { error: 'mode must be decode|check' });
+  let issued = null;
+  if (payload.iat !== undefined) issued = { iat: payload.iat, iat_iso: new Date(payload.iat * 1000).toISOString() };
+  let nbf = null;
+  if (payload.nbf !== undefined) nbf = { nbf: payload.nbf, active: now >= payload.nbf };
+
+  return json(res, 200, {
+    valid: true,
+    header,
+    payload,
+    signature: parts[2],
+    alg: header.alg || null,
+    expiry,
+    issued,
+    not_before: nbf,
+    note: 'decoded only; signature NOT verified'
+  });
 }
+
 module.exports = { routeJwt };
