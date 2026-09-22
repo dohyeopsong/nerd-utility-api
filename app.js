@@ -59,6 +59,7 @@ const { routeRandom } = require('./routes/random.js'); // luhn validate
 const { routePwstrength } = require('./routes/pwstrength.js');
 const { routeHtml } = require('./routes/html.js');
 const { routeMoon } = require('./routes/moon.js');
+const { routeSunrise } = require('./routes/sunrise.js'); // sunrise
 const { routeMcp } = require('./routes/mcp.js');
 const { routeTotp } = require('./routes/totp.js');
 const { routeIsbn } = require('./routes/isbn.js'); // isbn validate
@@ -1316,6 +1317,7 @@ http.createServer(async (req, res) => {
   if (u.pathname === '/useragent') return routeUseragent(u, res, json);
   if (u.pathname === '/jwt') return routeJwt(u, res, json);
   if (u.pathname === '/xml2json') return routeXml2json(u, res, json, reqBody);
+  if (u.pathname === '/sunrise') { try { return routeSunrise(u, res, json); } catch (e) { return json(res, 400, { error: e.message }); } }
   if (u.pathname === '/moon') { try { return routeMoon(u, res, json); } catch (e) { return json(res, 400, { error: e.message }); } }
   if (u.pathname === '/html') return routeHtml(u, res, json);
   if (u.pathname === '/pwstrength') return routePwstrength(u, res, json);
