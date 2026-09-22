@@ -2,6 +2,7 @@ const { routeHtml2md } = require('./routes/html2md.js'); // html2md
 const { routeIso } = require('./routes/iso.js'); // iso
 const { routeNumber } = require('./routes/number.js'); // number
 const { routeConvert } = require('./routes/convert.js'); // convert
+const docsGen = require('./docs.js'); // auto-docs
 const { routeCidr } = require('./routes/cidr.js'); // cidr
 const { routeUuid7 } = require('./routes/uuid7.js'); // uuid7
 const { routeMorse } = require('./routes/morse.js'); // morse
@@ -1368,9 +1369,8 @@ http.createServer(async (req, res) => {
       catch (e) { return json(res, 500, { error: e.message }); }
     }
     if (u.pathname === '/docs') {
-      const fs = require('fs');
-      res.writeHead(200, { 'Content-Type': 'text/markdown' });
-      return res.end(fs.readFileSync(__dirname + '/DOCS.md', 'utf8'));
+      res.writeHead(200, { 'Content-Type': 'text/markdown; charset=utf-8' });
+      return res.end(docsGen.render());
     }
     if (route === 'price' || route === 'history') {
       const q = Object.fromEntries(u.searchParams.entries());
