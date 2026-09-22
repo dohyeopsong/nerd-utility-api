@@ -2,7 +2,7 @@
 const RULES = {
   AT: { name: 'Austria', re: /^U\d{8}$/, fn: s => { const d = s.slice(1).split('').map(Number); let c = 10; for (let i = 0; i < 7; i++) { c = (Math.floor((d[i] + c) % 10) || 10) * 2 % 11; } return (11 - c) % 10 === d[7]; } },
   BE: { name: 'Belgium', re: /^0\d{9}$/, fn: s => { const d = s.split('').map(Number); let mod = 97 - (Number(s.slice(0, 8)) % 97); return mod === Number(s.slice(8)); } },
-  DE: { name: 'Germany', re: /^\d{9}$/, fn: s => { const d = s.split('').map(Number); let prod = 10; for (let i = 0; i < 8; i++) { prod = (2 * (prod + d[i])) % 11; if (prod === 10) prod = 0; } const chk = (11 - prod) % 10; return chk === d[8]; } },
+  DE: { name: 'Germany', re: /^\d{9}$/, fn: s => { const d = s.split('').map(Number); let prod = 10; for (let i = 0; i < 8; i++) { let t = (prod + d[i]) % 10; if (t === 0) t = 10; prod = (2 * t) % 11; } const chk = (11 - prod) % 10; return chk === d[8]; } },
   DK: { name: 'Denmark', re: /^\d{8}$/, fn: s => { const w = [2, 7, 6, 5, 4, 3, 2, 1]; const d = s.split('').map(Number); return d.reduce((a, x, i) => a + x * w[i], 0) % 11 === 0; } },
   ES: { name: 'Spain', re: /^[\dA-Z]\d{7}[\dA-Z]$/, fn: () => null }, // complex control char rules — structure only
   FI: { name: 'Finland', re: /^\d{8}$/, fn: s => { const w = [7, 9, 10, 5, 8, 4, 2, 1]; const d = s.split('').map(Number); return d.reduce((a, x, i) => a + x * w[i], 0) % 11 === 0; } },
