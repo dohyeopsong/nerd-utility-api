@@ -130,7 +130,9 @@ const ENDPOINTS = {
     if (q.ts) return { result: new Date(Number(q.ts) * 1000).toISOString() };
     return { result: Math.floor(Date.now() / 1000), iso: new Date().toISOString() };
   },
-  hmac: (body, q) => { if (!q.key || !q.algo) throw new Error('key and algo required'); return { result: crypto.createHmac(q.algo, q.key).update(body).digest('hex') }; }
+  hmac: (body, q) => { if (!q.key || !q.algo) throw new Error('key and algo required'); return { result: crypto.createHmac(q.algo, q.key).update(body).digest('hex') }; },
+  duration: (body, q) => routeDuration({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d, body),
+  base32: (body, q) => routeBase32({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d, body)
 };
 
 function hookRoutes(req, res, u) {
