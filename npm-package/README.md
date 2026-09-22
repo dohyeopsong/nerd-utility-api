@@ -5,6 +5,9 @@ from the OpenAPI spec (single source of truth: `mcp-gen/generate.js`).
 
 ## Install & run
 ```bash
+# Use the hosted public instance (no setup needed):
+NERD_API_URL=https://feminine-neatness-coliseum.ngrok-free.dev npx nerd-utility-mcp
+# Or point at your own instance:
 NERD_API_URL=https://your-instance.example.com npx nerd-utility-mcp
 ```
 Or in an MCP client config:

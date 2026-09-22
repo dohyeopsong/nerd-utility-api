@@ -8,6 +8,6 @@ startCommand:
         title: Nerd API URL
         description: Base URL of the Nerd Utility API instance to query
         type: string
-        default: http://localhost:8080
+        default: https://feminine-neatness-coliseum.ngrok-free.dev
   commandConfig:
     nerdApiUrl: true
