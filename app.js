@@ -9,7 +9,6 @@ const { routeRot13 } = require('./routes/rot13.js'); // rot13
 const { routeLorem } = require('./routes/lorem.js'); // lorem
 const { routeCase } = require('./routes/case.js');
 const { routeUrl } = require('./routes/url.js');
-const { routeQr } = require('./routes/qr.js');
 const { routeIp: routeIpU } = require('./routes/ip.js');
 const { routeBase64Url } = require('./routes/base64url.js'); // case
 const { routeMarkdown } = require('./routes/markdown.js'); // markdown
@@ -1230,7 +1229,8 @@ if (u.pathname === '/') return routeLanding(u, res);
     }
     if (u.pathname === '/qr') {
       const q = Object.fromEntries(u.searchParams);
-      if (!q.data) return json(res, 400, { error: 'missing ?data=' });
+      if (!q.data && !q.text) return json(res, 400, { error: 'missing ?data= or ?text=' });
+      if (q.text) { q.data = q.text; q.format = q.mode || q.format; }
       try {
         const m = qr.generate(q.data);
         const fmt = q.format || 'svg';
@@ -1385,10 +1385,6 @@ if (u.pathname === '/') return routeLanding(u, res);
     if (u.pathname === '/ip') {
       try { return routeIpU(u, res, json); }
       catch (e) { return json(res, 400, { error: e.message }); }
-    }
-    if (u.pathname === '/qr') {
-      try { return routeQr(u, res, json, reqBody); }
-      catch (e) { json(res, 400, { error: e.message }); return; }
     }
     if (u.pathname === '/url') {
       try { return routeUrl(u, res, json); }
