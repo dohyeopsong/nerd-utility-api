@@ -1,36 +1,33 @@
-// /jwt — decode a JWT (unverified): header, payload, expiry check, time-to-live
-function b64urlDecode(s) {
-  s = s.replace(/-/g, '+').replace(/_/g, '/');
-  while (s.length % 4) s += '=';
-  return Buffer.from(s, 'base64').toString('utf8');
-}
+// /jwt — decode JWT headers and payloads, check expiry (no signature verification)
 function routeJwt(u, res, json) {
   const q = u.searchParams;
-  const token = q.get('token') || '';
-  const body = q.get('token') ? undefined : (typeof reqBodyCache !== 'undefined' ? null : null);
-  if (!token) return json(res, 400, { error: 'token required (JWT string)' });
-  const parts = token.trim().split('.');
-  if (parts.length !== 3) return json(res, 400, { error: 'invalid JWT: expected 3 dot-separated parts' });
+  let token = q.get('jwt') || q.get('token') || '';
+  if (!token) return json(res, 400, { error: 'jwt required' });
+  token = token.replace(/^Bearer\s+/i, '').trim();
+  const parts = token.split('.');
+  if (parts.length !== 3) return json(res, 400, { error: 'expected 3 dot-separated segments, got ' + parts.length });
   let header, payload;
   try {
-    header = JSON.parse(b64urlDecode(parts[0]));
-    payload = JSON.parse(b64urlDecode(parts[1]));
-  } catch (e) {
-    return json(res, 400, { error: 'failed to decode base64url JSON: ' + e.message });
-  }
+    header = JSON.parse(Buffer.from(b64url(parts[0]), 'utf8'));
+    payload = JSON.parse(Buffer.from(b64url(parts[1]), 'utf8'));
+  } catch (e) { return json(res, 400, { error: 'invalid base64/JSON segment: ' + e.message }); }
   const now = Math.floor(Date.now() / 1000);
-  let expStatus = 'unknown';
-  if (typeof payload.exp === 'number') {
-    expStatus = payload.exp < now ? 'expired' : 'valid';
-    payload._exp_status = expStatus;
-    payload._ttl_seconds = payload.exp - now;
-  }
-  return json(res, 200, {
-    header,
-    payload,
-    signature: parts[2],
-    expired: expStatus === 'expired',
-    expires_at: payload.exp ? new Date(payload.exp * 1000).toISOString() : null
-  });
+  const out = { header, payload, iat: payload.iat, exp: payload.exp };
+  if (payload.exp !== undefined) {
+    const expired = now >= payload.exp;
+    out.expired = expired;
+    out.expires_in_seconds = payload.exp - now;
+    out.expires_at = new Date(payload.exp * 1000).toISOString();
+  } else out.expired = false, out.note = 'no exp claim';
+  if (payload.iat !== undefined) out.issued_at = new Date(payload.iat * 1000).toISOString();
+  if (payload.nbf !== undefined) { out.not_before = payload.nbf; out.not_yet_valid = now < payload.nbf; }
+  out.signature_present = parts[2].length > 0;
+  out.note_verification = 'signature NOT verified — decoding only';
+  return json(res, 200, out);
+}
+function b64url(s) {
+  s = s.replace(/-/g, '+').replace(/_/g, '/');
+  while (s.length % 4) s += '=';
+  return s;
 }
 module.exports = { routeJwt };
