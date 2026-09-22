@@ -43,7 +43,7 @@ function handleMessage(msg) {
   const { id, method, params } = msg;
   switch (method) {
     case 'initialize':
-      return { jsonrpc: '2.0', id, result: { protocolVersion: PROTOCOL_VERSION, capabilities: { tools: {} }, serverInfo: { name: 'nerd-utility-api', version: '1.0.0' } } };
+      return { jsonrpc: '2.0', id, result: { protocolVersion: PROTOCOL_VERSION, capabilities: { tools: {} }, serverInfo: { name: 'nerd-utility-api', version: '1.1.0' } } };
     case 'notifications/initialized':
       return null; // notification, no response
     case 'tools/list':
@@ -95,7 +95,12 @@ process.stdin.on('data', (d) => {
     let msg;
     try { msg = JSON.parse(line); } catch { continue; }
     const resp = handleMessage(msg);
-    if (resp) process.stdout.write(JSON.stringify(resp) + '\n');
+    if (resp && typeof resp.then === 'function') {
+      // tools/call returns a promise (async API call) — write when it settles
+      resp.then((r) => { if (r) process.stdout.write(JSON.stringify(r) + '\n'); });
+    } else if (resp) {
+      process.stdout.write(JSON.stringify(resp) + '\n');
+    }
   }
 });
 process.stdin.on('end', () => process.exit(0));

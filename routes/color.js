@@ -1,67 +1,57 @@
-// Color converter: /color?hex=%23ff6600 or ?r=255&g=102&b=0 — hex/rgb/hsl/hsv conversions + shades
-function hexToRgb(hex){
-  let h=hex.replace('#','').trim();
-  if(h.length===3)h=h.split('').map(c=>c+c).join('');
-  if(!/^[0-9a-fA-F]{6}$/.test(h))throw new Error(`invalid hex "${hex}"`);
-  const n=parseInt(h,16);
-  return{r:(n>>16)&255,g:(n>>8)&255,b:n&255};
+// routes/color.js — color conversion
+// GET /color?hex=%23ff8800 | ?rgb=255,136,0 | ?hsl=30,100,50 | ?name=orange
+const NAMES = { black:'#000000', white:'#ffffff', red:'#ff0000', green:'#008000', blue:'#0000ff', yellow:'#ffff00', cyan:'#00ffff', magenta:'#ff00ff', orange:'#ffa500', purple:'#800080', pink:'#ffc0cb', gray:'#808080', grey:'#808080', brown:'#a52a2a', navy:'#000080', teal:'#008080' };
+
+function hexToRgb(hex) {
+  hex = hex.replace('#', '').trim();
+  if (/^[0-9a-f]{3}$/i.test(hex)) hex = [...hex].map(c => c + c).join('');
+  if (!/^[0-9a-f]{6}$/i.test(hex)) throw new Error('invalid hex color');
+  const n = parseInt(hex, 16);
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
 }
-function rgbToHsl(r,g,b){
-  r/=255;g/=255;b/=255;
-  const max=Math.max(r,g,b),min=Math.min(r,g,b);
-  let h=0,s=0;const l=(max+min)/2;
-  if(max!==min){
-    const d=max-min;
-    s=l>0.5?d/(2-max-min):d/(max+min);
-    if(max===r)h=((g-b)/d+(g<b?6:0));
-    else if(max===g)h=((b-r)/d+2);
-    else h=((r-g)/d+4);
-    h*=60;
+function rgbToHsl(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h = 0, s = 0, l = (max + min) / 2;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    if (max === r) h = ((g - b) / d + (g < b ? 6 : 0));
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    h *= 60;
   }
-  return{h:Math.round(h),s:Math.round(s*100),l:Math.round(l*100)};
+  return { h: Math.round(h), s: Math.round(s * 100), l: Math.round(l * 100) };
 }
-function rgbToHsv(r,g,b){
-  r/=255;g/=255;b/=255;
-  const max=Math.max(r,g,b),min=Math.min(r,g,b),d=max-min;
-  let h=0;
-  if(d!==0){
-    if(max===r)h=((g-b)/d+(g<b?6:0));
-    else if(max===g)h=((b-r)/d+2);
-    else h=((r-g)/d+4);
-    h*=60;
-  }
-  return{h:Math.round(h),s:Math.round((max===0?0:d/max)*100),v:Math.round(max*100)};
+function routeColor(u, res, json) {
+  const q = u.searchParams;
+  let rgb = null;
+  try {
+    if (q.get('hex')) rgb = hexToRgb(q.get('hex'));
+    else if (q.get('rgb')) { const p = q.get('rgb').split(',').map(Number); if (p.length !== 3 || p.some(isNaN) || p.some(x => x < 0 || x > 255)) throw new Error('invalid rgb'); rgb = { r: p[0], g: p[1], b: p[2] }; }
+    else if (q.get('hsl')) { const [h, s, l] = q.get('hsl').split(',').map(Number); if ([h, s, l].some(isNaN)) throw new Error('invalid hsl'); rgb = hslToRgb(h / 360, s / 100, l / 100); }
+    else if (q.get('name')) { const hx = NAMES[q.get('name').toLowerCase()]; if (!hx) return json(res, 400, { error: 'unknown name. known: ' + Object.keys(NAMES).join(',') }); rgb = hexToRgb(hx); }
+    else return json(res, 400, { error: 'provide hex, rgb, hsl, or name' });
+  } catch (e) { return json(res, 400, { error: e.message }); }
+  const { r, g, b } = rgb;
+  const hsl = rgbToHsl(r, g, b);
+  const hex = '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
+  const lum = +(0.2126 * r + 0.7152 * g + 0.0722 * b).toFixed(1);
+  return json(res, 200, {
+    hex, rgb: `rgb(${r},${g},${b})`, hsl: `hsl(${hsl.h},${hsl.s}%,${hsl.l}%)`,
+    rgbArr: [r, g, b], hslArr: [hsl.h, hsl.s, hsl.l],
+    luminance: lum, contrastSafe: lum > 140 ? 'black-text' : 'white-text',
+    invert: '#' + [r, g, b].map(x => (255 - x).toString(16).padStart(2, '0')).join('')
+  });
 }
-function luminance(r,g,b){
-  const a=[r,g,b].map(v=>{v/=255;return v<=0.03928?v/12.92:((v+0.055)/1.055)**2.4;});
-  return 0.2126*a[0]+0.7152*a[1]+0.0722*a[2];
+function hslToRgb(h, s, l) {
+  if (s === 0) { const v = Math.round(l * 255); return { r: v, g: v, b: v }; }
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
+  const f = t => { if (t < 0) t += 1; if (t > 1) t -= 1;
+    if (t < 1 / 6) return p + (q - p) * 6 * t;
+    if (t < 1 / 2) return q;
+    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+    return p; };
+  return { r: Math.round(f(h + 1 / 3) * 255), g: Math.round(f(h) * 255), b: Math.round(f(h - 1 / 3) * 255) };
 }
-function toHex(r,g,b){return '#'+[r,g,b].map(v=>Math.round(Math.max(0,Math.min(255,v))).toString(16).padStart(2,'0')).join('');}
-function routeColor(u,res,json,body){
-  try{
-    let hex=u.searchParams.get('hex')||u.searchParams.get('c');
-    let r=u.searchParams.get('r'),g=u.searchParams.get('g'),b=u.searchParams.get('b');
-    if(!hex&&body&&typeof body==='object'&&(body.hex||body.c))hex=body.hex||body.c;
-    let rgb;
-    if(hex)rgb=hexToRgb(hex);
-    else if(r!==null&&g!==null&&b!==null){
-      rgb={r:+r,g:+g,b:+b};
-      if([rgb.r,rgb.g,rgb.b].some(v=>isNaN(v)||v<0||v>255))throw new Error('r,g,b must be 0-255');
-    }else return json(res,400,{error:'provide ?hex=<#rrggbb> or ?r=&g=&b='});
-    const{r:R,g:G,b:B}=rgb;
-    const hsl=rgbToHsl(R,G,B),hsv=rgbToHsv(R,G,B);
-    const L1=luminance(R,G,B);
-    const Lb=luminance(255,255,255),Lk=luminance(0,0,0);
-    const crW=(Math.max(L1,Lb)+0.05)/(Math.min(L1,Lb)+0.05);
-    const crB=(Math.max(L1,Lk)+0.05)/(Math.min(L1,Lk)+0.05);
-    const cm=Math.max(crW,crB);
-    return json(res,200,{
-      hex:toHex(R,G,B),rgb:{r:R,g:G,b:B},hsl,hsv,
-      luminance:+L1.toFixed(4),
-      contrast:{vsWhite:+crW.toFixed(2),vsBlack:+crB.toFixed(2),best:crW>=crB?'white':'black',wcagAA:cm>=4.5,wcagAAA:cm>=7},
-      shades:{lighter:[10,25,40].map(p=>toHex(R+(255-R)*p/100,G+(255-G)*p/100,B+(255-B)*p/100)),darker:[10,25,40].map(p=>toHex(R*(1-p/100),G*(1-p/100),B*(1-p/100)))},
-      cssVar:`--color: ${toHex(R,G,B)};`
-    });
-  }catch(e){return json(res,400,{error:'color failure: '+e.message});}
-}
-module.exports={routeColor};
+module.exports = { routeColor };

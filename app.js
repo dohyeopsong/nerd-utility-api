@@ -137,7 +137,8 @@ const ENDPOINTS = {
   units: (body, q) => routeUnits({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d),
   regex: (body, q) => routeRegex({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d, body),
   password: (body, q) => routePassword({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d),
-  cron: (body, q) => routeCron({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d)
+  cron: (body, q) => routeCron({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d),
+  color: (body, q) => routeColor({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d)
 ,  units: (body, q) => routeUnits({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d, body)
 };
 
