@@ -48,3 +48,6 @@ check subnet    "/subnet?cidr=192.168.1.0/24"
 # checksum
 A=$(curl -s --get --data-urlencode "text=hello" http://localhost:8080/checksum | python3 -c "import sys,json;print(json.load(sys.stdin)['cksum'])")
 [ "$A" = "3287646509" ] && echo PASS checksum || echo FAIL checksum
+# hash match
+B=$(curl -s --get --data-urlencode "text=hello" --data-urlencode "algo=sha256" --data-urlencode "expected=2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824" http://localhost:8080/hash | python3 -c "import sys,json;print(json.load(sys.stdin)['match'])")
+[ "$B" = "True" ] && echo PASS hash || echo FAIL hash
