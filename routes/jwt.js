@@ -8,8 +8,8 @@ function routeJwt(u, res, json) {
   if (parts.length !== 3) return json(res, 400, { error: 'expected 3 dot-separated segments, got ' + parts.length });
   let header, payload;
   try {
-    header = JSON.parse(Buffer.from(b64url(parts[0]), 'utf8'));
-    payload = JSON.parse(Buffer.from(b64url(parts[1]), 'utf8'));
+    header = JSON.parse(Buffer.from(b64url(parts[0]), 'base64'));
+    payload = JSON.parse(Buffer.from(b64url(parts[1]), 'base64'));
   } catch (e) { return json(res, 400, { error: 'invalid base64/JSON segment: ' + e.message }); }
   const now = Math.floor(Date.now() / 1000);
   const out = { header, payload, iat: payload.iat, exp: payload.exp };
