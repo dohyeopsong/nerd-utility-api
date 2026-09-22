@@ -19,16 +19,17 @@ function routeConvert(u, res, json) {
   const q = Object.fromEntries(u.searchParams.entries());
   const value = parseFloat(q.value);
   if (q.value === undefined || isNaN(value)) throw new Error('missing/invalid ?value=');
-  const from = (q.from || '').toLowerCase(), to = (q.to || '').toLowerCase();
+  const lc = s => s.toLowerCase();
+  const from = q.from || '', to = q.to || '';
   if (!from || !to) throw new Error('need ?from= and ?to= units');
 
-  if (TEMP.includes(from) && TEMP.includes(to)) {
-    const out = convertTemp(value, from, to);
+  if (TEMP.includes(lc(from)) && TEMP.includes(lc(to))) {
+    const out = convertTemp(value, lc(from), lc(to));
     return json(res, 200, { value, from, to, result: +out.toFixed(6), family: 'temperature' });
   }
   for (const [fam, units] of Object.entries(FAMILIES)) {
-    if (from in units && to in units) {
-      const out = value * units[from] / units[to];
+    if ((from in units || lc(from) in units) && (to in units || lc(to) in units)) {
+      const out = value * (units[from] ?? units[lc(from)]) / (units[to] ?? units[lc(to)]);
       return json(res, 200, { value, from, to, result: +out.toPrecision(12), family: fam });
     }
   }
