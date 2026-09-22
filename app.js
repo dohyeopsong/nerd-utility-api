@@ -726,6 +726,10 @@ if (u.pathname === '/') return routeLanding(u, res);
               try { return routeSemver(u, res, json); }
               catch (e) { return json(res, 500, { error: e.message }); }
             }
+            if (u.pathname === '/timediff') {
+              try { return routeTimediff(u, res, json); }
+              catch (e) { return json(res, 400, { error: e.message }); }
+            }
             if (u.pathname === '/case') {
               return routeCase(u, res, json);
             }
