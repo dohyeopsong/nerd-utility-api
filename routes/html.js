@@ -1,49 +1,35 @@
-// /html — HTML escape/unescape, strip tags, extract text
-const ENTITIES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
-const REV = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
-
-function escapeHtml(s) { return s.replace(/[&<>"']/g, c => ENTITIES[c]); }
-function unescapeHtml(s) {
-  return s.replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z]+);/g, (m, e) => {
-    if (e[0] === '#') {
-      const code = e[1] === 'x' || e[1] === 'X' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
-      if (!Number.isNaN(code) && code < 0x110000) return String.fromCodePoint(code);
-      return m;
-    }
-    return REV[e.toLowerCase()] !== undefined ? REV[e.toLowerCase()] : m;
-  });
-}
-function stripTags(s) {
-  return s.replace(/<script[\s\S]*?<\/script\s*>/gi, '')
-          .replace(/<style[\s\S]*?<\/style\s*>/gi, '')
-          .replace(/<!--[\s\S]*?-->/g, '')
-          .replace(/<[^>]+>/g, '')
-          .replace(/\s+/g, ' ')
-          .trim();
-}
+// /html — HTML entity escaping/unescaping + tag stripping
+const ENTITIES = { '&': 'amp', '<': 'lt', '>': 'gt', '"': 'quot', "'": '#39' };
+const REV = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', copy: '©', reg: '®', hellip: '…', mdash: '—', ndash: '–', laquo: '«', raquo: '»', deg: '°', plusmn: '±', times: '×', divide: '÷', euro: '€', pound: '£', yen: '¥', cent: '¢' };
+const REV_NUM = { 39: "'", 34: '"', 169: '©', 174: '®', 8230: '…', 8212: '—', 8211: '–', 171: '«', 187: '»', 176: '°', 177: '±', 215: '×', 247: '÷', 160: ' ' };
 
 function routeHtml(u, res, json) {
   const q = Object.fromEntries(u.searchParams.entries());
-  const text = q.text;
-  if (text === undefined) throw new Error('provide ?text=<html string>');
-  if (text.length > 50000) throw new Error('text too long (max 50000)');
+  const text = q.text || q.data;
+  if (text === undefined) throw new Error('provide ?text=<string>');
+  if (text.length > 100000) throw new Error('text too long (max 100000)');
   const mode = (q.mode || 'escape').toLowerCase();
 
   if (mode === 'escape') {
-    return json(res, 200, { input: text, mode, escaped: escapeHtml(text) });
+    return json(res, 200, { escaped: text.replace(/[&<>"']/g, c => `&${ENTITIES[c]};`) });
   }
   if (mode === 'unescape') {
-    return json(res, 200, { input: text, mode, unescaped: unescapeHtml(text) });
+    return json(res, 200, { unescaped: text.replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z]+);/g, (m, body) => {
+      if (body[0] === '#') {
+        const isHex = body[1] === 'x' || body[1] === 'X';
+        const code = parseInt(body.slice(isHex ? 2 : 1), isHex ? 16 : 10);
+        if (!REV_NUM[code] && (code < 32 || code > 0x10FFFF || Number.isNaN(code))) return m;
+        return String.fromCodePoint(code);
+      }
+      return REV[body.toLowerCase()] !== undefined ? REV[body.toLowerCase()] : m;
+    }) });
   }
   if (mode === 'strip') {
-    return json(res, 200, {
-      input: text, mode,
-      text: stripTags(text),
-      tagCount: (text.match(/<[^>]+>/g) || []).length,
-      scriptsRemoved: /<script/i.test(text)
-    });
+    // remove tags, collapse whitespace
+    const stripped = text.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<style[\s\S]*?<\/style>/gi, '').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+    return json(res, 200, { stripped, length: stripped.length });
   }
-  throw new Error("mode must be one of: escape, unescape, strip");
+  throw new Error('mode must be one of: escape, unescape, strip');
 }
 
-module.exports = { routeHtml, escapeHtml, unescapeHtml, stripTags };
+module.exports = { routeHtml };
