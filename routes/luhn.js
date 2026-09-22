@@ -1,31 +1,31 @@
-// routes/luhn.js — Luhn algorithm checksum validation
-// GET /luhn?number=4532015112830366
+// /luhn — Luhn algorithm checksum validation (credit cards, IMEI, etc.)
 function routeLuhn(u, res, json) {
-  const raw = u.searchParams.get('number');
+  const q = u.searchParams;
+  const raw = (q.get('number') || q.get('num') || '').replace(/[\s-]/g, '');
   if (!raw) return json(res, 400, { error: 'number required' });
-  const digits = raw.replace(/[\s-]/g, '');
-  if (!/^\d+$/.test(digits)) return json(res, 400, { error: 'digits only (spaces/dashes allowed)' });
-  if (digits.length < 2) return json(res, 400, { error: 'need at least 2 digits' });
-  let sum = 0, dbl = false;
-  for (let i = digits.length - 1; i >= 0; i--) {
-    let d = +digits[i];
-    if (dbl) { d *= 2; if (d > 9) d -= 9; }
-    sum += d; dbl = !dbl;
+  if (!/^\d+$/.test(raw)) return json(res, 400, { error: 'number must contain only digits (spaces/dashes allowed)' });
+  let sum = 0, alt = false;
+  for (let i = raw.length - 1; i >= 0; i--) {
+    let d = raw.charCodeAt(i) - 48;
+    if (alt) { d *= 2; if (d > 9) d -= 9; }
+    sum += d; alt = !alt;
   }
   const valid = sum % 10 === 0;
-  const brand = /^4/.test(digits) ? 'visa' : /^5[1-5]/.test(digits) ? 'mastercard' : /^3[47]/.test(digits) ? 'amex' : /^6(011|5)/.test(digits) ? 'discover' : 'unknown';
-  const partial = digits.slice(0, -1);
-  let check = 0;
-  let s2 = 0, d2 = false;
-  for (let i = partial.length - 1; i >= 0; i--) { let d = +partial[i]; if (d2) { d *= 2; if (d > 9) d -= 9; } s2 += d; d2 = !d2; }
-  check = (10 - (s2 % 10)) % 10;
-  return json(res, 200, {
-    number: digits, valid, brand,
-    checkDigit: +digits[digits.length - 1],
-    computedCheckDigit: check,
-    checkDigitMatches: +digits[digits.length - 1] === check,
-    length: digits.length,
-    corrected: valid ? digits : partial + check
-  });
+  const out = { number: raw, length: raw.length, valid, check_digit: Number(raw[raw.length - 1]) };
+  // card type detection (when length 13-19)
+  if (valid) {
+    const t = (() => {
+      if (/^3[47]/.test(raw) && raw.length === 15) return 'amex';
+      if (/^4/.test(raw) && [13, 16, 19].includes(raw.length)) return 'visa';
+      if (/^(5[1-5]|2[2-7])/.test(raw) && raw.length === 16) return 'mastercard';
+      if (/^6(011|5)/.test(raw) && raw.length === 16) return 'discover';
+      if (/^3(0[0-5]|[68])/.test(raw) && [14, 16, 19].includes(raw.length)) return 'diners';
+      if (/^35/.test(raw) && [16, 17, 18, 19].includes(raw.length)) return 'jcb';
+      if (/^(60|65|81|82)/.test(raw) && [16, 19].includes(raw.length)) return 'rupay';
+      return null;
+    })();
+    if (t) out.card_type = t;
+  }
+  return json(res, 200, out);
 }
 module.exports = { routeLuhn };
