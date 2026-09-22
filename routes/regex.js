@@ -1,40 +1,31 @@
-// Regex tester: /regex?pattern=\\d+&text=abc123def&flags=g — test a pattern, return matches/groups
-async function routeRegex(u, res, json, body, method) {
-  try {
-    let pattern = u.searchParams.get('pattern'), text = u.searchParams.get('text'),
-        flags = u.searchParams.get('flags') || 'g';
-    if (method === 'POST') {
-      try { const b = JSON.parse(body || '{}');
-        if (typeof b.pattern === 'string') pattern = b.pattern;
-        if (typeof b.text === 'string') text = b.text;
-        if (typeof b.flags === 'string') flags = b.flags;
-      } catch {}
-    }
-    if (!pattern) return json(res, 400, { error: 'provide ?pattern=<regex>&text=<subject>[&flags=]' });
-    if (text === null || text === undefined) return json(res, 400, { error: 'provide ?text=<subject>' });
-    // sanitize flags: drop y and invalid chars
-    const cleanFlags = (flags.match(/[gimsu]/g) || []).join('');
+// Regex tester: /regex?pattern=^\\d+$&text=12345&flags=gi — match, groups, replace preview
+function routeRegex(u,res,json){
+  try{
+    const pattern=u.searchParams.get('pattern')||u.searchParams.get('p');
+    const text=u.searchParams.get('text')||u.searchParams.get('t')||'';
+    const flags=u.searchParams.get('flags')||u.searchParams.get('f')||'';
+    if(pattern===null||pattern===undefined)return json(res,400,{error:'provide ?pattern=<regex>&text=<string>'});
+    if(!/^[gimsuy]*$/.test(flags))return json(res,400,{error:'invalid flags (allowed: g i m s u y)'});
     let re;
-    try { re = new RegExp(pattern, cleanFlags); }
-    catch (e) { return json(res, 400, { error: 'invalid pattern: ' + e.message }); }
-    const matches = [];
-    let m, guard = 0;
-    if (cleanFlags.includes('g')) {
-      while ((m = re.exec(text)) !== null && guard++ < 1000) {
-        matches.push({ match: m[0], index: m.index, groups: m.length > 1 ? m.slice(1) : undefined });
-        if (m.index === re.lastIndex) re.lastIndex++; // avoid zero-length infinite loop
+    try{re=new RegExp(pattern,flags);}catch(e){return json(res,400,{error:'invalid pattern: '+e.message});}
+    const global=re.global;
+    const matches=[];
+    if(global){
+      let m,guard=0;
+      while((m=re.exec(text))!==null&&guard++<1000){
+        matches.push({index:m.index,match:m[0],groups:m.slice(1)});
+        if(m[0]==='')re.lastIndex++;
       }
-    } else {
-      m = re.exec(text);
-      if (m) matches.push({ match: m[0], index: m.index, groups: m.length > 1 ? m.slice(1) : undefined });
+    }else{
+      const m=re.exec(text);
+      if(m)matches.push({index:m.index,match:m[0],groups:m.slice(1)});
     }
-    return json(res, 200, {
-      pattern, flags: cleanFlags,
-      matched: matches.length > 0,
-      matchCount: matches.length,
-      matches: matches.length ? matches : undefined,
-      namedGroups: matches[0] && matches[0].groups ? matches[0].groups : undefined
-    });
-  } catch (e) { return json(res, 500, { error: 'regex failure: ' + e.message }); }
+    const replace=u.searchParams.get('replace');
+    let replaced=null;
+    if(replace!==null){
+      try{replaced=global||flags.includes('g')?text.replace(new RegExp(pattern,flags.includes('g')?flags:flags+'g'),replace):text.replace(re,replace);}catch(e){replaced=null;}
+    }
+    return json(res,200,{pattern,flags,text,matchCount:matches.length,matches,replaced});
+  }catch(e){return json(res,500,{error:'regex failure: '+e.message});}
 }
-module.exports = { routeRegex };
+module.exports={routeRegex};
