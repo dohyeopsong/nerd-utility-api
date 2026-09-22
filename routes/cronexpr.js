@@ -105,4 +105,4 @@ function routeCron(u, res, json) {
     return json(res, 400, { error: e.message });
   }
 }
-module.exports = { routeCron };
+module.exports = { routeCronexpr: routeCron };
