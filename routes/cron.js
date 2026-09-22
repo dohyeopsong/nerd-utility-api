@@ -27,6 +27,7 @@ function parseField(expr, min, max, names) {
     }
     const n = +x;
     if (isNaN(n)) throw new Error(`invalid value: ${x}`);
+    if (n < min || n > max) throw new Error(`value ${n} out of range ${min}-${max}`);
     return n;
   }
 }
