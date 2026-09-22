@@ -1,84 +1,95 @@
-// /cron — parse cron expressions: human description + next N run times
-const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-function parseField(field, min, max, names) {
-  if (field === '*') return { all: true, values: null };
-  const vals = new Set();
-  for (const part of field.split(',')) {
-    const m = part.match(/^(\*|[A-Za-z]+|\d+)(?:-([A-Za-z]+|\d+))?(?:\/(\d+))?$/);
-    if (!m) throw new Error('bad cron field part: ' + part);
-    const [, base, end, stepStr] = m;
-    const step = stepStr ? +stepStr : 1;
-    if (step < 1) throw new Error('bad step: ' + part);
-    const lo = base === '*' ? min : resolve(base, names, min, max);
-    const hi = end !== undefined ? resolve(end, names, min, max) : (base === '*' ? max : lo);
-    if (isNaN(lo) || isNaN(hi)) throw new Error('bad values in: ' + part);
-    if (lo < min || hi > max || lo > hi) throw new Error('out of range: ' + part);
-    for (let v = lo; v <= hi; v += step) vals.add(v);
+// /cron — parse cron expressions, describe them, compute next runs (5-field)
+const MONTHS = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+const DAYS = ['sun','mon','tue','wed','thu','fri','sat'];
+function parseField(expr, min, max, names) {
+  const values = new Set();
+  for (const part of expr.split(',')) {
+    let [rng, stepRaw] = part.split('/');
+    const step = stepRaw ? +stepRaw : 1;
+    let start = min, end = max;
+    if (rng !== '*' && rng !== '') {
+      if (rng.includes('-')) {
+        const [a, b] = rng.split('-');
+        start = norm(a); end = norm(b);
+      } else {
+        start = norm(rng);
+        end = stepRaw ? max : start; // "5" alone = just 5; "5/2" = 5..max step 2
+      }
+    }
+    for (let v = start; v <= end; v += step) values.add(v);
   }
-  return { all: false, values: [...vals].sort((a, b) => a - b) };
-}
-function resolve(tok, names, min, max) {
-  if (/^\d+$/.test(tok)) return +tok;
-  if (names) {
-    const t = tok.toLowerCase();
-    const i = names.findIndex(n => n.toLowerCase() === t || n.toLowerCase().slice(0, 3) === t);
-    if (i >= 0) return i + (names === MONTHS ? 1 : 0);
+  return values;
+  function norm(x) {
+    const s = x.toLowerCase();
+    if (names) {
+      const i = names.indexOf(s);
+      if (i >= 0) return i + (names === DAYS ? 0 : 1); // months are 1-based
+    }
+    const n = +x;
+    if (isNaN(n)) throw new Error(`invalid value: ${x}`);
+    return n;
   }
-  return NaN;
 }
-function fmtNums(vals) { return vals.join(', '); }
-function routeCron(u, res, json) {
-  const q = u.searchParams;
-  const expr = q.get('expr') || q.get('cron') || '';
-  if (!expr) return json(res, 400, { error: 'expr required, e.g. expr=30 2 * * 1-5' });
-  const raw = expr.trim().split(/\s+/);
-  if (raw.length !== 5) return json(res, 400, { error: 'expected 5 fields (min hour dom mon dow), got ' + raw.length });
-  let fields;
-  try {
-    fields = [
-      { raw: raw[0], ...parseField(raw[0], 0, 59) },
-      { raw: raw[1], ...parseField(raw[1], 0, 23) },
-      { raw: raw[2], ...parseField(raw[2], 1, 31) },
-      { raw: raw[3], ...parseField(raw[3], 1, 12, MONTHS) },
-      { raw: raw[4], ...parseField(raw[4], 0, 6, DAYS) }
-    ];
-  } catch (e) { return json(res, 400, { error: e.message }); }
-  const [mi, hr, dom, mon, dow] = fields;
-  // --- time description ---
-  let timePart;
-  if (mi.all && hr.all) timePart = 'every minute';
-  else if (hr.all) timePart = `at minutes ${fmtNums(mi.values)} of every hour`;
-  else if (mi.all) timePart = `every minute of hour${hr.values.length > 1 ? 's' : ''} ${fmtNums(hr.values)}`;
-  else if (mi.values.length === 1 && hr.values.length === 1)
-    timePart = `at ${String(hr.values[0]).padStart(2, '0')}:${String(mi.values[0]).padStart(2, '0')}`;
-  else timePart = `at hour${hr.values.length > 1 ? 's' : ''} ${fmtNums(hr.values)} minute${mi.values.length > 1 ? 's' : ''} ${fmtNums(mi.values)}`;
-  // --- day/month description ---
-  let dayPart;
-  if (dow.all && dom.all) dayPart = 'every day';
-  else if (dow.all) dayPart = `on day${dom.values.length > 1 ? 's' : ''} ${fmtNums(dom.values)} of the month`;
-  else if (dom.all) dayPart = `on ${dow.values.map(d => DAYS[d]).join(', ')}`;
-  else dayPart = `on day${dom.values.length > 1 ? 's' : ''} ${fmtNums(dom.values)} or ${dow.values.map(d => DAYS[d]).join(', ')}`;
-  const monPart = mon.all ? '' : ` in ${mon.values.map(m => MONTHS[m - 1]).join(', ')}`;
-  const desc = `${timePart}, ${dayPart}${monPart}`;
-  // --- next runs: brute force minute scan from now (UTC) ---
-  const count = Math.min(+(q.get('count') || 3), 10);
-  const next = [];
-  const d = new Date();
+function describe(fields) {
+  const [m, h, dom, mon, dow] = fields;
+  const parts = [];
+  parts.push(fieldDesc(m, 60, 'minute', 'every minute'));
+  parts.push(fieldDesc(h, 24, 'hour', ''));
+  return parts.join(', ');
+}
+function fieldDesc(set, max, unit, everyTxt) {
+  if (set.size === max && max !== 60) return `every ${unit}`;
+  return `${unit}: ${[...set].sort((a,b)=>a-b).join(',')}`;
+}
+function nextRuns(fields, count) {
+  const [minF, hF, domF, monF, dowF] = fields;
+  const runs = [];
+  let d = new Date();
   d.setSeconds(0, 0);
   d.setMinutes(d.getMinutes() + 1);
-  const ok = (get, f) => f.all || f.values.includes(get);
-  for (let i = 0; i < 527040 && next.length < count; i++) { // up to 1 year of minutes
-    if (ok(d.getMinutes(), mi) && ok(d.getHours(), hr) && ok(d.getDate(), dom) && ok(d.getMonth() + 1, mon) && ok(d.getDay(), dow)) {
-      next.push(d.toISOString());
+  while (runs.length < count) {
+    if (d.getTime() > Date.now() + 366 * 864e5) break; // 1y cap
+    if (monF.has(d.getMonth() + 1) &&
+        domF.has(d.getDate()) &&
+        dowF.has(d.getDay()) &&
+        hF.has(d.getHours()) &&
+        minF.has(d.getMinutes())) {
+      runs.push(new Date(d).toISOString());
+      d.setMinutes(d.getMinutes() + 1);
+      // advance past this minute
+      continue;
     }
     d.setMinutes(d.getMinutes() + 1);
   }
+  return runs;
+}
+function routeCron(u, res, json) {
+  const q = u.searchParams;
+  const expr = (q.get('expr') || q.get('e') || '').trim();
+  if (!expr) return json(res, 400, { error: 'expr required (5-field cron)' });
+  const f = expr.split(/\s+/);
+  if (f.length !== 5) return json(res, 400, { error: `expected 5 fields, got ${f.length}` });
+  let fields;
+  try {
+    fields = [
+      parseField(f[0], 0, 59),
+      parseField(f[1], 0, 23),
+      parseField(f[2], 1, 31),
+      parseField(f[3], 1, 12, MONTHS),
+      parseField(f[4], 0, 6, DAYS)
+    ];
+  } catch (e) { return json(res, 400, { error: e.message }); }
+  const count = Math.min(Math.max(+(q.get('count') || 3), 1), 10);
   return json(res, 200, {
-    expr, fields: raw,
-    description: desc,
-    next_runs: next,
-    timezone: 'UTC'
+    expr, valid: true,
+    description: {
+      minute: [...fields[0]].sort((a,b)=>a-b),
+      hour: [...fields[1]].sort((a,b)=>a-b),
+      day_of_month: [...fields[2]].sort((a,b)=>a-b),
+      month: [...fields[3]].sort((a,b)=>a-b),
+      day_of_week: [...fields[4]].sort((a,b)=>a-b)
+    },
+    next_runs_utc: nextRuns(fields, count)
   });
 }
 module.exports = { routeCron };
