@@ -131,3 +131,4 @@ Full spec: /openapi.json — Docs: /docs
 - GET /iban?iban= — IBAN validation: mod-97 checksum, country code, BBAN, length check
 - GET/POST /hmac?text=&key=&algo=|expected= — HMAC generation + verification (md5/sha1/sha256/sha384/sha512 or all)
 - GET /netmask?ip=&cidr=|mask= — IPv4 subnet calculator (network, broadcast, range, usable hosts)
+- GET /duration?input= — ISO-8601 / human duration parse → ms, human format, all unit conversions
