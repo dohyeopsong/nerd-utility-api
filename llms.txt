@@ -144,3 +144,4 @@ Full spec: /openapi.json — Docs: /docs
 - GET /random?min=1&max=6 — crypto-random integer; ?hex=32 hex string; ?dice=3 roll dice; ?list=a,b,c&count=2 pick; &mode=shuffle
 - GET /regex?pattern=\d+&text=abc123 — regex match/extract with groups and ?replace= mode, flags via ?flags=
 - GET /datediff?from=2024-01-01&to=2025-01-01 — date difference in days/weeks/months + y-m-d breakdown
+- GET /cronexpr?expr=0+9+*+*+* — cron expression explainer + next-run calculator (mode=describe, count=N, from=ISO)
