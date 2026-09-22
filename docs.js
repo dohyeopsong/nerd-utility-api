@@ -1,4 +1,4 @@
-// docs.js — auto-generate /docs from app.js route registrations
+// docs.js — auto-generate /docs from app.js routes + route-file JSDoc headers
 const fs = require('fs');
 const path = require('path');
 const SERVICE_DIR = __dirname;
@@ -9,16 +9,20 @@ function render() {
   const routes = [...app.matchAll(/u\.pathname === '(\/[a-z0-9-]+)'/g)].map(m => m[1]);
   const uniq = [...new Set(routes)].sort();
 
-  // pull descriptions from llms.txt lines like: - `/endpoint?x` — desc
-  let llms = '';
-  try { llms = fs.readFileSync(path.join(SERVICE_DIR, 'llms.txt'), 'utf8'); } catch {}
+  // descriptions: first-line JSDoc from routes/<name>.js, or inline handler comment in app.js
   const desc = {};
-  for (const line of llms.split('\n')) {
-    const m = line.match(/^-\s+`([a-z0-9/_?=&|-]+)`\s+—?\s*(.+)$/);
-    if (m) {
-      const ep = '/' + m[1].split(/[?/]/)[0].replace(/^\//, '');
-      if (!desc[ep]) desc[ep] = m[2].replace(/\*\*/g, '');
-    }
+  const files = fs.readdirSync(path.join(SERVICE_DIR, 'routes')).filter(f => f.endsWith('.js'));
+  for (const f of files) {
+    const first = fs.readFileSync(path.join(SERVICE_DIR, 'routes', f), 'utf8').split('\n')[0];
+    const m = first.match(/^\/\/\s*(?:\/([a-z0-9-]+)\s*—\s*)?(.+)$/);
+    if (m) desc['/' + (m[1] || f.replace(/\.js$/, ''))] = m[2].trim();
+  }
+  // app.js inline routes: look for a comment line just above each `if (u.pathname === '/x')`
+  for (const p of uniq) {
+    if (desc[p]) continue;
+    const re = new RegExp(`\\/\\/\\s*${p.replace('/', '\\/')}\\s*[—-]\\s*(.+)\\n\\s*if \\(u\\.pathname === '${p.replace('/', '\\/')}'\\)`);
+    const m = app.match(re);
+    if (m) desc[p] = m[1].trim();
   }
 
   const rows = uniq.filter(p => p !== '/docs' && p !== '/dashboard').map(p =>
