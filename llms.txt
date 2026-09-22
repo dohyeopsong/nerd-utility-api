@@ -148,3 +148,4 @@ Full spec: /openapi.json — Docs: /docs
 - GET /qr?text=hello — QR code generator (mode=svg|png|text, size=64-1024, ec=L/M/Q/H)
 - GET /email?email=user@example.com — email syntax validation, gmail normalization, disposable-domain check, gravatar URL
 - GET /phone?phone=+1 (555) 123-4567 — phone validation, E.164 normalization, ?country=XX for national formats
+- GET /swift?check=DEUTDEFF — SWIFT/BIC code validation (bank, country, location, branch parsing)
