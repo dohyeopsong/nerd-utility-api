@@ -5,7 +5,8 @@ const { routeConvert } = require('./routes/convert.js'); // convert
 const { routeCidr } = require('./routes/cidr.js'); // cidr
 const { routeUuid7 } = require('./routes/uuid7.js'); // uuid7
 const { routeMorse } = require('./routes/morse.js'); // morse
-const { routeRot13 } = require('./routes/rot13.js'); // rot13
+const { routeRot13 } = require('./routes/rot13.js');
+const { landingPage } = require('./routes/landing.js'); // rot13
 const { routeLorem } = require('./routes/lorem.js'); // lorem
 const { routeCase } = require('./routes/case.js');
 const { routeUrl } = require('./routes/url.js');
@@ -1379,6 +1380,10 @@ if (u.pathname === '/') return routeLanding(u, res);
     if (u.pathname === '/yamljson') {
       try { return routeYamljson(u, res, json); }
       catch (e) { return json(res, 500, { error: e.message }); }
+    }
+    if (u.pathname === '/') {
+      try { return landingPage(res, { endpoints: 47, total_requests: (stats && stats.total) || 0 }); }
+      catch (e) { json(res, 500, { error: e.message }); return; }
     }
     if (u.pathname === '/docs') {
       const fs = require('fs');
