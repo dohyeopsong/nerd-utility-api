@@ -133,3 +133,4 @@ Full spec: /openapi.json — Docs: /docs
 - GET /netmask?ip=&cidr=|mask= — IPv4 subnet calculator (network, broadcast, range, usable hosts)
 - GET /duration?input= — ISO-8601 / human duration parse → ms, human format, all unit conversions
 - GET /json?json=<string>&mode=validate|format|minify — JSON validator, pretty-printer, minifier
+- GET /ip?cidr=10.0.0.0/24 — IPv4 subnet calculator (info, contains, subnets modes)
