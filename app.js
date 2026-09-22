@@ -1380,7 +1380,7 @@ http.createServer(async (req, res) => {
       catch (e) { return json(res, 500, { error: e.message }); }
     }
     if (u.pathname === '/') {
-      try { res.writeHead(200, {'Content-Type':'text/html; charset=utf-8'}); return res.end(fs.readFileSync(__dirname + '/landing.html', 'utf8')); }
+      try { const h = require('fs').readFileSync(__dirname + '/landing.html', 'utf8'); res.writeHead(200, {'Content-Type':'text/html; charset=utf-8','Content-Length':Buffer.byteLength(h)}); res.end(h); return; }
       catch (e) { return json(res, 500, { error: e.message }); }
     }
     if (u.pathname === '/docs') {
