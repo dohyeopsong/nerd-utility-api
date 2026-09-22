@@ -1,63 +1,42 @@
-// /jwt — JWT decode and inspection (no signature verification)
+// /jwt — decode and inspect a JWT: header, payload, signature, expiry status
 function b64urlDecode(s) {
   s = s.replace(/-/g, '+').replace(/_/g, '/');
   while (s.length % 4) s += '=';
   return Buffer.from(s, 'base64').toString('utf8');
 }
-
 function routeJwt(u, res, json) {
-  const q = u.searchParams;
-  const token = (q.get('token') || '').trim();
-
-  if (!token) {
-    return json(res, 400, {
-      error: 'provide ?token=<jwt>',
-      note: 'Decodes header and payload; reports expiry status. Does NOT verify signatures.',
-      example: '/jwt?token=eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.abc'
-    });
-  }
-
+  const q = Object.fromEntries(u.searchParams.entries());
+  const token = (q.token || '').trim();
+  if (!token) throw new Error('missing ?token=<jwt>');
   const parts = token.split('.');
-  if (parts.length !== 3 || !parts[0] || !parts[1]) {
-    return json(res, 200, { valid: false, reason: 'not a JWS compact token (expected 3 dot-separated parts)' });
-  }
+  if (parts.length !== 3) throw new Error(`invalid JWT: expected 3 dot-separated segments, got ${parts.length}`);
 
   let header, payload;
-  try {
-    header = JSON.parse(b64urlDecode(parts[0]));
-    payload = JSON.parse(b64urlDecode(parts[1]));
-  } catch (e) {
-    return json(res, 200, { valid: false, reason: 'base64/JSON decode failed: ' + e.message });
-  }
+  try { header = JSON.parse(b64urlDecode(parts[0])); }
+  catch { throw new Error('invalid JWT: header segment is not valid base64url JSON'); }
+  try { payload = JSON.parse(b64urlDecode(parts[1])); }
+  catch { throw new Error('invalid JWT: payload segment is not valid base64url JSON'); }
 
   const now = Math.floor(Date.now() / 1000);
-  let expiry = { present: false };
-  if (payload.exp !== undefined) {
-    const expired = now >= payload.exp;
-    expiry = {
-      present: true,
-      exp: payload.exp,
-      exp_iso: new Date(payload.exp * 1000).toISOString(),
-      expired,
-      seconds_remaining: payload.exp - now
-    };
+  let expiry = 'unknown';
+  if (typeof payload.exp === 'number') {
+    expiry = now >= payload.exp ? `expired ${now - payload.exp}s ago` : `valid for ${payload.exp - now}s more`;
   }
-  let issued = null;
-  if (payload.iat !== undefined) issued = { iat: payload.iat, iat_iso: new Date(payload.iat * 1000).toISOString() };
-  let nbf = null;
-  if (payload.nbf !== undefined) nbf = { nbf: payload.nbf, active: now >= payload.nbf };
+  const issues = [];
+  if (header.alg === 'none') issues.push('unsigned token (alg=none)');
+  if (typeof payload.exp === 'number' && now >= payload.exp) issues.push('token expired');
+  if (typeof payload.nbf === 'number' && now < payload.nbf) issues.push('token not yet valid');
+  if (typeof payload.iat === 'number' && payload.iat > now + 60) issues.push('iat is in the future');
 
   return json(res, 200, {
-    valid: true,
     header,
     payload,
     signature: parts[2],
-    alg: header.alg || null,
+    signatureBits: parts[2].length * 6,
     expiry,
-    issued,
-    not_before: nbf,
-    note: 'decoded only; signature NOT verified'
+    valid: issues.length === 0,
+    issues,
+    decodedAt: new Date().toISOString(),
   });
 }
-
 module.exports = { routeJwt };
