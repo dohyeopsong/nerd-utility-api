@@ -39,6 +39,7 @@ const { routeCard } = require('./routes/card.js'); // card luhn
 const { routeIban } = require('./routes/iban.js'); // iban validate
 const { routeSubnet } = require('./routes/subnet.js');
 const { routeHtmlEsc } = require('./routes/htmlesc.js');
+const { routeMd2Html } = require('./routes/md2html.js');
 const { routeHtmlEntities } = require('./routes/htmlentities.js');
 const { routeMarkdown: routeMd2Html } = require('./routes/markdown.js'); // md2html
 const { routePem } = require('./routes/pem.js'); // subnet calc
