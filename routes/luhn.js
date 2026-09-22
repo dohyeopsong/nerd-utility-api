@@ -1,40 +1,35 @@
-// Luhn checksum: /luhn?number=4532015112830366 — validate + checksum digit computation
-function luhnDigit(numStr){
-  // compute the check digit needed to make numStr valid
-  const d=numStr.replace(/\D/g,'');
-  let sum=0,alt=true; // alt=true means next appended digit is doubled
-  for(let i=d.length-1;i>=0;i--){
-    let n=+d[i];
-    if(alt){n*=2;if(n>9)n-=9;}
-    sum+=n;alt=!alt;
+// Luhn algorithm: /luhn?number=<digits> — validate, compute check digit
+function luhnCheckDigit(digits){
+  // compute check digit for a payload (number without check digit)
+  let sum=0;const d=digits.split('').map(Number).reverse();
+  for(let i=0;i<d.length;i++){
+    let n=d[i];
+    if(i%2===0){n*=2;if(n>9)n-=9;}  // doubling depends on offset from check digit
+    sum+=n;
   }
   return (10-(sum%10))%10;
 }
+function isValidLuhn(numStr){
+  const d=numStr.split('').map(Number);
+  if(d.some(isNaN))return null;
+  const check=d.pop();
+  return luhnCheckDigit(d.join(''))===check;
+}
 function routeLuhn(u,res,json){
   try{
-    let number=(u.searchParams.get('number')||u.searchParams.get('n')||'').trim();
-    if(!number)return json(res,400,{error:'provide ?number=<digits>'});
-    const digits=number.replace(/\D/g,'');
-    if(digits.length<2)return json(res,400,{error:'need at least 2 digits'});
-    // validate: full string (incl. check digit) must have Luhn sum % 10 == 0
-    let sum=0,alt=false;
-    for(let i=digits.length-1;i>=0;i--){
-      let n=+digits[i];
-      if(alt){n*=2;if(n>9)n-=9;}
-      sum+=n;alt=!alt;
-    }
-    const valid=sum%10===0;
-    const checkDigit=+digits[digits.length-1];
-    const expected=luhnDigit(digits.slice(0,-1));
-    return json(res,200,{number:digits,valid,checkDigit,expectedCheckDigit:expected,length:digits.length,cardType:detectCard(digits)});
+    const numStr=(u.searchParams.get('number')||u.searchParams.get('n')||'').replace(/[\s-]/g,'');
+    if(!numStr)return json(res,400,{error:'provide ?number=<digits>'});
+    if(!/^\d+$/.test(numStr))return json(res,400,{error:'digits only (spaces/dashes allowed)'});
+    const valid=isValidLuhn(numStr);
+    const withoutCheck=numStr.slice(0,-1);
+    return json(res,200,{
+      number:numStr,
+      length:numStr.length,
+      valid,
+      checkDigit:+numStr.slice(-1),
+      computedCheckDigit:luhnCheckDigit(withoutCheck),
+      message:valid?'valid Luhn number':'fails Luhn checksum'
+    });
   }catch(e){return json(res,500,{error:'luhn failure: '+e.message});}
 }
-function detectCard(d){
-  if(/^4/.test(d))return 'visa';
-  if(/^(5[1-5]|2[2-7])/.test(d))return 'mastercard';
-  if(/^3[47]/.test(d))return 'amex';
-  if(/^6(011|5)/.test(d))return 'discover';
-  if(/^35/.test(d))return 'jcb';
-  return null;
-}
-module.exports={routeLuhn};
+module.exports={routeLuhn,isValidLuhn,luhnCheckDigit};
