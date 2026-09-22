@@ -138,3 +138,4 @@ Full spec: /openapi.json — Docs: /docs
 - GET /interest?principal=10000&rate=5&years=10 — compound interest calculator (+monthly contribution, mode=simple)
 - GET /currency?code=USD — ISO 4217 currency lookup (name, symbol, decimals); ?q= search; no params = full list
 - GET /country?code=jp — ISO 3166 country lookup (name, capital, currency, phone, tld; search by name)
+- GET /timezone?zone=Asia/Tokyo — IANA timezone lookup (current local time, UTC offset); ?q= search; no params = full list
