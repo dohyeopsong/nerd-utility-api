@@ -66,7 +66,8 @@ const { routeEan } = require('./routes/ean.js'); // ean validate
 const { routeVin } = require('./routes/vin.js'); // vin decode
 const { routeCard } = require('./routes/card.js'); // card luhn
 const { routeIban } = require('./routes/iban.js');
-const { routeSwift } = require('./routes/swift.js'); // iban validate
+const { routeSwift } = require('./routes/swift.js');
+const { routeVat } = require('./routes/vat.js'); // iban validate
 const { routeSubnet } = require('./routes/subnet.js');
 const { routeBase } = require('./routes/base.js');
 const { routeHtmlEsc } = require('./routes/htmlesc.js');
@@ -833,7 +834,11 @@ if (u.pathname === '/') return routeLanding(u, res);
               try { return routeLuhn(u, res, json); }
               catch (e) { return json(res, 500, { error: e.message }); }
             }
-            if (u.pathname === '/swift') {
+            if (u.pathname === '/vat') {
+      try { return routeVat(u, res, json); }
+      catch (e) { json(res, 400, { error: e.message }); return; }
+    }
+    if (u.pathname === '/swift') {
       try { return routeSwift(u, res, json); }
       catch (e) { json(res, 400, { error: e.message }); return; }
     }
