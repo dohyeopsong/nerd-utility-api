@@ -10,6 +10,7 @@ function routeRegex(u, res, json) {
 
   let re;
   try { re = new RegExp(pattern, f); } catch (e) { throw new Error('bad pattern: ' + e.message); }
+  if (mode === 'match' && !f.includes('g')) re = new RegExp(pattern, f + 'g'); // matchAll needs global
 
   const m = (mode || 'test').toLowerCase();
   if (m === 'test') {
