@@ -1,4 +1,5 @@
-// JWT decoder: /jwt?token=<jwt> or POST {"token":...} — decode header/payload, check expiry (no verification)
+// JWT decoder: /jwt?token=<header.payload.signature>
+// Decodes header and payload (no signature verification — debugging tool).
 function b64urlDecode(s){
   s=s.replace(/-/g,'+').replace(/_/g,'/');
   while(s.length%4)s+='=';
@@ -6,21 +7,26 @@ function b64urlDecode(s){
 }
 function routeJwt(u,res,json,body){
   try{
-    let token=u.searchParams.get('token')||u.searchParams.get('t')||u.searchParams.get('jwt');
-    if(!token&&body&&typeof body==='object'&&(body.token||body.jwt))token=body.token||body.jwt;
-    if(!token)return json(res,400,{error:'provide ?token=<JWT> (decode only, no signature verification)'});
-    const parts=token.trim().split('.');
-    if(parts.length!==3)return json(res,400,{error:'invalid JWT: expected 3 dot-separated parts'});
+    const token=u.searchParams.get('token')||(body&&body.token);
+    if(!token)return json(res,400,{error:'provide ?token=<jwt>'});
+    const parts=String(token).trim().split('.');
+    if(parts.length<2||parts.length>3)return json(res,400,{error:'JWT must have 2 or 3 dot-separated segments'});
     let header,payload;
-    try{header=JSON.parse(b64urlDecode(parts[0]));}catch{return json(res,400,{error:'invalid header segment'});}
-    try{payload=JSON.parse(b64urlDecode(parts[1]));}catch{return json(res,400,{error:'invalid payload segment'});}
-    const now=Math.floor(Date.now()/1000);
-    const exp=payload.exp,iat=payload.iat,nbf=payload.nbf;
-    const timeInfo={};
-    if(exp!==undefined)timeInfo.expiresAt=new Date(exp*1000).toISOString(),timeInfo.expired=now>=exp,timeInfo.secondsUntilExpiry=exp-now;
-    if(iat!==undefined)timeInfo.issuedAt=new Date(iat*1000).toISOString();
-    if(nbf!==undefined)timeInfo.notBefore=new Date(nbf*1000).toISOString(),timeInfo.notYetValid=now<nbf;
-    return json(res,200,{header,payload,...timeInfo,algorithm:header.alg,type:header.typ||'JWT',verified:false,note:'decoded only — signature not verified'});
-  }catch(e){return json(res,500,{error:'jwt failure: '+e.message});}
+    try{header=JSON.parse(b64urlDecode(parts[0]));}
+    catch(e){return json(res,400,{error:'invalid header segment (not base64url JSON)'});}
+    try{payload=JSON.parse(b64urlDecode(parts[1]));}
+    catch(e){return json(res,400,{error:'invalid payload segment (not base64url JSON)'});}
+    const out={header,payload};
+    if(parts[2])out.signature=parts[2];
+    if(payload.exp){
+      const expMs=payload.exp*1000;
+      out.expiry=new Date(expMs).toISOString();
+      out.expired=Date.now()>expMs;
+      out.expiresIn=Math.max(0,expMs-Date.now());
+    }
+    if(payload.iat)out.issuedAt=new Date(payload.iat*1000).toISOString();
+    if(payload.nbf)out.notBefore=new Date(payload.nbf*1000).toISOString();
+    return json(res,200,out);
+  }catch(e){return json(res,400,{error:'jwt failure: '+e.message});}
 }
 module.exports={routeJwt};
