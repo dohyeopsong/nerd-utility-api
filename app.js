@@ -40,6 +40,7 @@ const { routeVin } = require('./routes/vin.js'); // vin decode
 const { routeCard } = require('./routes/card.js'); // card luhn
 const { routeIban } = require('./routes/iban.js'); // iban validate
 const { routeSubnet } = require('./routes/subnet.js');
+const { routeBase } = require('./routes/base.js');
 const { routeHtmlEsc } = require('./routes/htmlesc.js');
 const { routeMd2Html } = require('./routes/md2html.js');
 const { routeHtmlEntities } = require('./routes/htmlentities.js');
@@ -140,7 +141,8 @@ const ENDPOINTS = {
   cron: (body, q) => routeCron({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d),
   color: (body, q) => routeColor({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d),
   jwt: (body, q) => routeJwt({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d),
-  subnet: (body, q) => routeSubnet({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d)
+  subnet: (body, q) => routeSubnet({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d),
+  base: (body, q) => routeBase({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d)
 ,  units: (body, q) => routeUnits({ searchParams: new URLSearchParams(q) }, null, (r,c,d)=>d, body)
 };
 
