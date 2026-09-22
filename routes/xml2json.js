@@ -1,77 +1,101 @@
-// XML to JSON: /xml2json?xml=<xml string> or POST {"xml":...} — lightweight parser, no deps
-function esc(s){return String(s);}
-function parseXml(xml){
-  xml=xml.trim();
-  // strip comments and processing instructions/xml decl
-  xml=xml.replace(/<\?[\s\S]*?\?>/g,'').replace(/<!--[\s\S]*?-->/g,'');
-  if(!/^<[\w:.-]+[\s\S]*<\/[\w:.-]+>$/.test(xml)&&!/^<[\w:.-]+\s*\/>$/.test(xml))throw new Error('no root element found');
+// XML to JSON converter: /xml2json?xml=<xml string> or POST {xml}
+// Parses XML with attributes, nested elements, mixed content, repeated tags → arrays.
+function xml2json(xml){
+  // strip declaration/comments/doctype
+  xml=xml.replace(/<\?[\s\S]*?\?>/g,'').replace(/<!--[\s\S]*?-->/g,'').replace(/<!DOCTYPE[\s\S]*?>/gi,'');
   let i=0;
-  function parseNode(){
-    if(xml[i]==='<'){
-      const tagEnd=xml.indexOf('>',i);
-      if(tagEnd<0)throw new Error('unclosed tag');
-      let tag=xml.slice(i+1,tagEnd);
-      let selfClose=false;
-      if(tag.endsWith('/')){tag=tag.slice(0,-1);selfClose=true;}
-      const nameMatch=tag.match(/^[\w:.-]+/);
-      if(!nameMatch)throw new Error('malformed tag');
-      const name=nameMatch[0];
-      const attrsRaw=tag.slice(name.length);
-      const attributes={};
-      const attrRe=/([\w:.-]+)\s*=\s*("([^"]*)"|'([^']*)')/g;
-      let m;
-      while((m=attrRe.exec(attrsRaw))!==null)attributes[m[1]]=m[3]!==undefined?m[3]:m[4];
-      i=tagEnd+1;
-      if(selfClose)return {[name]:{...attributes,'#text':''}};
-      // parse children until closing tag
-      const result={...attributes};
-      let text='';
-      const children=[];
-      while(i<xml.length){
-        if(xml[i]==='<'){
-          if(xml[i+1]==='/'){
-            const close=xml.indexOf('>',i);
-            const closeName=xml.slice(i+2,close).trim();
-            if(closeName!==name)throw new Error(`mismatched closing tag </${closeName}>, expected </${name}>`);
-            i=close+1;
-            // build
-            const node={};
-            const childNames=children.map(c=>Object.keys(c)[0]);
-            for(const c of children){
-              const[k,v]=Object.entries(c)[0];
-              if(node[k]===undefined)node[k]=v;
-              else if(Array.isArray(node[k]))node[k].push(v);
-              else node[k]=[node[k],v];
-            }
-            const out={};
-            if(Object.keys(attributes).length)out['@'+Object.keys(attributes).join(',@')]=undefined;
-            const full={};
-            for(const[ak,av]of Object.entries(attributes))full['@'+ak]=av;
-            for(const[ck,cv]of Object.entries(node))full[ck]=cv;
-            if(text.trim())full['#text']=text.trim();
-            if(children.length===0&&text.trim()===''&&Object.keys(attributes).length===0&&Object.keys(node).length===0)return {[name]:text.trim()};
-            if(children.length===0&&text.trim()!=='')return {[name]:text.trim()};
-            return {[name]:full};
-          }else{
-            if(text.trim())children.push({'#text':text.trim()}),text='';
-            children.push(parseNode());
-          }
-        }else{text+=xml[i];i++;}
-      }
-      throw new Error('unclosed element <'+name+'>');
-    }
-    throw new Error('unexpected content at position '+i);
+  function skipWs(){while(i<xml.length&&/\s/.test(xml[i]))i++;}
+  function parseName(){
+    const s=i;while(i<xml.length&&/[A-Za-z0-9_.:-]/.test(xml[i]))i++;
+    return xml.slice(s,i);
   }
-  const doc=parseNode();
-  return doc;
+  function parseText(stop){
+    const s=i;let out='';
+    while(i<xml.length){
+      if(stop.includes(xml.slice(i,i+2))||stop.includes(xml[i]))break;
+      out+=xml[i++];
+    }
+    return out.replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&amp;/g,'&');
+  }
+  function parseNode(){
+    skipWs();
+    if(xml[i]!=='<')throw new Error('expected < at pos '+i);
+    if(xml[i+1]==='/'||xml[i+1]==='?')throw new Error('unexpected close tag at pos '+i);
+    i++; // <
+    const name=parseName();
+    const attrs={};
+    // attributes
+    while(true){
+      skipWs();
+      if(xml[i]==='>'){i++;break;}
+      if(xml[i]==='/'&&xml[i+1]==='>'){i++;return [name,attrs,null];} // self-closing
+      const an=parseName();if(!an)throw new Error('bad attr in <'+name+'>');
+      skipWs();if(xml[i]!=='=')throw new Error('expected = after attr '+an);i++;
+      skipWs();const q=xml[i];if(q!=='"'&&q!=="'")throw new Error('expected quoted attr value');i++;
+      const vs=i;while(i<xml.length&&xml[i]!==q)i++;
+      attrs[an]=xml.slice(vs,i).replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&amp;/g,'&');
+      i++; // closing quote
+    }
+    // children
+    let text='';
+    const kids={};
+    while(i<xml.length){
+      if(xml[i]==='<'){
+        if(xml[i+1]==='/'){
+          // closing tag
+          const s=i;i+=2;const cn=parseName();skipWs();
+          if(xml[i]!=='>')throw new Error('malformed close for </'+cn+'>');i++;
+          if(cn!==name)throw new Error('mismatched close tag: <'+name+'> vs </'+cn+'>');
+          const result={};
+          Object.assign(result,attrs);
+          if(Object.keys(kids).length===0){
+            return [name,result,text.trim()?text.trim():null];
+          }else{
+            for(const k in kids)result[k]=kids[k][0];
+            if(text.trim())result['#text']=text.trim();
+            return [name,result,null];
+          }
+        } else {
+          // child node
+          const [cn,cv,ct]=parseNode();
+          if(!kids[cn])kids[cn]=[];
+          // merge attr object with value
+          let val;
+          if(ct!==null&&ct!==undefined){val=ct;}
+          else{val=cv;}
+          if(cv&&typeof cv==='object'){Object.assign(val===cv?val:{},{});}
+          // simple model: value is child object, or text if scalar
+          if(ct!==null){ /* text-only child */ }
+          if(Object.keys(cv||{}).length>0||Array.isArray(kids[cn])){
+            val=cv;
+            if(ct!==null&&ct!==undefined&&!Array.isArray(ct))val.__text=ct; // rare mixed
+          }else{
+            val=ct;
+          }
+          kids[cn].push(val);
+          continue;
+        }
+      }
+      text+=xml[i++];
+    }
+    throw new Error('unexpected EOF in <'+name+'>');
+  }
+  // top-level: parse single root
+  skipWs();
+  const [rn,rv,rt]=parseNode();
+  const root={};
+  if(rt!==null&&rt!==undefined)root[rn]=rt;
+  else root[rn]=rv;
+  skipWs();
+  if(i<xml.length)throw new Error('trailing content after root element');
+  return root;
 }
 function routeXml2json(u,res,json,body){
   try{
-    let xml=u.searchParams.get('xml')||u.searchParams.get('x');
-    if(!xml&&body&&typeof body==='object'&&(body.xml||body.input))xml=body.xml||body.input;
-    if(!xml)return json(res,400,{error:'provide ?xml=<XML string> or POST {"xml":"..."}'});
-    const result=parseXml(xml);
-    return json(res,200,{xml:xml.slice(0,200),json:result});
+    const xml=u.searchParams.get('xml')||(body&&body.xml);
+    if(!xml)return json(res,400,{error:'provide ?xml=<xml string> or POST {"xml": "..."}'});
+    const out=xml2json(String(xml));
+    return json(res,200,out);
   }catch(e){return json(res,400,{error:'xml2json failure: '+e.message});}
 }
-module.exports={routeXml2json,parseXml};
+module.exports={routeXml2json};
