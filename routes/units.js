@@ -1,49 +1,54 @@
-// routes/units.js — unit conversion (length, mass, temperature, data, time)
-// GET /units?from=km&to=mi&value=5
-// GET /units?list=1
-
+// /units — convert between units (length, mass, temperature, data, speed)
 const FACTORS = {
-  // length (meters)
-  length: { mm: 1e-3, cm: 1e-2, m: 1, km: 1000, in: 0.0254, inch: 0.0254, ft: 0.3048, foot: 0.3048, feet: 0.3048, yd: 0.9144, mi: 1609.344, mile: 1609.344, nmi: 1852 },
-  // mass (grams)
-  mass: { mg: 1e-3, g: 1, kg: 1000, t: 1e6, oz: 28.349523125, lb: 453.59237, lbs: 453.59237, lbm: 453.59237, st: 6350.29318 },
-  // data (bytes)
-  data: { b: 1, kb: 1e3, kib: 1024, mb: 1e6, mib: 1024 ** 2, gb: 1e9, gib: 1024 ** 3, tb: 1e12, tib: 1024 ** 4 },
-  // time (seconds)
-  time: { ms: 1e-3, s: 1, sec: 1, min: 60, h: 3600, hr: 3600, d: 86400, wk: 604800, wknd: 1209600 }
+  length: { mm: 0.001, cm: 0.01, m: 1, km: 1000, in: 0.0254, ft: 0.3048, yd: 0.9144, mi: 1609.344, nmi: 1852 },
+  mass: { mg: 1e-6, g: 0.001, kg: 1, t: 1000, oz: 0.028349523125, lb: 0.45359237, st: 6.35029318 },
+  data: { b: 1, kb: 1000, mb: 1e6, gb: 1e9, tb: 1e12, kib: 1024, mib: 1048576, gib: 1073741824, tib: 1099511627776 },
+  speed: { 'm/s': 1, 'km/h': 0.2777777778, mph: 0.44704, kn: 0.5144444444, 'ft/s': 0.3048 },
+  area: { 'm2': 1, 'cm2': 1e-4, 'km2': 1e6, ha: 1e4, 'ft2': 0.09290304, ac: 4046.8564224, 'mi2': 2589988.110336 },
+  volume: { ml: 0.001, l: 1, 'm3': 1000, tsp: 0.00492892159375, tbsp: 0.01478676478125, 'fl oz': 0.0295735295625, cup: 0.2365882365, pt: 0.473176473, qt: 0.946352946, gal: 3.785411784 }
 };
-const CATEGORY = {};
-for (const [cat, units] of Object.entries(FACTORS)) for (const u of Object.keys(units)) CATEGORY[u] = cat;
+const TEMPS = ['c', 'f', 'k'];
 
-// temperature handled separately
-function temp(v, from, to) {
-  let c;
-  if (from === 'c') c = v; else if (from === 'f') c = (v - 32) * 5 / 9; else if (from === 'k') c = v - 273.15; else throw new Error('unknown temp unit');
+function tempConvert(v, from, to) {
+  // normalize to celsius
+  let c = v;
+  if (from === 'f') c = (v - 32) * 5 / 9;
+  else if (from === 'k') c = v - 273.15;
   if (to === 'c') return c;
   if (to === 'f') return c * 9 / 5 + 32;
   if (to === 'k') return c + 273.15;
-  throw new Error('unknown temp unit');
+  return null;
 }
 
 function routeUnits(u, res, json) {
-  const g = (k) => u.searchParams.get(k);
-  if (g('list')) {
-    return json(res, 200, {
-      length: Object.keys(FACTORS.length), mass: Object.keys(FACTORS.mass),
-      temperature: ['c', 'f', 'k'], data: Object.keys(FACTORS.data), time: Object.keys(FACTORS.time)
-    });
+  const q = u.searchParams;
+  const v = parseFloat(q.get('value'));
+  const from = (q.get('from') || '').toLowerCase().trim();
+  const to = (q.get('to') || '').toLowerCase().trim();
+  if (isNaN(v)) return json(res, 400, { error: 'provide ?value=&from=&to=', example: '/units?value=100&from=cm&to=in' });
+  if (!from || !to) return json(res, 400, { error: 'provide both from= and to= units', categories: Object.keys(FACTORS) });
+
+  // temperature special-case
+  if (TEMPS.includes(from) || TEMPS.includes(to)) {
+    if (!TEMPS.includes(from) || !TEMPS.includes(to)) {
+      return json(res, 400, { error: 'temperature units are c, f, k — cannot mix with other categories' });
+    }
+    const r = tempConvert(v, from, to);
+    return json(res, 200, { value: v, from, to, category: 'temperature', result: Math.round(r * 1000) / 1000 });
   }
-  const value = parseFloat(g('value') ?? '1');
-  const from = (g('from') || '').toLowerCase(), to = (g('to') || '').toLowerCase();
-  if (!Number.isFinite(value)) return json(res, 400, { error: 'value must be a number' });
-  if (!from || !to) return json(res, 400, { error: 'from and to required, e.g. ?from=km&to=mi&value=5' });
-  if ((from === 'c' || from === 'f' || from === 'k') && (to === 'c' || to === 'f' || to === 'k')) {
-    return json(res, 200, { value, from, to, result: +temp(value, from, to).toFixed(6) });
+
+  for (const [cat, units] of Object.entries(FACTORS)) {
+    if (from in units && to in units) {
+      const base = v * units[from];
+      const r = base / units[to];
+      return json(res, 200, {
+        value: v, from, to, category: cat,
+        result: Math.round(r * 1e6) / 1e6,
+        available_units: Object.keys(units)
+      });
+    }
   }
-  const cat = CATEGORY[from];
-  if (!cat) return json(res, 400, { error: `unknown unit '${from}'. See /units?list=1` });
-  if (CATEGORY[to] !== cat) return json(res, 400, { error: `incompatible units: '${from}' (${cat}) -> '${to}' (${CATEGORY[to] || '?'})` });
-  const result = value * FACTORS[cat][from] / FACTORS[cat][to];
-  return json(res, 200, { value, from, to, category: cat, result: +result.toPrecision(10) });
+  return json(res, 400, { error: `cannot convert ${from} -> ${to}`, categories: Object.keys(FACTATORS || FACTORS) });
 }
+
 module.exports = { routeUnits };
