@@ -1,68 +1,98 @@
-// /color — parse any color format, convert to hex/rgb/hsl, plus complementary
-function routeColor(u, res, json) {
-  const q = u.searchParams;
-  const c = (q.get('color') || q.get('c') || '').trim().toLowerCase().replace(/\s+/g, '');
-  if (!c) return json(res, 400, { error: 'color required (hex like #ff8800, rgb(255,136,0), or hsl(30,100%,50%))' });
-  let r, g, b;
-  let source;
-  if (/^#?[0-9a-f]{3}$/.test(c)) {
-    source = 'hex3'; const h = c.replace('#', '');
-    r = parseInt(h[0] + h[0], 16); g = parseInt(h[1] + h[1], 16); b = parseInt(h[2] + h[2], 16);
-  } else if (/^#?[0-9a-f]{6}$/.test(c)) {
-    source = 'hex6'; const h = c.replace('#', '');
-    r = parseInt(h.slice(0, 2), 16); g = parseInt(h.slice(2, 4), 16); b = parseInt(h.slice(4, 6), 16);
-  } else {
-    const mRgb = c.match(/^rgb\((\d+),(\d+),(\d+)\)$/);
-    const mHsl = c.match(/^hsl\((\d+),(\d+)%,(\d+)%\)$/);
-    if (mRgb) {
-      source = 'rgb';
-      r = +mRgb[1]; g = +mRgb[2]; b = +mRgb[3];
-    } else if (mHsl) {
-      source = 'hsl';
-      [r, g, b] = hslToRgb(+mHsl[1], +mHsl[2] / 100, +mHsl[3] / 100);
-    } else {
-      return json(res, 400, { error: 'unrecognized color format: ' + c });
-    }
-  }
-  if ([r, g, b].some(x => isNaN(x) || x < 0 || x > 255)) return json(res, 400, { error: 'values out of range' });
-  const hex = '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
-  const [h, s, l] = rgbToHsl(r, g, b);
-  // luminance (WCAG)
-  const lum = (0.2126 * chan(r) + 0.7152 * chan(g) + 0.0722 * chan(b));
-  const comp = [255 - r, 255 - g, 255 - b];
-  return json(res, 200, {
-    input: c, source_format: source,
-    hex, rgb: { r, g, b }, rgb_string: `rgb(${r}, ${g}, ${b})`,
-    hsl: { h: Math.round(h), s: Math.round(s * 100), l: Math.round(l * 100) },
-    hsl_string: `hsl(${Math.round(h)}, ${Math.round(s * 100)}%, ${Math.round(l * 100)}%)`,
-    complementary: '#' + comp.map(x => x.toString(16).padStart(2, '0')).join(''),
-    luminance: +lum.toFixed(4),
-    is_dark: lum < 0.5
-  });
+// /color — color conversion (hex<->rgb<->hsl), luminance, palette generation
+function hexToRgb(hex) {
+  let h = hex.replace('#', '').trim();
+  if (h.length === 3) h = h.split('').map(c => c + c).join('');
+  if (!/^[0-9a-fA-F]{6}$/.test(h)) throw new Error(`invalid hex color: ${hex}`);
+  return { r: parseInt(h.slice(0, 2), 16), g: parseInt(h.slice(2, 4), 16), b: parseInt(h.slice(4, 6), 16) };
 }
-function chan(v) { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }
+function rgbToHex(r, g, b) {
+  const c = v => Math.min(255, Math.max(0, Math.round(v))).toString(16).padStart(2, '0');
+  return `#${c(r)}${c(g)}${c(b)}`;
+}
 function rgbToHsl(r, g, b) {
   r /= 255; g /= 255; b /= 255;
   const max = Math.max(r, g, b), min = Math.min(r, g, b);
-  const l = (max + min) / 2;
-  if (max === min) return [0, 0, l];
-  const d = max - min;
-  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-  let h;
-  if (max === r) h = ((g - b) / d + (g < b ? 6 : 0));
-  else if (max === g) h = (b - r) / d + 2;
-  else h = (r - g) / d + 4;
-  return [h * 60, s, l];
+  let h = 0, s = 0; const l = (max + min) / 2;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    if (max === r) h = ((g - b) / d + (g < b ? 6 : 0));
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    h *= 60;
+  }
+  return { h: Math.round(h), s: Math.round(s * 100), l: Math.round(l * 100) };
 }
 function hslToRgb(h, s, l) {
-  h = ((h % 360) + 360) % 360;
+  h = ((h % 360) + 360) % 360; s /= 100; l /= 100;
   const c = (1 - Math.abs(2 * l - 1)) * s;
   const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
   const m = l - c / 2;
-  let rgb;
-  if (h < 60) rgb = [c, x, 0]; else if (h < 120) rgb = [x, c, 0];
-  else if (h < 180) rgb = [0, c, x]; else if (h < 240) rgb = [0, x, c];
-  else if (h < 300) rgb = [x, 0, c]; else rgb = [c, 0, x];
-  return rgb.map(v => Math.round((v + m) * 255));
+  let [r, g, b] = [0, 0, 0];
+  if (h < 60) [r, g, b] = [c, x, 0];
+  else if (h < 120) [r, g, b] = [x, c, 0];
+  else if (h < 180) [r, g, b] = [0, c, x];
+  else if (h < 240) [r, g, b] = [0, x, c];
+  else if (h < 300) [r, g, b] = [x, 0, c];
+  else [r, g, b] = [c, 0, x];
+  return { r: Math.round((r + m) * 255), g: Math.round((g + m) * 255), b: Math.round((b + m) * 255) };
+}
+function luminance(r, g, b) {
+  const f = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+  return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+}
+
+function routeColor(u, res, json) {
+  const q = u.searchParams;
+  const hex = q.get('hex');
+  const rgb = q.get('rgb');
+  const hsl = q.get('hsl');
+  const mode = q.get('mode') || 'complementary';
+
+  let base;
+  try {
+    if (hex) base = hexToRgb(hex);
+    else if (rgb) {
+      const p = rgb.split(',').map(Number);
+      if (p.length !== 3 || p.some(isNaN)) throw new Error('rgb must be r,g,b');
+      base = { r: p[0], g: p[1], b: p[2] };
+      if ([base.r, base.g, base.b].some(v => v < 0 || v > 255)) throw new Error('rgb values must be 0-255');
+    } else if (hsl) {
+      const p = hsl.split(',').map(Number);
+      if (p.length !== 3 || p.some(isNaN)) throw new Error('hsl must be h,s,l');
+      base = hslToRgb(p[0], p[1], p[2]);
+    } else {
+      return json(res, 400, { error: 'missing color param', example: '/color?hex=%23ff5733 or ?rgb=255,87,51 or ?hsl=10,100,60' });
+    }
+  } catch (e) { return json(res, 400, { error: e.message }); }
+
+  const h = rgbToHsl(base.r, base.g, base.b);
+  const lum = luminance(base.r, base.g, base.b);
+  const out = {
+    hex: rgbToHex(base.r, base.g, base.b),
+    rgb: base,
+    hsl: h,
+    luminance: +lum.toFixed(4),
+    text_color: lum > 0.179 ? '#000000' : '#ffffff',
+    wcag_contrast_black: +((lum + 0.05) / 0.05).toFixed(2),
+    wcag_contrast_white: +(1.05 / (lum + 0.05)).toFixed(2),
+  };
+
+  // palette generation
+  const pal = {};
+  const toHex = hh => { const c = hslToRgb(hh, h.s, h.l); return rgbToHex(c.r, c.g, c.b); };
+  if (mode === 'complementary') {
+    pal.complementary = [toHex(h.h), toHex(h.h + 180)];
+  } else if (mode === 'analogous') {
+    pal.analogous = [toHex(h.h - 30), toHex(h.h), toHex(h.h + 30)];
+  } else if (mode === 'triadic') {
+    pal.triadic = [toHex(h.h), toHex(h.h + 120), toHex(h.h + 240)];
+  } else if (mode === 'shades') {
+    pal.shades = [0, 20, 40, 60, 80].map(l => { const c = hslToRgb(h.h, h.s, l); return rgbToHex(c.r, c.g, c.b); });
+  } else {
+    return json(res, 400, { error: 'mode must be complementary|analogous|triadic|shades' });
+  }
+  out.palette = pal;
+  return json(res, 200, out);
 }
 module.exports = { routeColor };
