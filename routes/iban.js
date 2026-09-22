@@ -19,7 +19,7 @@ function routeIban(u, res, json) {
   const expectedLen = LENGTHS[cc];
   let lengthOk = true;
   if (expectedLen && iban.length !== expectedLen) { lengthOk = false; errors.push(`length ${iban.length} but expected ${expectedLen} for ${cc}`); }
-  // mod-97 check (ISO 7064): rearrange as BBAN + country + checkDigits, letters -> 10..35
+  // mod-97 (ISO 7064): rearrange as BBAN + country + checkDigits, letters -> 10..35
   const rearranged = bban + cc + checkDigits;
   const numStr = rearranged.replace(/[A-Z]/g, c => String(c.charCodeAt(0) - 55));
   let rem = 0;
@@ -28,8 +28,10 @@ function routeIban(u, res, json) {
   }
   const checksumOk = rem === 1;
   if (!checksumOk) errors.push(`mod-97 checksum failed (remainder ${rem}, expected 1)`);
+  const bbanOk = /^[A-Z0-9]+$/.test(bban);
+  if (!bbanOk) errors.push('BBAN contains invalid characters');
   return json(res, 200, {
-    iban, valid: checksumOk && lengthOk,
+    iban, valid: checksumOk && lengthOk && bbanOk,
     country: cc,
     check_digits: checkDigits,
     bban,
