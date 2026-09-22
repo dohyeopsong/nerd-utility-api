@@ -1,35 +1,38 @@
-// /case — text case conversion utilities
+// /case — text case conversions
+function splitWords(s) {
+  return s
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')   // camelCase splits
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2') // HTTPServer -> HTTP Server
+    .split(/[\s_\-.]+/)
+    .filter(Boolean);
+}
 function routeCase(u, res, json) {
   const q = u.searchParams;
-  const text = q.get('text') || '';
-  const to = (q.get('to') || '').toLowerCase();
+  const text = q.get('text') || q.get('t') || '';
   if (!text) return json(res, 400, { error: 'text required' });
-  if (!to) return json(res, 400, { error: 'to required: camel|pascal|snake|kebab|constant|title|sentence|upper|lower|slug' });
-
-  const words = text.replace(/[_\-]+/g, ' ')
-    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-    .toLowerCase()
-    .split(/\s+/)
-    .filter(Boolean);
-
-  const cap = s => s ? s[0].toUpperCase() + s.slice(1) : s;
-  let result;
-  switch (to) {
-    case 'camel':    result = words.map((w, i) => i ? cap(w) : w).join(''); break;
-    case 'pascal':   result = words.map(cap).join(''); break;
-    case 'snake':    result = words.join('_'); break;
-    case 'kebab':    result = words.join('-'); break;
-    case 'slug':     result = text.toLowerCase().normalize('NFKD')
-                                  .replace(/[\u0300-\u036f]/g, '')
-                                  .replace(/[^a-z0-9]+/g, '-')
-                                  .replace(/^-+|-+$/g, ''); break;
-    case 'constant': result = words.join('_').toUpperCase(); break;
-    case 'title':    result = words.map(cap).join(' '); break;
-    case 'sentence': result = cap(words.join(' ')); break;
-    case 'upper':    result = text.toUpperCase(); break;
-    case 'lower':    result = text.toLowerCase(); break;
-    default: return json(res, 400, { error: 'unknown case: ' + to });
+  const words = splitWords(text);
+  const lower = words.map(w => w.toLowerCase());
+  const cap = words.map(w => w[0].toUpperCase() + w.slice(1).toLowerCase());
+  const r = {
+    original: text,
+    camelCase: lower.length ? lower[0] + cap.slice(1).map(w => w[0].toUpperCase() + w.slice(1)).join('') : '',
+    PascalCase: cap.join(''),
+    snake_case: lower.join('_'),
+    SCREAMING_SNAKE_CASE: lower.join('_').toUpperCase(),
+    kebab_case: lower.join('-'),
+    'Title Case': cap.join(' '),
+    'Sentence case': lower.length ? lower[0][0].toUpperCase() + (lower[0].slice(1) + ' ' + lower.slice(1).join(' ')).trim() : '',
+    'dot.case': lower.join('.'),
+    CONSTANT_CASE: lower.join('_').toUpperCase(),
+    path_case: '/' + lower.join('/'),
+    'css-kebab-case': lower.join('-')
+  };
+  if (q.get('to')) {
+    const to = q.get('to');
+    const key = Object.keys(r).find(k => k.toLowerCase().replace(/[^a-z]/g, '') === to.toLowerCase().replace(/[^a-z]/g, ''));
+    if (!key) return json(res, 400, { error: `unknown case: ${to}. Valid: camel, pascal, snake, screaming, kebab, title, sentence, dot, constant, path` });
+    return json(res, 200, { original: text, to, result: r[key] });
   }
-  return json(res, 200, { input: text, to, result, word_count: words.length });
+  return json(res, 200, r);
 }
 module.exports = { routeCase };
