@@ -76,7 +76,7 @@ function routeCron(u,res,json,body){
       let f=s.field;
       if(s.name==='day-of-week'&&f==='7')f='0';
       parsed[s.name]={raw:s.field,values:parseField(f,s.min,s.max,s.names)};
-      if(s.name==='day-of-week'&&parsed[s.name].values.includes(7))parsed[s.name].values=parsed[s.name].values.map(v=>v===7?0:v).sort((a,b)=>a-b);
+      if(s.name==='day-of-week'&&parsed[s.name].values.includes(7))parsed[s.name].values=[...new Set(parsed[s.name].values.map(v=>v===7?0:v))].sort((a,b)=>a-b);
     }
     const f5=[parsed.minute.values,parsed.hour.values,parsed['day-of-month'].values,parsed.month.values,parsed['day-of-week'].values];
     return json(res,200,{
