@@ -1,25 +1,39 @@
-// /iban — IBAN validation (ISO 13616): format check + mod-97 checksum verification
+// /iban — IBAN validation: mod-97 checksum, per-country length, BBAN structure hint
+const IBAN_LENGTHS = {
+  AL:28, AD:24, AT:20, AZ:28, BH:22, BE:16, BA:20, BR:29, BG:22, HR:21, CY:28, CZ:24,
+  DK:18, DO:28, EE:20, FO:18, FI:18, FR:27, GE:22, DE:22, GI:23, GR:27, GL:18, GT:28,
+  HU:28, IS:26, IE:22, IL:23, IT:27, JO:30, KZ:20, KW:30, LV:21, LB:28, LI:21, LT:20,
+  LU:20, MK:19, MT:31, MR:27, MU:30, MD:24, MC:27, ME:22, NL:18, NO:15, PK:24, PS:29,
+  PL:28, PT:25, QA:29, RO:24, SM:27, SA:24, RS:22, SK:24, SI:19, ES:24, SE:24, CH:21,
+  TN:24, TR:26, AE:23, GB:22, VG:24
+};
 function routeIban(u, res, json) {
   const q = u.searchParams;
   const iban = (q.get('iban') || '').replace(/\s+/g, '').toUpperCase();
   if (!iban) return json(res, 400, { error: 'iban required' });
-  const re = /^[A-Z]{2}\d{2}[A-Z0-9]{10,30}$/;
-  if (!re.test(iban)) return json(res, 200, { valid: false, reason: 'invalid format (expected 2-letter country code + 2 check digits + BBAN)' });
   const country = iban.slice(0, 2);
-  const lengths = { NO:15, BE:16, DK:18, FI:18, FO:18, GL:18, NL:18, MK:18, SI:19, AT:20, BA:20, EE:20, KZ:20, LT:20, LU:20, CR:21, HR:21, LV:21, LI:21, CH:21, BG:22, BH:22, DE:22, GB:22, GE:22, IE:22, ME:22, RS:22, AE:23, GI:23, IL:23, AD:24, CZ:24, ES:24, MD:24, PK:24, RO:24, SA:24, SE:24, SK:24, VA:24, TN:24, PT:25, IS:26, TR:26, FR:27, GR:27, IT:27, LC:28, UA:29, ST:29, MC:27, SM:27, AL:28, AZ:28, CY:28, DO:28, GT:28, HU:28, LB:28, NI:28, QA:29, BR:29 };
-  const expected = lengths[country];
-  if (expected === undefined) return json(res, 200, { valid: false, reason: `unknown country code '${country}'` });
-  if (iban.length !== expected) return json(res, 200, { valid: false, reason: `length ${iban.length} does not match expected ${expected} for country ${country}`, country, expected_length: expected });
-  // mod-97: move first 4 chars to end, convert letters to numbers (A=10..Z=35), check mod 97 == 1
-  const rearranged = iban.slice(4) + iban.slice(0, 4);
-  let rem = 0;
-  for (const ch of rearranged) {
-    const code = ch.charCodeAt(0);
-    const val = code >= 65 ? (code - 55) : (code - 48); // letters or digits
-    if (val < 0 || val > 35) return json(res, 200, { valid: false, reason: 'invalid character in IBAN' });
-    rem = (rem * (code >= 65 ? 100 : 10) + val) % 97;
+  const expectedLen = IBAN_LENGTHS[country];
+  if (!/^[A-Z]{2}\d{2}[A-Z0-9]{10,26}$/.test(iban)) {
+    return json(res, 200, { valid: false, reason: 'invalid format', iban });
   }
+  if (!expectedLen) return json(res, 200, { valid: false, reason: 'unknown or unsupported country code: ' + country, iban });
+  if (iban.length !== expectedLen) {
+    return json(res, 200, { valid: false, reason: `length ${iban.length} != expected ${expectedLen} for ${country}`, iban, country, expected_length: expectedLen });
+  }
+  // mod-97 check: move first 4 chars to end, convert letters to numbers, mod 97 == 1
+  const rearranged = iban.slice(4) + iban.slice(0, 4);
+  const numeric = rearranged.split('').map(c => {
+    const code = c.charCodeAt(0);
+    return code >= 65 ? String(code - 55) : c;
+  }).join('');
+  // big-number mod in chunks (JS numbers lose precision on 30+ digits)
+  let rem = 0;
+  for (const digit of numeric) rem = (rem * 10 + parseInt(digit, 10)) % 97;
   const valid = rem === 1;
-  return json(res, 200, { iban, country, check_digits: iban.slice(2, 4), bban: iban.slice(4), length: iban.length, expected_length: expected, checksum_valid: valid, valid, reason: valid ? 'checksum passed (mod-97 = 1)' : `checksum failed (mod-97 = ${rem}, expected 1)` });
+  // pretty print in groups of 4
+  const pretty = iban.replace(/(.{4})/g, '$1 ').trim();
+  const result = { iban, valid, country, length: iban.length, check_digits: iban.slice(2, 4), pretty };
+  if (!valid) result.reason = 'checksum failed (mod-97 remainder ' + rem + ', expected 1)';
+  return json(res, 200, result);
 }
 module.exports = { routeIban };
