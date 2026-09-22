@@ -142,3 +142,4 @@ Full spec: /openapi.json — Docs: /docs
 - GET /emoji?name=fire — emoji lookup by keyword (char, name, codepoints); ?strip=<text> removes emoji from text; no params = full list
 - GET /math?expr=2%2B3*4 — safe arithmetic evaluator (+ - * / % ^, parens, unary minus; no eval)
 - GET /random?min=1&max=6 — crypto-random integer; ?hex=32 hex string; ?dice=3 roll dice; ?list=a,b,c&count=2 pick; &mode=shuffle
+- GET /regex?pattern=\d+&text=abc123 — regex match/extract with groups and ?replace= mode, flags via ?flags=
