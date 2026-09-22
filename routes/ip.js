@@ -19,7 +19,7 @@ function parseCIDR(s) {
   return { addr, bits, mask, network, broadcast: (network | (~mask >>> 0)) >>> 0, size: 2 ** (32 - bits) };
 }
 
-function routeIP(u, res, json) {
+function routeIp(u, res, json) {
   const q = u.searchParams;
   try {
     const cidr = q.get('cidr');
@@ -76,4 +76,4 @@ function routeIP(u, res, json) {
     return json(res, 400, { error: e.message, example: '/ip?cidr=192.168.1.0/24, /ip?cidr=10.0.0.0/8&contains=10.1.2.3, /ip?cidr=192.168.0.0/24&subnets=4' });
   }
 }
-module.exports = { routeIP };
+module.exports = { routeIp };
