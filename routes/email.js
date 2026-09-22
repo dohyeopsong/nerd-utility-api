@@ -1,33 +1,50 @@
-// /email — email validation, normalization, gravatar
-const crypto = require('crypto');
-const DISPOSABLE = new Set(['mailinator.com','guerrillamail.com','10minutemail.com','tempmail.com','throwawaymail.com','yopmail.com','sharklasers.com','getnada.com','dispostable.com','trashmail.com']);
+// /email — email syntax validation + optional MX lookup (via dns.resolveMx)
+const dns = require('dns').promises;
+
+const EMAIL_RE = /^[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/;
 
 function routeEmail(u, res, json) {
   const q = u.searchParams;
-  const email = (q.get('email') || q.get('text') || '').trim();
-  if (!email) return json(res, 400, { error: 'provide ?email=user@example.com', example: '/email?email=User@Example.com' });
-  try {
-    const local = email.slice(0, email.lastIndexOf('@'));
-    const domain = email.slice(email.lastIndexOf('@') + 1).toLowerCase();
-    const syntaxOk = /^[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?\.)+[A-Za-z]{2,}$/.test(email);
-    if (!syntaxOk) throw new Error('invalid email syntax');
-    const normalized = local.toLowerCase() + '@' + domain;
-    const gmailLike = domain === 'gmail.com' || domain === 'googlemail.com';
-    const normLocal = gmailLike ? local.toLowerCase().replace(/\+.*$/, '').replace(/\./g, '') : local.toLowerCase();
-    const gravatar = crypto.createHash('md5').update(normalized).digest('hex');
-    return json(res, 200, {
-      email: normalized,
-      local_part: local,
-      domain,
-      is_gmail: gmailLike,
-      gmail_normalized: gmailLike ? normLocal + '@gmail.com' : null,
-      is_disposable_domain: DISPOSABLE.has(domain),
-      gravatar: 'https://www.gravatar.com/avatar/' + gravatar + '?d=identicon',
-      gravatar_hash: gravatar,
-      plus_alias: local.includes('+') ? local.split('+')[0] + '@' + domain : null,
-    });
-  } catch (e) {
-    return json(res, 400, { error: e.message, example: '/email?email=user@example.com' });
+  const raw = q.get('email');
+  if (!raw) return json(res, 400, { error: 'provide ?email=', example: '/email?email=user@example.com' });
+  const email = raw.trim().toLowerCase();
+
+  const result = { email, syntax_valid: EMAIL_RE.test(email) };
+  if (!result.syntax_valid) {
+    result.valid = false;
+    result.reason = 'syntax invalid';
+    return json(res, 200, result);
   }
+  result.local_part = email.slice(0, email.indexOf('@'));
+  result.domain = email.slice(email.indexOf('@') + 1);
+  result.has_plus_tag = result.local_part.includes('+');
+  if (result.has_plus_tag) {
+    const [base, tag] = result.local_part.split('+', 2);
+    result.base_local_part = base;
+    result.plus_tag = tag;
+  }
+
+  if (q.get('check_mx') !== 'true') {
+    result.valid = true; // syntax only
+    result.note = 'pass check_mx=true for MX verification';
+    return json(res, 200, result);
+  }
+
+  // async MX check
+  dns.resolveMx(result.domain)
+    .then(mx => {
+      result.mx = mx.sort((a, b) => a.priority - b.priority).map(r => r.exchange);
+      result.has_mx = result.mx.length > 0;
+      result.valid = result.has_mx;
+      if (!result.has_mx) result.reason = 'domain has no MX records';
+      json(res, 200, result);
+    })
+    .catch(err => {
+      result.has_mx = false;
+      result.valid = false;
+      result.reason = `MX lookup failed: ${err.code || err.message}`;
+      json(res, 200, result);
+    });
 }
+
 module.exports = { routeEmail };
