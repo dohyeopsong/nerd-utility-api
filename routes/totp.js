@@ -1,58 +1,59 @@
-// TOTP/HOTP endpoint: /totp?secret=BASE32&mode=totp (default) — generate current code
-// /totp?secret=...&code=123456 — verify a code (+/- window)
-// /totp?secret=...&mode=hotp&counter=0 — HOTP generation
-// /totp?generate=1 — make a new random secret
-const crypto = require('crypto');
-const b32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
-function base32Decode(s) {
-  s = s.toUpperCase().replace(/[^A-Z2-7]/g, '');
-  let bits = '', out = [];
-  for (const c of s) { const v = b32.indexOf(c); if (v < 0) continue; bits += v.toString(2).padStart(5, '0'); }
-  for (let i = 0; i + 8 <= bits.length; i += 8) out.push(parseInt(bits.slice(i, i + 8), 2));
-  return Buffer.from(out);
-}
-function base32Encode(buf) {
-  let bits = '', out = '';
-  for (const b of buf) bits += b.toString(2).padStart(8, '0');
-  for (let i = 0; i + 5 <= bits.length; i += 5) out += b32[parseInt(bits.slice(i, i + 5), 2)];
-  return out;
-}
-function hotp(secretBuf, counter, digits = 6) {
-  const buf = Buffer.alloc(8);
-  buf.writeUInt32BE(Math.floor(counter / 0x100000000), 0);
-  buf.writeUInt32BE(counter % 0x100000000, 4);
-  const h = crypto.createHmac('sha1', secretBuf).update(buf).digest();
-  const off = h[h.length - 1] & 0xf;
-  const code = ((h[off] & 0x7f) << 24 | h[off + 1] << 16 | h[off + 2] << 8 | h[off + 3]) % 10 ** digits;
-  return String(code).padStart(digits, '0');
-}
-async function routeTotp(u, res, json) {
-  if (u.searchParams.get('generate')) {
-    const secret = base32Encode(crypto.randomBytes(20));
-    return json(res, 200, { secret, algorithm: 'SHA1', digits: 6, period: 30, otpauth: 'otpauth://totp/x?secret=' + secret });
+// TOTP (RFC 6238) utility: /totp?secret=<base32>&digits=6&period=30&time=<unix>
+// Generates a time-based one-time passcode from a base32 secret (no server-side secret storage).
+const crypto=require('crypto');
+const B32='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+function base32Decode(s){
+  s=String(s).toUpperCase().replace(/=+$/,'').replace(/\s+/g,'');
+  let bits=0,val=0,out=Buffer.alloc(Math.floor(s.length*5/8)+1);
+  let o=0;
+  for(const c of s){
+    const idx=B32.indexOf(c);
+    if(idx<0)throw new Error('invalid base32 character: '+c);
+    val=(val<<5)|idx;bits+=5;
+    if(bits>=8){out[o++]=(val>>>(bits-8))&255;bits-=8;}
   }
-  const secret = u.searchParams.get('secret');
-  if (!secret) return json(res, 400, { error: 'provide ?secret=BASE32 (or ?generate=1 to create one)' });
-  let key;
-  try { key = base32Decode(secret); if (!key.length) throw new Error(); } catch { return json(res, 400, { error: 'invalid base32 secret' }); }
-  const mode = (u.searchParams.get('mode') || 'totp').toLowerCase();
-  const digits = Math.min(10, Math.max(6, +(u.searchParams.get('digits') || 6)));
-  const period = Math.max(1, +(u.searchParams.get('period') || 30));
-  if (mode === 'hotp') {
-    const counter = +(u.searchParams.get('counter') ?? 0);
-    if (!Number.isInteger(counter) || counter < 0) return json(res, 400, { error: 'counter must be a non-negative integer' });
-    return json(res, 200, { mode, code: hotp(key, counter, digits), counter, digits });
-  }
-  const t = Math.floor(Date.now() / 1000);
-  const step = Math.floor(t / period);
-  const code = hotp(key, step, digits);
-  const verify = u.searchParams.get('code');
-  if (verify) {
-    const window = Math.max(0, Math.min(10, +(u.searchParams.get('window') || 1)));
-    const matched = [];
-    for (let w = -window; w <= window; w++) if (hotp(key, step + w, digits) === verify.trim()) matched.push(w);
-    return json(res, 200, { valid: matched.length > 0, verified: matched.length > 0, windowOffsets: matched, period, digits, secondsRemaining: period - (t % period) });
-  }
-  return json(res, 200, { mode: 'totp', code, step, period, digits, secondsRemaining: period - (t % period), timestamp: t });
+  return out.slice(0,o);
 }
-module.exports = { routeTotp, hotp, base32Decode, base32Encode };
+function hotp(key,counter,digits){
+  const buf=Buffer.alloc(8);
+  buf.writeUInt32BE(Math.floor(counter/2**32),0);
+  buf.writeUInt32BE(counter>>>0,4);
+  const h=crypto.createHmac('sha1',key).update(buf).digest();
+  const off=h[h.length-1]&0x0f;
+  const code=((h[off]&0x7f)<<24|(h[off+1]&0xff)<<16|(h[off+2]&0xff)<<8|(h[off+3]&0xff))%10**digits;
+  return String(code).padStart(digits,'0');
+}
+function totp(key,opts={}){
+  const digits=opts.digits||6,period=opts.period||30;
+  const time=opts.time||Math.floor(Date.now()/1000);
+  const counter=Math.floor(time/period);
+  return {code:hotp(key,counter,digits),counter,period,digits,expiresAt:(counter+1)*period,
+    secondsRemaining:(counter+1)*period-time};
+}
+function routeTotp(u,res,json,body){
+  try{
+    const secret=u.searchParams.get('secret')||(body&&body.secret);
+    if(!secret||!/^[A-Z2-7=\s]+$/i.test(secret))
+      return json(res,400,{error:'provide ?secret=<base32 string> (RFC 4648, A-Z2-7)'});
+    const digits=Math.min(10,Math.max(6,parseInt(u.searchParams.get('digits')||(body&&body.digits))||6));
+    const period=Math.min(120,Math.max(5,parseInt(u.searchParams.get('period')||(body&&body.period))||30));
+    const timeStr=u.searchParams.get('time')||(body&&body.time);
+    const time=timeStr?parseInt(timeStr):Math.floor(Date.now()/1000);
+    const key=base32Decode(secret);
+    if(key.length===0)return json(res,400,{error:'empty secret after decode'});
+    const r=totp(key,{digits,period,time});
+    // also validate a supplied code
+    const code=u.searchParams.get('code')||(body&&body.code);
+    const out={...r};
+    if(code){
+      const drift=[-1,0,1];
+      out.validation={code,valid:false};
+      for(const d of drift){
+        const t2=totp(key,{digits,period,time:time+d*period}).code;
+        if(t2===String(code)){out.validation={code,valid:true,driftWindows:d};break;}
+      }
+    }
+    return json(res,200,out);
+  }catch(e){return json(res,400,{error:'totp failure: '+e.message});}
+}
+module.exports={routeTotp,base32Decode,totp};
