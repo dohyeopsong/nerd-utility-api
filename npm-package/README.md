@@ -1,6 +1,6 @@
 # nerd-utility-mcp
 
-MCP server exposing the [Nerd Utility API](../README.md) — 28+ tools auto-generated
+MCP server exposing the [Nerd Utility API](../README.md) — 60 tools auto-generated
 from the OpenAPI spec (single source of truth: `mcp-gen/generate.js`).
 
 ## Install & run
@@ -21,7 +21,7 @@ Or in an MCP client config:
 ```
 
 ## Tools
-Generated from `openapi.json` — currently 28 tools including: health, docs, stats,
+Generated from `openapi.json` — currently 60 tools including: health, docs, stats,
 format, csv2json, json2csv, base64, hash, uuid, timestamp, validate, dns, headers,
 price, ipinfo, qrcode, text-stats, and more. Free tier: health, docs, stats, pricing.
 Premium tools require x402 USDC payment when the instance enforces it.
