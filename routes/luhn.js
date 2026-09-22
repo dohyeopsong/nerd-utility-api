@@ -1,62 +1,55 @@
-// /luhn — Luhn algorithm validation, card network + IMEI detection
+// /luhn — Luhn algorithm: validate + compute check digit (credit cards, IMEI, etc.)
 function routeLuhn(u, res, json) {
   const q = u.searchParams;
-  const raw = q.get('number') || q.get('card') || q.get('imei');
+  const raw = q.get('number');
   if (!raw) return json(res, 400, { error: 'provide ?number=', example: '/luhn?number=4532015112830366' });
   const s = raw.replace(/[\s-]/g, '');
-  if (!/^\d{2,19}$/.test(s))
-    return json(res, 400, { error: 'expect digits only (2-19), optionally spaced/dashed' });
 
-  // Luhn check
+  if (!/^[0-9]+$/.test(s))
+    return json(res, 400, { error: 'digits only (spaces/dashes stripped)' });
+  if (s.length < 2)
+    return json(res, 400, { error: 'need at least 2 digits' });
+
+  // detect card network (IIN ranges)
+  let network = null;
+  const iin = parseInt(s.slice(0, 4), 10);
+  const iin2 = parseInt(s.slice(0, 2), 10);
+  if (/^4/.test(s)) network = 'visa';
+  else if ((iin2 >= 51 && iin2 <= 55) || (iin >= 2221 && iin <= 2720)) network = 'mastercard';
+  else if (/^(34|37)/.test(s)) network = 'amex';
+  else if (/^(6011|65|64[4-9])/.test(s) || (iin >= 622126 && iin <= 622925)) network = 'discover';
+  else if (/^3(0[0-5]|[68])/.test(s)) network = 'diners-club';
+  else if (/^35/.test(s)) network = 'jcb';
+  else if (/^(50|5[6-9]|6[0-9])/.test(s)) network = 'maestro/unionpay-possible';
+
+  const result = { number: s, length: s.length, valid: luhnValid(s) };
+  if (network) result.possible_network = network;
+  if (result.valid) {
+    result.network = network || 'unknown';
+  }
+
+  // completion mode: provide number without check digit, we compute it
+  if (q.get('complete') === 'true' && !result.valid) {
+    let sum = 0, dbl = true; // next appended digit would be check digit, so double from right of payload
+    for (let i = s.length - 1; i >= 0; i--) {
+      let d = +s[i];
+      if (dbl) { d *= 2; if (d > 9) d -= 9; }
+      sum += d; dbl = !dbl;
+    }
+    result.check_digit = String((10 - (sum % 10)) % 10);
+    result.completed_number = s + result.check_digit;
+  }
+  return json(res, 200, result);
+}
+
+function luhnValid(s) {
   let sum = 0, dbl = false;
   for (let i = s.length - 1; i >= 0; i--) {
     let d = +s[i];
     if (dbl) { d *= 2; if (d > 9) d -= 9; }
     sum += d; dbl = !dbl;
   }
-  const valid = sum % 10 === 0;
-
-  const result = {
-    number: s, valid,
-    length: s.length,
-    type: detectType(s),
-    formatted: format(s, detectType(s)),
-  };
-  if (!valid) {
-    // nearest valid: adjust last digit
-    const core = s.slice(0, -1);
-    let sum2 = 0, dbl2 = true;
-    for (let i = core.length - 1; i >= 0; i--) {
-      let d = +core[i];
-      if (dbl2) { d *= 2; if (d > 9) d -= 9; }
-      sum2 += d; dbl2 = !dbl2;
-    }
-    const cd = (10 - (sum2 % 10)) % 10;
-    result.corrected = core + cd;
-  }
-  return json(res, 200, result);
+  return sum % 10 === 0;
 }
 
-function detectType(s) {
-  if (s.length === 15 && /^3[47]/.test(s)) return 'amex';
-  if (s.length === 14 && /^3(0[0-5]|[68])/.test(s)) return 'dinersclub';
-  if (/^4/.test(s) && [13,16,19].includes(s.length)) return 'visa';
-  if (/^(5[1-5]|2[2-7])/.test(s) && s.length === 16) return 'mastercard';
-  if (/^6(011|5|4[4-9])/.test(s) && s.length === 16) return 'discover';
-  if (s.length === 15 && s.startsWith('35')) return 'jcb15';
-  if (/^35/.test(s) && [16,17,18,19].includes(s.length)) return 'jcb';
-  if (s.length === 16 && /^50[0-9]{3}/.test(s)) return 'maestro-uk-debit';
-  if (s.length === 15 && s.startsWith('4')) return 'visa-electron-15';
-  if ([15,16,17].includes(s.length) && /^352[89]/.test(s)) return 'jcb';
-  if (s.length === 15) return 'imei';   // IMEIs are typically 15 digits
-  if (s.length === 16) return 'imei-with-software-version'; // IMEISV
-  return 'unknown';
-}
-
-function format(s, type) {
-  if (type === 'amex') return s.replace(/(\d{4})(\d{6})(\d{5})/, '$1 $2 $3');
-  if (type.startsWith('diners')) return s.replace(/(\d{4})(\d{6})(\d{4})/, '$1 $2 $3');
-  return s.replace(/(\d{4})(?=\d)/g, '$1 ');
-}
-
-module.exports = { routeLuhn };
+module.exports = { routeLuhn, luhnValid };
