@@ -53,8 +53,9 @@ function routeVat(u, res, json) {
       if (sum === 0) sum = 10;
       prod = (2 * sum) % 11;
     }
-    const check = 11 - prod;
-    if (check === 10) out.checksum = 'passed (mod 11,10)'; else {
+    const check = (11 - prod) % 10;
+    if (check === Number(body[8])) out.checksum = 'passed (mod 11,10)';
+    else {
       out.valid = false; out.reason = `check digit failed (expected ${check}, got ${body[8]})`;
       return json(res, 200, out);
     }
