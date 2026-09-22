@@ -1381,7 +1381,7 @@ if (u.pathname === '/') return landingPage(u, res);
       catch (e) { return json(res, 500, { error: e.message }); }
     }
     if (u.pathname === '/') {
-      try { const html = landingPage({ endpoints: 47 }); res.writeHead(200, {'Content-Type':'text/html; charset=utf-8'}); return res.end(html); }
+      try { res.writeHead(200, {'Content-Type':'text/html; charset=utf-8'}); return res.end(fs.readFileSync(__dirname + '/landing.html', 'utf8')); }
       catch (e) { return json(res, 500, { error: e.message }); }
     }
     if (u.pathname === '/docs') {
