@@ -48,7 +48,8 @@ const { routeLoan } = require('./routes/loan.js');
 const { routeInterest } = require('./routes/interest.js');
 const { routeCurrency } = require('./routes/currency.js');
 const { routeCountry } = require('./routes/country.js');
-const { routeTimezone } = require('./routes/timezone.js'); // luhn validate
+const { routeTimezone } = require('./routes/timezone.js');
+const { routeEmoji } = require('./routes/emoji.js'); // luhn validate
 const { routePwstrength } = require('./routes/pwstrength.js');
 const { routeHtml } = require('./routes/html.js');
 const { routeMcp } = require('./routes/mcp.js');
@@ -363,7 +364,11 @@ if (u.pathname === '/') return routeLanding(u, res);
                 return json(res, 200, { feed: feedUrl, title: decode(t), itemCount: items.length, items });
               } catch (e) { return json(res, 502, {error: 'feed fetch/parse failed: ' + e.message}); }
             }
-            if (u.pathname === '/timezone') {
+            if (u.pathname === '/emoji') {
+      try { return routeEmoji(u, res, json); }
+      catch (e) { return json(res, 400, { error: e.message }); }
+    }
+    if (u.pathname === '/timezone') {
       try { return routeTimezone(u, res, json); }
       catch (e) { return json(res, 400, { error: e.message }); }
     }
