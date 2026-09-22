@@ -1,43 +1,62 @@
-// /luhn — Luhn algorithm validation (credit cards, IMEI, etc.)
+// /luhn — Luhn algorithm validation, card network + IMEI detection
 function routeLuhn(u, res, json) {
   const q = u.searchParams;
-  const mode = (q.get('mode') || 'validate').toLowerCase();
-  const digits = (q.get('number') || q.get('v') || '').replace(/[\s-]/g, '');
-  if (!digits) return json(res, 400, { error: 'number required' });
-  if (!/^\d{6,19}$/.test(digits)) return json(res, 400, { error: 'number must be 6-19 digits' });
-  // Luhn: from rightmost digit, double every 2nd, subtract 9 if >9, sum % 10 == 0
+  const raw = q.get('number') || q.get('card') || q.get('imei');
+  if (!raw) return json(res, 400, { error: 'provide ?number=', example: '/luhn?number=4532015112830366' });
+  const s = raw.replace(/[\s-]/g, '');
+  if (!/^\d{2,19}$/.test(s))
+    return json(res, 400, { error: 'expect digits only (2-19), optionally spaced/dashed' });
+
+  // Luhn check
   let sum = 0, dbl = false;
-  for (let i = digits.length - 1; i >= 0; i--) {
-    let d = +digits[i];
+  for (let i = s.length - 1; i >= 0; i--) {
+    let d = +s[i];
     if (dbl) { d *= 2; if (d > 9) d -= 9; }
     sum += d; dbl = !dbl;
   }
   const valid = sum % 10 === 0;
-  // detect network by length + prefix (only if length matches typical range)
-  let network = 'unknown';
-  const p = digits.slice(0, 4);
-  const p2 = +digits.slice(0, 2), p4 = +digits.slice(0, 4), p1 = +digits[0];
-  if (digits.length === 16 || digits.length === 15) {
-    if (p1 === 4 && (digits.length === 13 || digits.length === 16 || digits.length === 19)) network = 'visa';
-    else if ((p2 >= 51 && p2 <= 55) && digits.length === 16) network = 'mastercard';
-    else if ((p2 === 34 || p2 === 37) && digits.length === 15) network = 'amex';
-    else if ((p4 === 6011 || p2 === 65 || (p >= 622126 && p <= 622925)) && digits.length === 16) network = 'discover';
-    else if (p2 === 36 && digits.length === 14) network = 'diners-club';
-    else if (p1 === 3 && digits.length === 15) network = 'jcb/unknown';
-    else if (p2 >= 22 && p2 <= 27 && digits.length === 16) network = 'mastercard';
-  } else if (digits.length === 15) {
-    if (p1 === 3) network = 'amex or jcb';
+
+  const result = {
+    number: s, valid,
+    length: s.length,
+    type: detectType(s),
+    formatted: format(s, detectType(s)),
+  };
+  if (!valid) {
+    // nearest valid: adjust last digit
+    const core = s.slice(0, -1);
+    let sum2 = 0, dbl2 = true;
+    for (let i = core.length - 1; i >= 0; i--) {
+      let d = +core[i];
+      if (dbl2) { d *= 2; if (d > 9) d -= 9; }
+      sum2 += d; dbl2 = !dbl2;
+    }
+    const cd = (10 - (sum2 % 10)) % 10;
+    result.corrected = core + cd;
   }
-  // IMEI check (15 digits, always Luhn valid by design)
-  const isImeiLength = digits.length === 15;
-  return json(res, 200, {
-    number: digits,
-    length: digits.length,
-    valid,
-    checksum_digit: valid ? +digits[digits.length - 1] : null,
-    possible_network: network !== 'unknown' ? network : undefined,
-    imei_format: isImeiLength,
-    note: 'Luhn check only; does not prove the number is active or assigned'
-  });
+  return json(res, 200, result);
 }
+
+function detectType(s) {
+  if (s.length === 15 && /^3[47]/.test(s)) return 'amex';
+  if (s.length === 14 && /^3(0[0-5]|[68])/.test(s)) return 'dinersclub';
+  if (/^4/.test(s) && [13,16,19].includes(s.length)) return 'visa';
+  if (/^(5[1-5]|2[2-7])/.test(s) && s.length === 16) return 'mastercard';
+  if (/^6(011|5|4[4-9])/.test(s) && s.length === 16) return 'discover';
+  if (s.length === 15 && s.startsWith('35')) return 'jcb15';
+  if (/^35/.test(s) && [16,17,18,19].includes(s.length)) return 'jcb';
+  if (s.length === 16 && /^50[0-9]{3}/.test(s)) return 'maestro-uk-debit';
+  if (s.length === 15 && s.startsWith('4')) return 'visa-electron-15';
+  if ([15,16,17].includes(s.length) && /^352[89]/.test(s)) return 'jcb';
+  if (s.length === 15) return 'imei';   // IMEIs are typically 15 digits
+  if (s.length === 16) return 'imei-with-software-version'; // IMEISV
+  return 'unknown';
+}
+
+function format(s, type) {
+  if (type === 'amex') return s.replace(/(\d{4})(\d{6})(\d{5})/, '$1 $2 $3');
+  if (type.startsWith('diners')) return s.replace(/(\d{4})(\d{6})(\d{4})/, '$1 $2 $3');
+  return s.replace(/(\d{4})(?=\d)/g, '$1 ');
+}
+
 module.exports = { routeLuhn };
