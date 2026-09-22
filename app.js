@@ -43,7 +43,8 @@ const { routeNetmask } = require('./routes/netmask.js');
 const { routeUa, setHeaders: setUaHeaders } = require('./routes/ua.js');
 const { rateLimit, capCheck, capIncr, capDecr, capStats } = require('./routes/ratelimit.js'); // cron parse
 const { routeLuhn } = require('./routes/luhn.js');
-const { routeWhois } = require('./routes/whois.js'); // luhn validate
+const { routeWhois } = require('./routes/whois.js');
+const { routeLoan } = require('./routes/loan.js'); // luhn validate
 const { routePwstrength } = require('./routes/pwstrength.js');
 const { routeHtml } = require('./routes/html.js');
 const { routeMcp } = require('./routes/mcp.js');
@@ -358,7 +359,11 @@ if (u.pathname === '/') return routeLanding(u, res);
                 return json(res, 200, { feed: feedUrl, title: decode(t), itemCount: items.length, items });
               } catch (e) { return json(res, 502, {error: 'feed fetch/parse failed: ' + e.message}); }
             }
-            if (u.pathname === '/whois') {
+            if (u.pathname === '/loan') {
+      try { return routeLoan(u, res, json); }
+      catch (e) { return json(res, 400, { error: e.message }); }
+    }
+    if (u.pathname === '/whois') {
               const q = Object.fromEntries(u.searchParams);
               const domain = String(q.domain || '').trim().toLowerCase();
               if (!/^[a-z0-9][a-z0-9.-]*\.[a-z]{2,}$/.test(domain)) return json(res, 400, {error: 'provide ?domain=example.com'});
