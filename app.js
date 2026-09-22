@@ -7,7 +7,6 @@ const { routeUuid7 } = require('./routes/uuid7.js'); // uuid7
 const { routeMorse } = require('./routes/morse.js'); // morse
 const { routeRot13 } = require('./routes/rot13.js');
 const { landingPage } = require('./routes/landing.js'); // rot13
-const { routeLorem } = require('./routes/lorem.js'); // lorem
 const { routeCase } = require('./routes/case.js');
 const { routeUrl } = require('./routes/url.js');
 const { routeEmail } = require('./routes/email.js');
