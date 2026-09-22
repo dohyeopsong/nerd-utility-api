@@ -44,10 +44,10 @@ function readBody(req) {
   return new Promise(r => { let d = ''; req.on('data', c => { if (d.length < 1e6) d += c; }); req.on('end', () => r(d)); req.on('error', () => r('')); });
 }
 
-async function routeJsonpath(u, res, json, _unused, req) {
-  if (req && req.method === 'POST') {
+async function routeJsonpath(u, res, json, body, method) {
+  if (method === 'POST' && body) {
     let parsed;
-    try { const raw = await readBody(req); parsed = JSON.parse(raw); }
+    try { parsed = JSON.parse(body); }
     catch (e) { return json(res, 400, { error: 'invalid JSON body: ' + e.message }); }
     const doc = parsed.json !== undefined ? parsed.json : parsed;
     const path = parsed.path || '';
