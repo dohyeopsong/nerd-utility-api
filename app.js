@@ -1375,6 +1375,7 @@ http.createServer(async (req, res) => {
       try { return routeCsv2json(u, res, json); }
       catch (e) { return json(res, 500, { error: e.message }); }
     }
+    if (u.pathname === '/number') { try { return routeNumber(u, res, json); } catch (e) { return json(res, 400, { error: e.message }); } }
     if (u.pathname === '/yamljson') {
       try { return routeYamljson(u, res, json); }
       catch (e) { return json(res, 500, { error: e.message }); }
