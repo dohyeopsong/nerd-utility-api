@@ -44,6 +44,7 @@ const { routeHtmlEsc } = require('./routes/htmlesc.js');
 const { routeMd2Html } = require('./routes/md2html.js');
 const { routeHtmlEntities } = require('./routes/htmlentities.js');
 const { routeJson2Sql } = require('./routes/json2sql.js');
+const { routeBase32 } = require('./routes/base32.js');
 const { routePem } = require('./routes/pem.js'); // subnet calc
 
 restoreCrons();
@@ -940,6 +941,7 @@ if (u.pathname === '/') return routeLanding(u, res);
               catch (e) { return json(res, 400, { error: e.message }); }
             }
             if (u.pathname === '/subnet') {
+  if (u.pathname === '/base32') return routeBase32(u, res, json, reqBody);
   if (u.pathname === '/json2sql') return routeJson2Sql(u, res, json, reqBody);
               try { return routeSubnet(u, res, json); }
               catch (e) { return json(res, 500, { error: e.message }); }
