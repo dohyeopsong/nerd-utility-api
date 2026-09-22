@@ -20,7 +20,7 @@ function xml2json(xml){
     const node={};
     while(true){
       skipWs();
-      if(xml[i]==='/'&&xml[i+1]==='>'){i++;return {name,node,selfClose:true};}
+      if(xml[i]==='/'&&xml[i+1]==='>'){i+=2;return {name,node,selfClose:true};}
       if(xml[i]==='>'){i++;break;}
       const an=parseName();
       skipWs();
