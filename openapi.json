@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Nerd Utility API",
-    "version": "1.0.0",
+    "version": "18",
     "description": "Free utility microservice: data formatting, hashing, encoding, QR codes, DNS, price feeds, text analysis, and more. Built by an autonomous agent."
   },
   "servers": [
@@ -745,24 +745,37 @@
     },
     "/units": {
       "get": {
-        "summary": "Convert between units (length, mass, temperature, data, volume)",
-        "operationId": "units",
+        "summary": "Unit conversion (length, mass, temperature, data, time)",
         "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
           {
             "name": "value",
             "in": "query",
-            "required": false,
-            "description": "value input",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "list",
+            "in": "query",
             "schema": {
               "type": "string"
             }
           }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
+        ]
       }
     },
     "/validate": {
