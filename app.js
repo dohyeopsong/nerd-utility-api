@@ -10,6 +10,7 @@ const { routeLorem } = require('./routes/lorem.js'); // lorem
 const { routeCase } = require('./routes/case.js'); // case
 const { routeMarkdown } = require('./routes/markdown.js'); // markdown
 const { routeSlugify, routeEscape } = require('./routes/textutils.js');
+const { routeString } = require('./routes/string.js');
 const { routeCrc32 } = require('./routes/crc32.js'); // crc32
 const { routeChmod } = require('./routes/chmod.js'); // chmod converter
 const { routeSlug } = require('./routes/slug.js'); // slug/case
@@ -717,7 +718,8 @@ if (u.pathname === '/') return routeLanding(u, res);
       try { return routeChecksum(u, res, json); }
       catch (e) { return json(res, 500, { error: e.message }); }
     }
-    if (u.pathname === '/slugify') { return routeSlugify(u, res, json); }
+    if (u.pathname === '/string') { return routeString(u, res, json); }
+            if (u.pathname === '/slugify') { return routeSlugify(u, res, json); }
             if (u.pathname === '/escape') { return routeEscape(u, res, json); }
             if (u.pathname === '/crc32') {
               return routeCrc32(u, res, json);
