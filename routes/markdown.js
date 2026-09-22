@@ -8,7 +8,7 @@ function inline(s) {
   s = s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, '<a href="$2">$1</a>');
   return s;
 }
-function routeMarkdown(body, u, res, json) {
+function routeMarkdown(u, body, res, json) {
   const q = Object.fromEntries(u.searchParams.entries());
   const md = body || q.text || q.md || '';
   if (!md) throw new Error('missing markdown body or ?text=');
