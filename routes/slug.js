@@ -1,36 +1,34 @@
-// /slug — URL slug generator (unicode-aware, accent stripping, custom separator)
-const DIACRITICS = {
-  'à':'a','á':'a','â':'a','ã':'a','ä':'a','å':'a','æ':'ae','ç':'c','è':'e','é':'e','ê':'e','ë':'e',
-  'ì':'i','í':'i','î':'i','ï':'i','ñ':'n','ò':'o','ó':'o','ô':'o','õ':'o','ö':'o','ø':'o','œ':'oe',
-  'ù':'u','ú':'u','û':'u','ü':'u','ý':'y','ÿ':'y','ß':'ss','đ':'d','ł':'l','þ':'th','ð':'d'
-};
-function escapeSep(c) { return c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+// /slug — slugify text into URL-safe slugs
+const MAP = { 'á':'a','à':'a','â':'a','ä':'a','ã':'a','å':'a','æ':'ae','ç':'c',
+  'é':'e','è':'e','ê':'e','ë':'e','í':'i','ì':'i','î':'i','ï':'i','ñ':'n',
+  'ó':'o','ò':'o','ô':'o','ö':'o','õ':'o','ø':'o','œ':'oe','ú':'u','ù':'u',
+  'û':'u','ü':'u','ý':'y','ÿ':'y','ß':'ss','ð':'d','þ':'th' };
+
 function routeSlug(u, res, json) {
   const q = u.searchParams;
-  const text = q.get('text') || q.get('s') || '';
-  if (!text) return json(res, 400, { error: 'text required' });
-  const sep = (q.get('separator') || '-').slice(0, 1);
-  const e = escapeSep(sep);
-  let maxLen = parseInt(q.get('maxlength') || '0', 10);
-  if (!Number.isFinite(maxLen) || maxLen <= 0) maxLen = Infinity;
-  // strip diacritics
-  let s = text.toLowerCase().split('').map(c => DIACRITICS[c] || c).join('');
-  // remove non-alphanumeric except spaces/hyphens/underscores
-  s = s.replace(/[^a-z0-9\s\-_]/g, '');
-  // collapse whitespace/hyphens/underscores into single separator (and around existing sep chars)
-  s = s.replace(/[\s\-_]+/g, sep).replace(new RegExp(e + '{2,}', 'g'), sep);
-  // trim separators
-  s = s.replace(new RegExp('^' + e + '+|' + e + '+$', 'g'), '');
-  if (!s) return json(res, 400, { error: 'slug is empty after normalization' });
-  // truncate at word boundary
-  let truncated = false;
-  if (s.length > maxLen) {
-    truncated = true;
-    s = s.slice(0, maxLen);
-    const lastSep = s.lastIndexOf(sep);
-    if (lastSep > maxLen * 0.5) s = s.slice(0, lastSep);
-    s = s.replace(new RegExp(e + '+$', 'g'), '');
-  }
-  return json(res, 200, { input: text, slug: s, length: s.length, truncated, separator: sep });
+  const text = q.get('text') || q.get('t');
+  if (!text) return json(res, 400, { error: 'missing text parameter', example: '/slug?text=Hello%2C%20World!%20This%20is%20a%20Test' });
+  if (text.length > 10000) return json(res, 400, { error: 'text too long (max 10000 chars)' });
+
+  const sep = (q.get('sep') || '-').replace(/[^-_]/g, '-');
+  const lower = q.get('case') !== 'preserve';
+  let maxlen = parseInt(q.get('maxlen') || '0', 10) || 0;
+
+  let s = text;
+  // transliterate common accented chars
+  s = s.replace(/[áàâäãåæçéèêëíìîïñóòôöõøœúùûüýÿßðþ]/g, c => MAP[c] || c);
+  if (lower) s = s.toLowerCase();
+  s = s.replace(/[^a-zA-Z0-9]+/g, ' ');       // non-alnum -> space
+  s = s.trim().replace(/\s+/g, ' ');            // collapse whitespace
+  const slug = s.split(' ').join(sep) || 'n-a';
+  const finalSlug = (maxlen > 0 && slug.length > maxlen)
+    ? slug.slice(0, maxlen).replace(new RegExp(sep === '-' ? '\\-[^\\-]*$' : '\\_[^\\_]*$'), '')
+    : slug;
+
+  return json(res, 200, {
+    input: text.slice(0, 100),
+    slug: finalSlug,
+    length: finalSlug.length,
+  });
 }
 module.exports = { routeSlug };
