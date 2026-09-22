@@ -129,3 +129,4 @@ Full spec: /openapi.json — Docs: /docs
 - GET /case?text=&to= — convert naming conventions: camel, pascal, snake, kebab, constant, title, upper, lower
 - GET /base64url?text=&mode=encode|decode&pad=0 — URL-safe base64 (RFC 4648 §5), optional padding
 - GET /iban?iban= — IBAN validation: mod-97 checksum, country code, BBAN, length check
+- GET/POST /hmac?text=&key=&algo=|expected= — HMAC generation + verification (md5/sha1/sha256/sha384/sha512 or all)
