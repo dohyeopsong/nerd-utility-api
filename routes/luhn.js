@@ -1,52 +1,40 @@
-// Luhn algorithm (mod-10) checksum — validate/generate — pure math, zero deps
-function luhnDigits(id) { return String(id).replace(/[\s-]/g, ''); }
-function checksumDigit(partial) {
-  let sum = 0, dbl = true; // double from rightmost of partial
-  for (let i = partial.length - 1; i >= 0; i--) {
-    let d = +partial[i];
-    if (dbl) { d *= 2; if (d > 9) d -= 9; }
-    sum += d; dbl = !dbl;
+// Luhn checksum: /luhn?number=4532015112830366 — validate + checksum digit computation
+function luhnDigit(numStr){
+  // compute the check digit needed to make numStr valid
+  const d=numStr.replace(/\D/g,'');
+  let sum=0,alt=true; // alt=true means next appended digit is doubled
+  for(let i=d.length-1;i>=0;i--){
+    let n=+d[i];
+    if(alt){n*=2;if(n>9)n-=9;}
+    sum+=n;alt=!alt;
   }
-  return String((10 - (sum % 10)) % 10);
+  return (10-(sum%10))%10;
 }
-function validate(id) {
-  const s = luhnDigits(id);
-  if (!/^\d{2,}$/.test(s)) return { valid: false, error: 'must be 2+ digits (spaces/dashes allowed)' };
-  const check = +s[s.length - 1];
-  const expect = +checksumDigit(s.slice(0, -1));
-  return { valid: check === expect, checksum: check, expected: expect, length: s.length, type: guessType(s) };
-}
-function guessType(s) {
-  if (s.length === 15 && /^3[47]/.test(s)) return 'amex';
-  if (s.length === 16 && /^4/.test(s)) return 'visa';
-  if (s.length === 16 && /^5[1-5]/.test(s)) return 'mastercard';
-  if (s.length === 16 && /^6(?:011|5)/.test(s)) return 'discover';
-  if (s.length === 15 && /^35/.test(s)) return 'jcb-ish';
-  if (s.length === 14 || s.length === 15) return 'imei-ish';
-  return 'unknown';
-}
-function generate({ prefix = '', length = 16 } = {}) {
-  if (length < 2) throw new Error('length must be >= 2');
-  let body = String(prefix);
-  const crypto = require('crypto');
-  while (body.length < length - 1) body += crypto.randomInt(0, 10);
-  return body + checksumDigit(body);
-}
-async function routeLuhn(u, res, json) {
-  const q = u.searchParams;
-  try {
-    const v = q.get('validate') || q.get('number');
-    if (v) return json(res, 200, validate(v));
-    if (q.get('generate') !== null) {
-      const prefix = q.get('generate') || q.get('prefix') || '';
-      return json(res, 200, { number: generate({ prefix, length: Math.min(19, Math.max(2, +q.get('length') || 16)) }) });
+function routeLuhn(u,res,json){
+  try{
+    let number=(u.searchParams.get('number')||u.searchParams.get('n')||'').trim();
+    if(!number)return json(res,400,{error:'provide ?number=<digits>'});
+    const digits=number.replace(/\D/g,'');
+    if(digits.length<2)return json(res,400,{error:'need at least 2 digits'});
+    // validate: full string (incl. check digit) must have Luhn sum % 10 == 0
+    let sum=0,alt=false;
+    for(let i=digits.length-1;i>=0;i--){
+      let n=+digits[i];
+      if(alt){n*=2;if(n>9)n-=9;}
+      sum+=n;alt=!alt;
     }
-    if (q.get('checksum')) {
-      const s = luhnDigits(q.get('checksum'));
-      if (!/^\d+$/.test(s)) return json(res, 400, { error: 'digits only' });
-      return json(res, 200, { input: s, checksum_digit: checksumDigit(s) });
-    }
-    return json(res, 400, { error: 'use ?validate=, ?generate=prefix, or ?checksum=' });
-  } catch (e) { return json(res, 400, { error: e.message }); }
+    const valid=sum%10===0;
+    const checkDigit=+digits[digits.length-1];
+    const expected=luhnDigit(digits.slice(0,-1));
+    return json(res,200,{number:digits,valid,checkDigit,expectedCheckDigit:expected,length:digits.length,cardType:detectCard(digits)});
+  }catch(e){return json(res,500,{error:'luhn failure: '+e.message});}
 }
-module.exports = { routeLuhn, validate, generate, checksumDigit };
+function detectCard(d){
+  if(/^4/.test(d))return 'visa';
+  if(/^(5[1-5]|2[2-7])/.test(d))return 'mastercard';
+  if(/^3[47]/.test(d))return 'amex';
+  if(/^6(011|5)/.test(d))return 'discover';
+  if(/^35/.test(d))return 'jcb';
+  return null;
+}
+module.exports={routeLuhn};
