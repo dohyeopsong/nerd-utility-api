@@ -1,79 +1,69 @@
-// /semver — semantic versioning utilities
-function parseV(s) {
-  const m = s.match(/^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/);
-  if (!m) throw new Error(`invalid semver: ${s}`);
-  return { major: +m[1], minor: +m[2], patch: +m[3], prerelease: m[4] ? m[4].split('.') : null };
+// /semver — semantic version parsing, comparison, range checks
+function parse(v) {
+  const m = String(v).trim().match(/^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+([0-9A-Za-z.-]+))?$/);
+  if (!m) return null;
+  return { major: +m[1], minor: +m[2], patch: +m[3], prerelease: m[4] || null, build: m[5] || null };
 }
+
 function cmp(a, b) {
-  const A = parseV(a), B = parseV(b);
+  // a, b already parsed
   for (const k of ['major', 'minor', 'patch']) {
-    if (A[k] !== B[k]) return A[k] < B[k] ? -1 : 1;
+    if (a[k] !== b[k]) return a[k] - b[k];
   }
-  // prerelease rules: no prerelease > has prerelease
-  if (!A.prerelease && !B.prerelease) return 0;
-  if (!A.prerelease) return 1;
-  if (!B.prerelease) return -1;
-  for (let i = 0; i < Math.max(A.prerelease.length, B.prerelease.length); i++) {
-    const x = A.prerelease[i], y = B.prerelease[i];
-    if (x === undefined) return -1;
-    if (y === undefined) return 1;
-    const xn = /^\d+$/.test(x), yn = /^\d+$/.test(y);
-    if (xn && yn) { if (+x !== +y) return +x < +y ? -1 : 1; }
-    else if (xn) return -1;
-    else if (yn) return 1;
-    else if (x !== y) return x < y ? -1 : 1;
-  }
-  return 0;
-}
-function norm(v) { const p = v.split('-'); const segs = p[0].split('.'); while (segs.length < 3) segs.push('0'); return segs.join('.') + (p[1] ? '-' + p[1] : ''); }
-function satisfies(v, range) {
-  // supports ^, ~, >=, >, <=, <, =, exact, and comma-separated AND groups
-  for (const part of range.split(/\s*,\s*|\s+&&\s+/)) {
-    let m = part.match(/^(\^|~|>=|<=|>|<|=)?\s*v?([\d.]+(?:-[0-9A-Za-z.-]+)?)$/);
-    if (!m) return false;
-    const [_, op, rawVer] = m;
-    const ver = norm(rawVer);
-    if (op === '=' || !op) { if (cmp(v, norm(ver)) !== 0) return false; }
-    else if (op === '^') {
-      const V = parseV(ver);
-      const hi = V.major > 0 ? `${V.major + 1}.0.0` : `${V.major}.${V.minor + 1}.0`;
-      if (cmp(v, ver) < 0 || cmp(v, hi) >= 0) return false;
-    } else if (op === '~') {
-      const V = parseV(ver);
-      const hi = `${V.major}.${V.minor + 1}.0`;
-      if (cmp(v, ver) < 0 || cmp(v, hi) >= 0) return false;
-    } else {
-      const c = cmp(v, norm(ver));
-      if (c === 0 && !op.includes('=')) return false;
-      if (c < 0 && !(op === '<' || op === '<=')) return false;
-      if (c > 0 && !(op === '>' || op === '>=')) return false;
+  // prerelease rules: version without prerelease > version with prerelease
+  if (!a.prerelease && b.prerelease) return 1;
+  if (a.prerelease && !b.prerelease) return -1;
+  if (a.prerelease && b.prerelease) {
+    const pa = a.prerelease.split('.'), pb = b.prerelease.split('.');
+    for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+      const x = pa[i], y = pb[i];
+      if (x === undefined) return -1;
+      if (y === undefined) return 1;
+      const nx = /^\d+$/.test(x), ny = /^\d+$/.test(y);
+      if (nx && ny) { if (+x !== +y) return +x - +y; }
+      else if (nx) return -1; // numeric < alphanumeric
+      else if (ny) return 1;
+      else if (x !== y) return x < y ? -1 : 1;
     }
   }
-  return true;
+  return 0;
 }
 
 function routeSemver(u, res, json) {
   const q = u.searchParams;
-  try {
-    const a = q.get('a'), b = q.get('b'), range = q.get('range'), version = q.get('version');
-    if (range && version) {
-      const ok = satisfies(version, range);
-      return json(res, 200, { version, range, satisfies: ok });
-    }
-    if (!a || !b) throw new Error('provide ?a=X.Y.Z&b=X.Y.Z, or ?version=X&range=^1.2');
-    const c = cmp(a, b);
-    return json(res, 200, {
-      a, b,
-      comparison: c === 0 ? 'equal' : c < 0 ? 'a<b' : 'a>b',
-      latest: c === 0 ? a : c > 0 ? a : b,
-      diff: (() => {
-        const A = parseV(a), B = parseV(b);
-        for (const k of ['major', 'minor', 'patch']) if (A[k] !== B[k]) return k;
-        return 'none';
-      })(),
+  const a = q.get('a') || q.get('version') || '';
+  const b = q.get('b') || '';
+  const c = q.get('compare') || '';
+
+  if (!a && !b && !c) {
+    return json(res, 400, {
+      error: 'provide ?version=1.2.3 (parse) or ?a=1.2.3&b=1.10.0 (compare)',
+      examples: ['/semver?version=1.2.3-alpha.1+build.5', '/semver?a=1.2.3&b=1.10.0']
     });
-  } catch (e) {
-    return json(res, 400, { error: e.message, example: '/semver?a=1.2.3&b=1.10.0 or /semver?version=1.5.0&range=^1.2' });
   }
+
+  // parse mode
+  if (a && !b) {
+    const p = parse(a);
+    if (!p) return json(res, 200, { input: a, valid: false, reason: 'not valid semver (expected MAJOR.MINOR.PATCH[-prerelease][+build])' });
+    return json(res, 200, Object.assign({ input: a, valid: true }, p));
+  }
+
+  // compare mode
+  const va = parse(a), vb = parse(b);
+  if (!va || !vb) {
+    return json(res, 200, {
+      valid: false,
+      error: !va ? `invalid semver: ${a}` : `invalid semver: ${b}`
+    });
+  }
+  const c2 = cmp(va, vb);
+  return json(res, 200, {
+    a, b,
+    valid: true,
+    result: c2 === 0 ? 'equal' : c2 < 0 ? 'a < b' : 'a > b',
+    newer: c2 === 0 ? 'neither' : c2 < 0 ? 'b' : 'a'
+  });
 }
-module.exports = { routeSemver };
+
+module.exports = { routeSemver, parse, cmp };
