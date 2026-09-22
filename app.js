@@ -1067,22 +1067,6 @@ http.createServer(async (req, res) => {
               try { return routeSubnet(u, res, json); }
               catch (e) { return json(res, 500, { error: e.message }); }
             }
-            if (u.pathname === '/regex') {
-              const q = Object.fromEntries(u.searchParams);
-              const pattern = String(q.pattern || ''), text = String(q.text || '');
-              const flags = String(q.flags || 'g').replace(/[^gimsuy]/g, '');
-              if (!pattern) return json(res, 400, {error: 'provide ?pattern=...&text=...&flags=g'});
-              let re; try { re = new RegExp(pattern, flags); } catch (e) { return json(res, 400, {error: 'invalid regex: ' + e.message, pattern}); }
-              const matches = [];
-              try {
-                if (flags.includes('g')) { let m, guard = 0; while ((m = re.exec(text)) && guard++ < 100) { matches.push({match: m[0], index: m.index, groups: m.slice(1), named: m.groups || null}); if (m[0] === '') re.lastIndex++; } }
-                else { const m = text.match(re); if (m) matches.push({match: m[0], index: m.index !== undefined ? m.index : null, groups: m.slice(1), named: m.groups || null}); }
-              } catch (e) { return json(res, 500, {error: 'exec failed: ' + e.message}); }
-              let highlighted = text;
-              if (matches.length && matches[0].index !== null) { for (let i2 = matches.length - 1; i2 >= 0; i2--) { const mm = matches[i2]; highlighted = highlighted.slice(0, mm.index) + '[' + mm.match + ']' + highlighted.slice(mm.index + mm.match.length); } }
-              return json(res, 200, {pattern, flags, matchCount: matches.length, matches: matches.slice(0, 50), highlighted});
-            }
-            
             if (u.pathname === '/markdown') {
               const q = Object.fromEntries(u.searchParams);
               if (!q.url) return json(res, 400, {error: 'provide ?url='});
