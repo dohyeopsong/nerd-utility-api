@@ -11,6 +11,7 @@ const { routeCase } = require('./routes/case.js');
 const { routeUrl } = require('./routes/url.js');
 const { routeEmail } = require('./routes/email.js');
 const { routePhone } = require('./routes/phone.js');
+const { routePostal } = require('./routes/postal.js');
 const { routeIp: routeIpU } = require('./routes/ip.js');
 const { routeBase64Url } = require('./routes/base64url.js'); // case
 const { routeMarkdown } = require('./routes/markdown.js'); // markdown
@@ -1397,6 +1398,10 @@ if (u.pathname === '/') return routeLanding(u, res);
     if (u.pathname === '/ip') {
       try { return routeIpU(u, res, json); }
       catch (e) { return json(res, 400, { error: e.message }); }
+    }
+    if (u.pathname === '/postal') {
+      try { return routePostal(u, res, json); }
+      catch (e) { json(res, 400, { error: e.message }); return; }
     }
     if (u.pathname === '/phone') {
       try { return routePhone(u, res, json); }
