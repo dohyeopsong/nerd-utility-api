@@ -1,49 +1,30 @@
-// routes/checksum.js — cksum (POSIX, CRC-32/POSIX + length) and adler32
-function crc32Table(poly) {
-  const t = new Uint32Array(256);
-  for (let n = 0; n < 256; n++) {
-    let c = n;
-    for (let k = 0; k < 8; k++) c = c & 1 ? (poly ^ (c >>> 1)) : c >>> 1;
-    t[n] = c >>> 0;
-  }
-  return t;
-}
-function cksumPOSIX(buf) {
-  // POSIX cksum: non-reflected CRC-32, poly 0x04C11DB7, init 0, xorout 0xFFFFFFFF,
-  // with the byte-length appended MSB-first (no leading zero bytes).
-  let c = 0;
-  const step = (b) => {
-    c ^= (b & 0xFF) << 24;
-    for (let k = 0; k < 8; k++)
-      c = (c & 0x80000000) ? (((c << 1) ^ 0x04C11DB7) >>> 0) : ((c << 1) >>> 0);
-  };
-  for (let i = 0; i < buf.length; i++) step(buf[i]);
-  let n = buf.length, t = n, nbytes = 0;
-  while (t > 0) { nbytes++; t = Math.floor(t / 256); }
-  for (let i = nbytes - 1; i >= 0; i--) step((n >>> (8 * i)) & 0xFF);
-  return (c ^ 0xFFFFFFFF) >>> 0;
-}
-function adler32(buf) {
-  let a = 1, b = 0;
-  for (let i = 0; i < buf.length; i++) {
-    a = (a + buf[i]) % 65521;
-    b = (b + a) % 65521;
-  }
-  return ((b << 16) | a) >>> 0;
-}
+// /checksum?text= — POSIX cksum + adler32
+const zlib = require('zlib');
 function routeChecksum(u, res, json) {
   const q = u.searchParams;
-  try {
-    const text = q.get('text');
-    if (text === null) return json(res, 400, { error: 'provide text=' });
-    const buf = Buffer.from(text, 'utf8');
-    return json(res, 200, {
-      text,
-      length: buf.length,
-      cksum: cksumPOSIX(buf),
-      adler32: adler32(buf).toString(16).padStart(8, '0'),
-      note: 'cksum matches POSIX `cksum` output; compare with `printf "text" | cksum`',
-    });
-  } catch (e) { return json(res, 400, { error: e.message }); }
+  const text = q.get('text') || q.get('input') || '';
+  const buf = Buffer.from(text, 'utf8');
+  if (text === '' && !q.has('text') && !q.has('input')) return json(res, 400, { error: 'provide text=' });
+  const adler32 = buf.length === 0 ? 1 : (() => {
+    let a = 1, b = 0;
+    for (const byte of buf) { a = (a + byte) % 65521; b = (b + a) % 65521; }
+    return ((b << 16) | a) >>> 0;
+  })();
+  // POSIX cksum: CRC-32 (non-reflected, poly 0x04C11DB7, init 0, xorout 0xFFFFFFFF), length appended
+  let crc = 0;
+  for (const byte of buf) {
+    crc ^= byte << 24;
+    for (let i = 0; i < 8; i++) crc = (crc & 0x80000000) ? ((crc << 1) ^ 0x04C11DB7) >>> 0 : (crc << 1) >>> 0;
+  }
+  const cksum = (crc >>> 0);
+  // encode length as MSB-first bytes
+  let len = buf.length, lenb = Buffer.alloc(8); let li = 8;
+  do { lenb[--li] = len & 0xFF; len >>>= 8; } while (len > 0 && li > 0);
+  let c2 = cksum;
+  for (const byte of lenb) {
+    c2 ^= byte << 24;
+    for (let i = 0; i < 8; i++) c2 = (c2 & 0x80000000) ? ((c2 << 1) ^ 0x04C11DB7) >>> 0 : (c2 << 1) >>> 0;
+  }
+  return json(res, 200, { input_length: buf.length, cksum: c2 >>> 0, adler32 });
 }
-module.exports = { routeChecksum, cksumPOSIX, adler32 };
+module.exports = { routeChecksum };
