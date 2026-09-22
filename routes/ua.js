@@ -1,35 +1,44 @@
-// User-Agent parser: /ua?ua=<string> — browser, engine, os, device, bot flag
-const BOTS=/(bot|crawler|spider|slurp|bing|duckduck|yandex|facebookexternalhit|curl|wget|python-requests|node-fetch|axios|go-http|java\/)/i;
-function routeUa(u,res,json){
+// User-Agent parser: /ua?ua=<string> or auto-detect from request headers
+function parseUA(uaString){
+  const ua=uaString||'';
+  const r={userAgent:ua};
+  // browser
+  let m;
+  if((m=ua.match(/Edg(?:e|A|iOS)?\/([\d.]+)/))){r.browser='Edge';r.browserVersion=m[1];r.browserEngine='Blink';}
+  else if((m=ua.match(/OPR\/([\d.]+)/))){r.browser='Opera';r.browserVersion=m[1];r.browserEngine='Blink';}
+  else if((m=ua.match(/Chrome\/([\d.]+)/))){r.browser='Chrome';r.browserVersion=m[1];r.browserEngine='Blink';}
+  else if((m=ua.match(/Firefox\/([\d.]+)/))){r.browser='Firefox';r.browserVersion=m[1];r.browserEngine='Gecko';}
+  else if((m=ua.match(/Version\/([\d.]+).*Safari/))){r.browser='Safari';r.browserVersion=m[1];r.browserEngine='WebKit';}
+  else if((m=ua.match(/Safari\/([\d.]+)/))){r.browser='Safari';r.browserVersion=m[1];r.browserEngine='WebKit';}
+  else r.browser=null;
+  // os
+  if(/Windows NT 10/.test(ua))r.os='Windows 10/11';
+  else if(/Windows/.test(ua))r.os='Windows';
+  else if(/iPhone|iPad|iPod/.test(ua))r.os='iOS';
+  else if(/Mac OS X/.test(ua))r.os='macOS';
+  else if(/Android/.test(ua))r.os='Android';
+  else if(/Linux/.test(ua))r.os='Linux';
+  else r.os=null;
+  // device type
+  if(/iPad|Tablet/.test(ua))r.deviceType='tablet';
+  else if(/Mobi|iPhone|Android.*Mobile/.test(ua))r.deviceType='mobile';
+  else if(r.browser)r.deviceType='desktop';
+  else r.deviceType='unknown';
+  // bot detection
+  const botRe=/(bot|crawler|spider|crawling|curl|wget|python-requests|httpclient|axios|node-fetch|PostmanRuntime|libwww|scrapy|googlebot|bingbot|slurp|facebookexternalhit)/i;
+  r.isBot=botRe.test(ua);
+  if(r.isBot){r.botName=(ua.match(new RegExp(botRe.source,'i'))||[null])[0];}
+  return r;
+}
+function routeUa(u,res,json,body,method){
   try{
-    const ua=(u.searchParams.get('ua')||'').trim();
-    if(!ua)return json(res,400,{error:'provide ?ua=<user-agent string>'});
-    const out={ua,bot:BOTS.test(ua)};
-    const browser=
-      ua.match(/Edg(?:e|A|iOS)?\/([\d.]+)/)?{name:'Edge',version:RegExp.$1}:
-      ua.match(/OPR\/([\d.]+)/)?{name:'Opera',version:RegExp.$1}:
-      ua.match(/Firefox\/([\d.]+)/)?{name:'Firefox',version:RegExp.$1}:
-      ua.match(/Chrome\/([\d.]+)/)?{name:'Chrome',version:RegExp.$1}:
-      ua.match(/Version\/([\d.]+).*Safari/)?{name:'Safari',version:RegExp.$1}:
-      ua.match(/Safari\/([\d.]+)/)?{name:'Safari (old)',version:RegExp.$1}:
-      ua.match(/MSIE ([\d.]+)/)?{name:'IE',version:RegExp.$1}:
-      ua.match(/Trident\/.*rv:([\d.]+)/)?{name:'IE',version:RegExp.$1}:null;
-    const engine=
-      /Gecko\/|Firefox\//.test(ua)?'Gecko':
-      /AppleWebKit/.test(ua)?'WebKit':null;
-    const os=
-      ua.match(/Windows NT ([\d.]+)/)?`Windows NT ${RegExp.$1}`:
-      /Mac OS X ([\d_.]+)/.test(ua)?'macOS '+RegExp.$1.replace(/_/g,'.'):
-      /Android ([\d.]+)/.test(ua)?`Android ${RegExp.$1}`:
-      /iPhone|iPad|iPod/.test(ua)?'iOS':
-      /CrOS/.test(ua)?'ChromeOS':
-      /Linux/.test(ua)?'Linux':null;
-    const device=
-      /iPad|Tablet/.test(ua)?'tablet':
-      /Mobi|iPhone|Android.*Mobile/.test(ua)?'mobile':'desktop';
-    out.browser=browser;out.engine=engine;out.os=os;out.device=device;
-    return json(res,200,out);
+    let uaString=null;
+    if(method==='POST'&&body&&body.ua)uaString=body.ua;
+    else if(body&&body.ua)uaString=body.ua;
+    if(!uaString)uaString=u.searchParams.get('ua')||u.searchParams.get('user-agent');
+    if(!uaString)return json(res,400,{error:'provide ?ua=<user agent string>'});
+    const result=parseUA(uaString);
+    return json(res,200,result);
   }catch(e){return json(res,500,{error:'ua failure: '+e.message});}
 }
-function setHeaders(){} // legacy compat stub
-module.exports={routeUa,setHeaders};
+module.exports={routeUa,parseUA};
