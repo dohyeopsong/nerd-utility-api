@@ -1,24 +1,67 @@
-// Color utilities: /color?hex=%23ff8800 or /color?rgb=255,136,0 or /color?hsl=30,100,50
-// Returns conversions both directions + nearest named color + complementary/analogous.
-const NAMED = {black:'#000000',white:'#ffffff',red:'#ff0000',lime:'#00ff00',blue:'#0000ff',yellow:'#ffff00',cyan:'#00ffff',magenta:'#ff00ff',silver:'#c0c0c0',gray:'#808080',maroon:'#800000',olive:'#808000',green:'#008000',purple:'#800080',teal:'#008080',navy:'#000080',orange:'#ffa500',pink:'#ffc0cb',brown:'#a52a2a',gold:'#ffd700'};
-function hexToRgb(h){h=h.replace('#','');if(h.length===3)h=h.split('').map(c=>c+c).join('');const n=parseInt(h,16);return{r:n>>16&255,g:n>>8&255,b:n&255};}
-function rgbToHex(r,g,b){return '#'+[r,g,b].map(x=>Math.round(x).toString(16).padStart(2,'0')).join('');}
-function rgbToHsl(r,g,b){r/=255;g/=255;b/=255;const max=Math.max(r,g,b),min=Math.min(r,g,b);let h,s,l=(max+min)/2;if(max===min){h=s=0;}else{const d=max-min;s=l>0.5?d/(2-max-min):d/(max+min);switch(max){case r:h=(g-b)/d+(g<b?6:0);break;case g:h=(b-r)/d+2;break;default:h=(r-g)/d+4;}h/=6;}return{h:Math.round(h*360),s:Math.round(s*100),l:Math.round(l*100)};}
-function hslToRgb(h,s,l){s/=100;l/=100;const c=(1-Math.abs(2*l-1))*s,x=c*(1-Math.abs(((h/60)%2)-1)),m=l-c/2;let[r,g,b]=h<60?[c,x,0]:h<120?[x,c,0]:h<180?[0,c,x]:h<240?[0,x,c]:h<300?[x,0,c]:[c,0,x];return{r:Math.round((r+m)*255),g:Math.round((g+m)*255),b:Math.round((b+m)*255)};}
-function dist(a,b){const A=hexToRgb(a),B=hexToRgb(b);return Math.sqrt((A.r-B.r)**2+(A.g-B.g)**2+(A.b-B.b)**2);}
-function routeColor(u,res,json){
+// Color converter: /color?hex=%23ff6600 or ?r=255&g=102&b=0 — hex/rgb/hsl/hsv conversions + shades
+function hexToRgb(hex){
+  let h=hex.replace('#','').trim();
+  if(h.length===3)h=h.split('').map(c=>c+c).join('');
+  if(!/^[0-9a-fA-F]{6}$/.test(h))throw new Error(`invalid hex "${hex}"`);
+  const n=parseInt(h,16);
+  return{r:(n>>16)&255,g:(n>>8)&255,b:n&255};
+}
+function rgbToHsl(r,g,b){
+  r/=255;g/=255;b/=255;
+  const max=Math.max(r,g,b),min=Math.min(r,g,b);
+  let h=0,s=0;const l=(max+min)/2;
+  if(max!==min){
+    const d=max-min;
+    s=l>0.5?d/(2-max-min):d/(max+min);
+    if(max===r)h=((g-b)/d+(g<b?6:0));
+    else if(max===g)h=((b-r)/d+2);
+    else h=((r-g)/d+4);
+    h*=60;
+  }
+  return{h:Math.round(h),s:Math.round(s*100),l:Math.round(l*100)};
+}
+function rgbToHsv(r,g,b){
+  r/=255;g/=255;b/=255;
+  const max=Math.max(r,g,b),min=Math.min(r,g,b),d=max-min;
+  let h=0;
+  if(d!==0){
+    if(max===r)h=((g-b)/d+(g<b?6:0));
+    else if(max===g)h=((b-r)/d+2);
+    else h=((r-g)/d+4);
+    h*=60;
+  }
+  return{h:Math.round(h),s:Math.round((max===0?0:d/max)*100),v:Math.round(max*100)};
+}
+function luminance(r,g,b){
+  const a=[r,g,b].map(v=>{v/=255;return v<=0.03928?v/12.92:((v+0.055)/1.055)**2.4;});
+  return 0.2126*a[0]+0.7152*a[1]+0.0722*a[2];
+}
+function toHex(r,g,b){return '#'+[r,g,b].map(v=>Math.round(Math.max(0,Math.min(255,v))).toString(16).padStart(2,'0')).join('');}
+function routeColor(u,res,json,body){
   try{
-    const hex=u.searchParams.get('hex'),rgb=u.searchParams.get('rgb'),hsl=u.searchParams.get('hsl');
-    let r,g,b;
-    if(hex){const m=hex.match(/^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/);if(!m)return json(res,400,{error:'hex must be #rgb or #rrggbb'});({r,g,b}=hexToRgb(hex));}
-    else if(rgb){const p=rgb.split(',').map(Number);if(p.length!==3||p.some(isNaN)||p.some(x=>x<0||x>255))return json(res,400,{error:'rgb must be r,g,b (0-255 each)'});[r,g,b]=p;}
-    else if(hsl){const p=hsl.split(',').map(Number);if(p.length!==3||p.some(isNaN))return json(res,400,{error:'hsl must be h,s,l'});const c=hslToRgb(p[0],p[1],p[2]);({r,g,b}=c);}
-    else return json(res,400,{error:'provide ?hex= | ?rgb=r,g,b | ?hsl=h,s,l'});
-    const h=rgbToHex(r,g,b),H=rgbToHsl(r,g,b);
-    let nearest=null,nd=1e9;for(const[n,v]of Object.entries(NAMED)){const d=dist(h,v);if(d<nd){nd=d;nearest=n;}}
-    const comp=rgbToHex(...(x=>[255-x.r,255-x.g,255-x.b])({r,g,b}));
-    const analog=[(H.h+30)%360,(H.h+330)%360].map(hh=>{const c=hslToRgb(hh,H.s,H.l);return rgbToHex(c.r,c.g,c.b);});
-    return json(res,200,{hex:h,rgb:`${r}, ${g}, ${b}`,rgbArr:[r,g,b],hsl:`hsl(${H.h}, ${H.s}%, ${H.l}%)`,hslObj:H,luminance:Math.round((0.2126*r+0.7152*g+0.0722*b)*100)/100,nearestName:nearest,nameDistance:Math.round(nd*10)/10,complementary:comp,analogous:analog});
-  }catch(e){return json(res,500,{error:'color failure: '+e.message});}
+    let hex=u.searchParams.get('hex')||u.searchParams.get('c');
+    let r=u.searchParams.get('r'),g=u.searchParams.get('g'),b=u.searchParams.get('b');
+    if(!hex&&body&&typeof body==='object'&&(body.hex||body.c))hex=body.hex||body.c;
+    let rgb;
+    if(hex)rgb=hexToRgb(hex);
+    else if(r!==null&&g!==null&&b!==null){
+      rgb={r:+r,g:+g,b:+b};
+      if([rgb.r,rgb.g,rgb.b].some(v=>isNaN(v)||v<0||v>255))throw new Error('r,g,b must be 0-255');
+    }else return json(res,400,{error:'provide ?hex=<#rrggbb> or ?r=&g=&b='});
+    const{r:R,g:G,b:B}=rgb;
+    const hsl=rgbToHsl(R,G,B),hsv=rgbToHsv(R,G,B);
+    const L1=luminance(R,G,B);
+    const Lb=luminance(255,255,255),Lk=luminance(0,0,0);
+    const crW=(Math.max(L1,Lb)+0.05)/(Math.min(L1,Lb)+0.05);
+    const crB=(Math.max(L1,Lk)+0.05)/(Math.min(L1,Lk)+0.05);
+    const cm=Math.max(crW,crB);
+    return json(res,200,{
+      hex:toHex(R,G,B),rgb:{r:R,g:G,b:B},hsl,hsv,
+      luminance:+L1.toFixed(4),
+      contrast:{vsWhite:+crW.toFixed(2),vsBlack:+crB.toFixed(2),best:crW>=crB?'white':'black',wcagAA:cm>=4.5,wcagAAA:cm>=7},
+      shades:{lighter:[10,25,40].map(p=>toHex(R+(255-R)*p/100,G+(255-G)*p/100,B+(255-B)*p/100)),darker:[10,25,40].map(p=>toHex(R*(1-p/100),G*(1-p/100),B*(1-p/100)))},
+      cssVar:`--color: ${toHex(R,G,B)};`
+    });
+  }catch(e){return json(res,400,{error:'color failure: '+e.message});}
 }
 module.exports={routeColor};
