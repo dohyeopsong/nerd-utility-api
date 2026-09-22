@@ -50,7 +50,8 @@ const { routeCurrency } = require('./routes/currency.js');
 const { routeCountry } = require('./routes/country.js');
 const { routeTimezone } = require('./routes/timezone.js');
 const { routeEmoji } = require('./routes/emoji.js');
-const { routeMath } = require('./routes/math.js'); // luhn validate
+const { routeMath } = require('./routes/math.js');
+const { routeRandom } = require('./routes/random.js'); // luhn validate
 const { routePwstrength } = require('./routes/pwstrength.js');
 const { routeHtml } = require('./routes/html.js');
 const { routeMcp } = require('./routes/mcp.js');
@@ -365,7 +366,11 @@ if (u.pathname === '/') return routeLanding(u, res);
                 return json(res, 200, { feed: feedUrl, title: decode(t), itemCount: items.length, items });
               } catch (e) { return json(res, 502, {error: 'feed fetch/parse failed: ' + e.message}); }
             }
-            if (u.pathname === '/math') {
+            if (u.pathname === '/random') {
+      try { return routeRandom(u, res, json); }
+      catch (e) { return json(res, 400, { error: e.message }); }
+    }
+    if (u.pathname === '/math') {
       try { return routeMath(u, res, json); }
       catch (e) { return json(res, 400, { error: e.message }); }
     }

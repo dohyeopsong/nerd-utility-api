@@ -141,3 +141,4 @@ Full spec: /openapi.json — Docs: /docs
 - GET /timezone?zone=Asia/Tokyo — IANA timezone lookup (current local time, UTC offset); ?q= search; no params = full list
 - GET /emoji?name=fire — emoji lookup by keyword (char, name, codepoints); ?strip=<text> removes emoji from text; no params = full list
 - GET /math?expr=2%2B3*4 — safe arithmetic evaluator (+ - * / % ^, parens, unary minus; no eval)
+- GET /random?min=1&max=6 — crypto-random integer; ?hex=32 hex string; ?dice=3 roll dice; ?list=a,b,c&count=2 pick; &mode=shuffle
