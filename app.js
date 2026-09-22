@@ -1299,13 +1299,13 @@ if (u.pathname === '/') return routeLanding(u, res);
     if (!handler && u.pathname !== '/md2html' && u.pathname !== '/html2md' && u.pathname !== '/jsonpath') return json(res, 404, { error: 'not found. See /docs' });
     if (req.method !== 'POST' && req.method !== 'GET') return json(res, 405, { error: 'GET/POST. See /docs' });
     const q = Object.fromEntries(u.searchParams.entries());
-    const body = req.method === 'POST' ? await readBody(req)
+    const body = req.method === 'POST' ? reqBody
       : (() => { const v = q.json || q.csv || q.text || q.data || q.input || q.domain || q.url || q.email; return v === undefined || v === '' ? '' : JSON.stringify({ domain: q.domain, url: q.url, email: q.email, json: q.json, csv: q.csv, text: q.text, data: q.data, input: q.input }); })();
     if (u.pathname === '/pem') {
               try { return routePem(u, res, json, reqBody, req.method); }
               catch (e) { return json(res, 400, { error: e.message }); }
             }
-            if (u.pathname === '/jsonpath') { return await routeJsonpath(u, res, json, body, req.method); }
+            if (u.pathname === '/jsonpath') { return await routeJsonpath(u, res, json, reqBody, req.method); }
     if (u.pathname === '/html2md') { return routeHtml2md(u, res, json, body, req.method === 'POST'); }
     try {
       const out = await handler(body, q);
