@@ -1,63 +1,36 @@
 // /case — text case conversions
-function words(s) {
-  return s.replace(/[_\-\.]+/g, ' ').split(/\s+/).filter(Boolean);
+function titleCase(s) {
+  const small = new Set(['a','an','and','as','at','but','by','for','if','in','of','on','or','the','to','vs','via']);
+  return s.toLowerCase().split(/(\s+)/).map((w, i) =>
+    (i > 0 && small.has(w)) ? w : w.replace(/\b([a-z])(\w*)/g, (m, a, b) => a.toUpperCase() + b)
+  ).join('');
 }
-
-function toCamel(ws) {
-  return ws.map((w, i) => {
-    const l = w.toLowerCase();
-    return i === 0 ? l : l[0].toUpperCase() + l.slice(1);
-  }).join('');
-}
-
-function toPascal(ws) {
-  return ws.map(w => w[0].toUpperCase() + w.slice(1).toLowerCase()).join('');
-}
-
-function toSnake(ws) { return ws.map(w => w.toLowerCase()).join('_'); }
-function toKebab(ws) { return ws.map(w => w.toLowerCase()).join('-'); }
-function toConstant(ws) { return ws.map(w => w.toUpperCase()).join('_'); }
-function toTitle(ws) { return ws.map(w => w[0].toUpperCase() + w.slice(1).toLowerCase()).join(' '); }
-function toSentence(ws) {
-  const s = ws.join(' ').toLowerCase();
-  return s ? s[0].toUpperCase() + s.slice(1) : s;
-}
-function toPath(ws) { return ws.map(w => w.toLowerCase()).join('/'); }
+function camel(s) { return s.toLowerCase().replace(/[^a-z0-9]+(.)?/g, (_, c) => c ? c.toUpperCase() : ''); }
+function snake(s) { return s.replace(/([a-z0-9])([A-Z])/g, '$1_$2').replace(/[\s\-]+/g, '_').toLowerCase(); }
+function kebab(s) { return snake(s).replace(/_/g, '-'); }
 
 function routeCase(u, res, json) {
-  const q = u.searchParams;
-  const text = q.get('text') || '';
-  const mode = (q.get('to') || 'all').toLowerCase();
+  const q = Object.fromEntries(u.searchParams.entries());
+  const text = q.text;
+  if (text === undefined) throw new Error('provide ?text=<string>');
+  if (text.length > 10000) throw new Error('text too long (max 10000)');
 
-  if (!text) {
-    return json(res, 400, {
-      error: 'provide ?text=hello world',
-      note: 'Case conversions. ?to= camel|pascal|snake|kebab|constant|title|sentence|path (default: all)'
-    });
-  }
-
-  const ws = words(text);
-  const all = {
-    camel: toCamel(ws),
-    pascal: toPascal(ws),
-    snake: toSnake(ws),
-    kebab: toKebab(ws),
-    constant: toConstant(ws),
-    title: toTitle(ws),
-    sentence: toSentence(ws),
-    path: toPath(ws),
+  return json(res, 200, {
+    input: text,
     upper: text.toUpperCase(),
-    lower: text.toLowerCase()
-  };
-
-  if (mode !== 'all') {
-    if (!(mode in all)) {
-      return json(res, 400, { error: 'unknown mode: ' + mode, valid_modes: Object.keys(all) });
-    }
-    return json(res, 200, { input: text, to: mode, result: all[mode] });
-  }
-
-  return json(res, 200, { input: text, conversions: all });
+    lower: text.toLowerCase(),
+    title: titleCase(text),
+    sentence: text.charAt(0).toUpperCase() + text.slice(1).toLowerCase(),
+    camel: camel(text),
+    pascal: camel(text).replace(/^./, c => c.toUpperCase()),
+    snake: snake(text),
+    kebab: kebab(text),
+    constant: snake(text).toUpperCase(),
+    swap: text.split('').map(c => c === c.toLowerCase() ? c.toUpperCase() : c.toLowerCase()).join(''),
+    reverse: text.split('').reverse().join(''),
+    words: text.trim().split(/\s+/).filter(Boolean).length,
+    chars: text.length
+  });
 }
 
 module.exports = { routeCase };
