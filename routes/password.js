@@ -51,7 +51,8 @@ function analyze(pw) {
   return { length: len, charsetPoolSize: pool, entropyBits: +entropy.toFixed(1), guesses: Math.pow(2, entropy), crackTimeAt10BperSec: fmt(seconds), score: score + '/5', feedback };
 }
 async function routePassword(u, res, json, body, method) {
-  if (u.searchParams.get('generate')) {
+  const aliasLength = u.searchParams.get('length');
+  if (u.searchParams.get('generate') || aliasLength) {
     const length = Math.min(128, Math.max(4, +(u.searchParams.get('length') || 20)));
     const symbols = u.searchParams.get('symbols') !== '0';
     const noAmbiguous = u.searchParams.get('noambiguous') === '1';

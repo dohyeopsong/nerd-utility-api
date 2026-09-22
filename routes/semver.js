@@ -31,7 +31,7 @@ function cmp(a, b) {
 async function routeSemver(u, res, json, body, method) {
   const version = u.searchParams.get('version');
   const a = u.searchParams.get('a'), b = u.searchParams.get('b');
-  const sort = u.searchParams.get('sort');
+  const sort = u.searchParams.get('sort') ?? u.searchParams.get('versions');
   if (version) {
     const p = parseSemver(version);
     if (!p) return json(res, 400, { valid: false, version, error: 'not valid semver (expected MAJOR.MINOR.PATCH[-prerelease][+build])' });
