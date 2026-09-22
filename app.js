@@ -36,6 +36,7 @@ const { routeChecksum } = require('./routes/checksum.js');
 const { routeHash } = require('./routes/hash.js');
 const { routeCron } = require('./routes/cron.js');
 const { routeHmac } = require('./routes/hmac.js');
+const { routeNetmask } = require('./routes/netmask.js');
 const { routeUa, setHeaders: setUaHeaders } = require('./routes/ua.js');
 const { rateLimit, capCheck, capIncr, capDecr, capStats } = require('./routes/ratelimit.js'); // cron parse
 const { routeLuhn } = require('./routes/luhn.js'); // luhn validate
@@ -761,6 +762,10 @@ if (u.pathname === '/') return routeLanding(u, res);
             }
             if (u.pathname === '/iso') {
               return routeIso(u, res, json);
+            }
+            if (u.pathname === '/netmask') {
+              try { return routeNetmask(u, res, json); }
+              catch (e) { return json(res, 400, { error: e.message }); }
             }
             if (u.pathname === '/hmac') {
               try { return routeHmac(u, res, json, reqBody); }
