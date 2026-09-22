@@ -135,3 +135,4 @@ Full spec: /openapi.json — Docs: /docs
 - GET /json?json=<string>&mode=validate|format|minify — JSON validator, pretty-printer, minifier
 - GET /ip?cidr=10.0.0.0/24 — IPv4 subnet calculator (info, contains, subnets modes)
 - GET /loan?principal=300000&rate=6.5&years=30 — loan/mortgage payment calculator (+amortization=1)
+- GET /interest?principal=10000&rate=5&years=10 — compound interest calculator (+monthly contribution, mode=simple)
