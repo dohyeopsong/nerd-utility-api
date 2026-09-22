@@ -22,8 +22,16 @@ function routeTimezone(u, res, json) {
     } catch (e) {
       return json(res, 400, { error: `invalid timezone: ${zone}` });
     }
-    // validate exact zone
-    if (!zones.includes(zone)) return json(res, 404, { error: `unknown timezone: ${zone}` });
+    // validate exact zone (accept canonical aliases like UTC/Etc/GMT)
+    if (!zones.includes(zone) && !(zone === 'UTC' || zone.startsWith('Etc/'))) {
+      // try canonicalizing via Intl
+      try {
+        const t = new Intl.DateTimeFormat('en-US', { timeZone: zone }).format(new Date());
+        if (t === undefined) throw new Error('bad');
+      } catch (e) {
+        return json(res, 404, { error: `unknown timezone: ${zone}` });
+      }
+    }
     const parts = {};
     for (const p of fmt.formatToParts(dt)) if (p.type !== 'literal') parts[p.type] = p.value;
     // compute offset in minutes
