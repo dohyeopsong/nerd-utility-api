@@ -1,16 +1,16 @@
-// User-Agent parser: /ua?ua=<string> — returns browser, engine, os, device type, bot flag
+// User-Agent parser: /ua?ua=<string> — browser, engine, os, device, bot flag
 const BOTS=/(bot|crawler|spider|slurp|bing|duckduck|yandex|facebookexternalhit|curl|wget|python-requests|node-fetch|axios|go-http|java\/)/i;
 function routeUa(u,res,json){
   try{
     const ua=(u.searchParams.get('ua')||'').trim();
     if(!ua)return json(res,400,{error:'provide ?ua=<user-agent string>'});
-    const out={ua,bot:BOT_RE.test(ua)};
+    const out={ua,bot:BOTS.test(ua)};
     const browser=
       ua.match(/Edg(?:e|A|iOS)?\/([\d.]+)/)?{name:'Edge',version:RegExp.$1}:
       ua.match(/OPR\/([\d.]+)/)?{name:'Opera',version:RegExp.$1}:
       ua.match(/Firefox\/([\d.]+)/)?{name:'Firefox',version:RegExp.$1}:
       ua.match(/Chrome\/([\d.]+)/)?{name:'Chrome',version:RegExp.$1}:
-      ua.match(/Version\/([\d.]+).*Safari/?{name:'Safari',version:RegExp.$1}:
+      ua.match(/Version\/([\d.]+).*Safari/)?{name:'Safari',version:RegExp.$1}:
       ua.match(/Safari\/([\d.]+)/)?{name:'Safari (old)',version:RegExp.$1}:
       ua.match(/MSIE ([\d.]+)/)?{name:'IE',version:RegExp.$1}:
       ua.match(/Trident\/.*rv:([\d.]+)/)?{name:'IE',version:RegExp.$1}:null;
@@ -31,5 +31,5 @@ function routeUa(u,res,json){
     return json(res,200,out);
   }catch(e){return json(res,500,{error:'ua failure: '+e.message});}
 }
-const BOT_RE=BOTS;
-module.exports={routeUa};
+function setHeaders(){} // legacy compat stub
+module.exports={routeUa,setHeaders};
