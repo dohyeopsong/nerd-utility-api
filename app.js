@@ -719,7 +719,7 @@ if (u.pathname === '/') return routeLanding(u, res);
       try { return routeChecksum(u, res, json); }
       catch (e) { return json(res, 500, { error: e.message }); }
     }
-    if (u.pathname === '/jsonpath') { return routeJsonpath(u, res, json, body, req); }
+    if (u.pathname === '/jsonpath') { return await routeJsonpath(u, res, json, null, req); }
             if (u.pathname === '/string') { return routeString(u, res, json); }
             if (u.pathname === '/slugify') { return routeSlugify(u, res, json); }
             if (u.pathname === '/escape') { return routeEscape(u, res, json); }

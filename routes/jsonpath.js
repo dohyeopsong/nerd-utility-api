@@ -40,26 +40,20 @@ function query(data, path) {
   return cur;
 }
 
-function handle(body, res, json) {
-  let doc, path;
-  try {
-    if (typeof body === 'string' && body.trim()) {
-      const parsed = JSON.parse(body);
-      doc = parsed.json !== undefined ? parsed.json : parsed;
-      path = parsed.path;
-    }
-  } catch (e) { return json(res, 400, { error: 'invalid JSON body: ' + e.message }); }
-  if (!doc) return json(res, 400, { error: 'provide {"json": <value>, "path": "a.b[0]"}' });
-  try {
-    const result = query(doc, path || '');
-    return json(res, 200, { path: path || '', result });
-  } catch (e) {
-    return json(res, 400, { error: e.message });
-  }
+function readBody(req) {
+  return new Promise(r => { let d = ''; req.on('data', c => { if (d.length < 1e6) d += c; }); req.on('end', () => r(d)); req.on('error', () => r('')); });
 }
 
-function routeJsonpath(u, res, json, body, req) {
-  if (req.method === 'POST') return handle(body, res, json);
+async function routeJsonpath(u, res, json, _unused, req) {
+  if (req && req.method === 'POST') {
+    let parsed;
+    try { const raw = await readBody(req); parsed = JSON.parse(raw); }
+    catch (e) { return json(res, 400, { error: 'invalid JSON body: ' + e.message }); }
+    const doc = parsed.json !== undefined ? parsed.json : parsed;
+    const path = parsed.path || '';
+    try { return json(res, 200, { path, result: query(doc, path) }); }
+    catch (e) { return json(res, 400, { error: e.message }); }
+  }
   const q = u.searchParams;
   const raw = q.get('json');
   const path = q.get('path') || '';
@@ -68,8 +62,7 @@ function routeJsonpath(u, res, json, body, req) {
   try { doc = JSON.parse(raw); }
   catch (e) { return json(res, 400, { error: 'invalid json param: ' + e.message }); }
   try {
-    const result = query(doc, path);
-    return json(res, 200, { path, result });
+    return json(res, 200, { path, result: query(doc, path) });
   } catch (e) {
     return json(res, 400, { error: e.message });
   }
