@@ -1,35 +1,41 @@
-// /regex — test a regex against text: match, capture groups, replace
+// /regex — test, match, and replace with regular expressions
 function routeRegex(u, res, json) {
-  const q = u.searchParams;
-  const pattern = q.get('pattern') || q.get('re');
-  const text = q.get('text') || '';
-  const flags = (q.get('flags') || '').replace(/[^gimsuy]/g, '');
-  const replace = q.get('replace');
-
-  if (!pattern) return json(res, 400, { error: 'missing pattern parameter', example: '/regex?pattern=%5Cd%2B&text=abc123' });
-  if (text.length > 100000) return json(res, 400, { error: 'text too long (max 100000 chars)' });
-
+  const q = Object.fromEntries(u.searchParams.entries());
+  const pattern = q.pattern || q.re || q.p;
+  const text = q.text || q.t || q.s || '';
+  if (!pattern) throw new Error('provide ?pattern=<regex>');
   let re;
-  try { re = new RegExp(pattern, flags.includes('g') ? flags : flags + 'g'); }
-  catch (e) { return json(res, 400, { error: `invalid regex: ${e.message}`, pattern }); }
-
-  // guard against catastrophic backtracking: cap execution time via match count
-  const matches = [];
-  let m, count = 0;
   try {
-    while ((m = re.exec(text)) !== null) {
-      matches.push({ match: m[0], index: m.index, groups: m.slice(1) });
-      if (m[0] === '') re.lastIndex++; // avoid infinite loop on empty matches
-      if (++count >= 1000) break;
-    }
-  } catch (e) { return json(res, 400, { error: `regex execution failed: ${e.message}` }); }
-
-  const result = { pattern, flags, matched: matches.length > 0, match_count: matches.length, matches };
-  if (replace !== null) {
-    try {
-      result.replaced = text.replace(new RegExp(pattern, 'g'), replace);
-    } catch (e) { return json(res, 400, { error: `replace failed: ${e.message}` }); }
+    re = new RegExp(pattern, (q.flags || '').replace(/[^gimsuy]/g, ''));
+  } catch (e) {
+    return json(res, 400, { error: 'invalid regex: ' + e.message });
   }
-  return json(res, 200, result);
+
+  const mode = (q.mode || (q.replacement !== undefined ? 'replace' : 'match')).toLowerCase();
+
+  if (mode === 'test') {
+    return json(res, 200, { matches: re.test(text), pattern, flags: re.flags });
+  }
+  if (mode === 'match') {
+    const all = [...text.matchAll(re.global ? re : new RegExp(re.source, re.flags + 'g'))];
+    return json(res, 200, {
+      count: all.length,
+      matches: all.slice(0, 500).map(m => ({
+        match: m[0],
+        index: m.index,
+        groups: m.slice(1),
+        named: m.groups || undefined
+      }))
+    });
+  }
+  if (mode === 'replace') {
+    if (q.replacement === undefined) throw new Error('provide ?replacement=<string> for mode=replace');
+    let n = -1;
+    const out = text.replace(re, q.replacement);
+    const cnt = (re.global ? text.match(new RegExp(re.source, re.flags.includes('g') ? re.flags : re.flags + 'g')) || [] : (re.test(text) ? [1] : [])).length;
+    return json(res, 200, { result: out, replaced: cnt });
+  }
+  throw new Error('mode must be test, match, or replace');
 }
+
 module.exports = { routeRegex };
