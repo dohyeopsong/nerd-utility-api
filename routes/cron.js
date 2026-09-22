@@ -42,9 +42,9 @@ function norm(tok, names) {
 
 function matches(d, f) {
   const dom = f[2], mon = f[3], dow = f[4];
-  const mMin = f[0].includes(d.getMinutes()), mHour = f[1].includes(d.getHours());
-  const mDom = dom.includes(d.getDate()), mMon = mon.includes(d.getMonth() + 1);
-  let mDow = dow.includes(d.getDay());
+  const mMin = f[0].includes(d.getUTCMinutes()), mHour = f[1].includes(d.getUTCHours());
+  const mDom = dom.includes(d.getUTCDate()), mMon = mon.includes(d.getUTCMonth() + 1);
+  let mDow = dow.includes(d.getUTCDay());
   // cron quirk: if both dom and dow are restricted, OR them
   const domRestricted = !(dom.length === 31);
   const dowRestricted = !(dow.length === 7);
