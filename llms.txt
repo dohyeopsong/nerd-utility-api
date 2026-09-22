@@ -157,3 +157,4 @@ Full spec: /openapi.json — Docs: /docs
 - GET /rot13?text=hello — ROT-n substitution cipher (default 13, self-inverse)
 - GET /rot13?text=hello — ROT-n substitution cipher (default 13, ?n= any integer)
 - `/moon?date=YYYY-MM-DD` — moon phase name, moon age, illumination %, next new/full moon dates
+- `/sunrise?lat=40.7&lon=-74&date=2024-03-20&tz=-4` — sunrise/sunset/solar noon times + day length (NOAA algorithm, polar cases handled)
