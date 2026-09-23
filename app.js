@@ -1405,7 +1405,7 @@ http.createServer(async (req, res) => {
       try { return routeUrl(u, res, json); }
       catch (e) { return json(res, 400, { error: e.message }); }
     }
-    if (!handler && u.pathname !== '/md2html' && u.pathname !== '/html2md' && u.pathname !== '/jsonpath') return json(res, 404, { error: 'not found. See /docs' });
+    if (!handler && u.pathname !== '/md2html' && u.pathname !== '/html2md' && u.pathname !== '/jsonpath' && u.pathname !== '/pipeline') return json(res, 404, { error: 'not found. See /docs' });
     if (req.method !== 'POST' && req.method !== 'GET') return json(res, 405, { error: 'GET/POST. See /docs' });
     const q = Object.fromEntries(u.searchParams.entries());
     const body = req.method === 'POST' ? reqBody
