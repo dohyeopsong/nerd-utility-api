@@ -1,21 +1,35 @@
-// /sedol — SEDOL security identifier validation (7 chars: 6 body + check digit)
+// /sedol — validate SEDOL security identifiers (7-char, weighted checksum)
 const W = [1, 3, 1, 7, 3, 9, 1];
+
 function routeSedol(u, res, json) {
   const p = u.searchParams;
-  const input = p.get('sedol') || p.get('s');
-  if (!input) return json(res, 200, { usage: '?sedol=B0YBKJ7 — validate a 7-character SEDOL' });
-  const s = input.toUpperCase().replace(/[-\s]/g, '');
-  if (!/^[0-9B-DF-HJ-NP-TV-Z]{6}[0-9]$/.test(s))
-    return json(res, 400, { error: 'SEDOL must be 7 chars: 6 alphanumeric (no vowels) + check digit' });
-  const val = (c) => (c >= '0' && c <= '9') ? +c : c.charCodeAt(0) - 55; // A=10..Z=35
-  let sum = 0;
-  for (let i = 0; i < 7; i++) sum += val(s[i]) * W[i];
+  const code = (p.get('code') || p.get('c') || '').toUpperCase().replace(/\s/g, '');
+
+  if (!code) {
+    return json(res, 200, { usage: '?code=B0YBKJ7 (validate) | ?partial=B0YBKJ (compute check digit)' });
+  }
+
+  const partial = p.get('partial');
+  if (partial) {
+    const s = partial.toUpperCase();
+    if (!/^[0-9B-Z]{6}$/.test(s) || s.includes('V')) return json(res, 400, { error: 'partial must be 6 chars of digits or B-Z (no vowels)' });
+    const sum = W.slice(0, 6).reduce((a, w, i) => a + w * charVal(s[i]), 0);
+    const check = (10 - (sum % 10)) % 10;
+    return json(res, 200, { partial, checkDigit: String(check), complete: s + check });
+  }
+
+  if (!/^[0-9B-Z]{7}$/.test(code) || code.includes('V')) {
+    return json(res, 400, { error: 'SEDOL is 7 chars: digits or B-Z, no vowels, last char is check digit' });
+  }
+
+  const sum = W.reduce((a, w, i) => a + w * charVal(code[i]), 0);
   const valid = sum % 10 === 0;
-  return json(res, valid ? 200 : 422, {
-    sedol: s,
-    valid,
-    computed_check_digit: String((10 - (sum - val(s[6]) * W[6]) % 10) % 10),
-    check_digit: s[6],
-  });
+  return json(res, 200, { code, valid, length: code.length });
 }
+
+function charVal(c) {
+  if (/[0-9]/.test(c)) return +c;
+  return c.charCodeAt(0) - 'A'.charCodeAt(0) + 10; // B=11 ... Z=35
+}
+
 module.exports = { routeSedol };
