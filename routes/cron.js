@@ -48,18 +48,18 @@ function parseCron(expr) {
 function nextRuns(parsed, from, count) {
   const runs = [];
   let d = new Date(from.getTime());
-  d.setSeconds(0, 0);
-  d.setMinutes(d.getMinutes() + 1); // start strictly after
+  d.setUTCSeconds(0, 0);
+  d.setUTCMinutes(d.getUTCMinutes() + 1); // start strictly after
   while (runs.length < count && d.getTime() - from.getTime() < 366 * 864e5) {
-    if (!parsed.month.has(d.getMonth() + 1)) { d = new Date(d.getFullYear(), d.getMonth() + 1, 1, 0, 0); continue; }
-    const domOk = parsed.dom.has(d.getDate());
-    const dowOk = parsed.dow.has(d.getDay());
+    if (!parsed.month.has(d.getUTCMonth() + 1)) { d = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1)); continue; }
+    const domOk = parsed.dom.has(d.getUTCDate());
+    const dowOk = parsed.dow.has(d.getUTCDay());
     let dayOk;
     if (parsed.domRestricted && parsed.dowRestricted) dayOk = domOk || dowOk; // Vixie: OR when both restricted
     else dayOk = domOk && dowOk;
-    if (!dayOk) { d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 0, 0); continue; }
-    if (!parsed.hour.has(d.getHours())) { d = new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours() + 1, 0); continue; }
-    if (!parsed.minute.has(d.getMinutes())) { d.setMinutes(d.getMinutes() + 1); continue; }
+    if (!dayOk) { d = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1)); continue; }
+    if (!parsed.hour.has(d.getUTCHours())) { d = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), d.getUTCHours() + 1)); continue; }
+    if (!parsed.minute.has(d.getUTCMinutes())) { d.setUTCMinutes(d.getUTCMinutes() + 1); continue; }
     runs.push(d.toISOString());
     d = new Date(d.getTime() + 60000);
   }
