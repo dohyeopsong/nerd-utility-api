@@ -63,3 +63,5 @@ Roman numeral conversion. ?q=2026 -> MMXXVI, ?q=MCMXCIV -> 1994. Integers 1-3999
 NATO phonetic alphabet. ?q=text -> "Alfa Bravo..."; mode=decode reverses. Unknown chars skipped.
 ## /isbn
 ISBN validation/conversion. ?q=isbn validates ISBN-10/13 checksums; ?mode=convert converts between formats.
+## /luhn
+Luhn algorithm. ?q=4532015112830366 (validate with brand hint), ?q=453201511283036&mode=checkdigit (compute missing digit). Spaces/dashes tolerated.
