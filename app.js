@@ -68,6 +68,7 @@ const { routeHash } = require('./routes/hash.js');
 const { routeCron } = require('./routes/cron.js');
 const { routeGravatar } = require('./routes/gravatar.js');
 const { routeHaversine } = require('./routes/haversine.js');
+const { routeIsrc } = require('./routes/isrc.js');
 const { routeHmac } = require('./routes/hmac.js');
 const { routeNetmask } = require('./routes/netmask.js');
 const { routeUa, setHeaders: setUaHeaders } = require('./routes/ua.js');
@@ -1231,6 +1232,7 @@ http.createServer(async (req, res) => {
     }
   if (u.pathname === '/gravatar') return routeGravatar(u, res, json);
   if (u.pathname === '/haversine') return routeHaversine(u, res, json);
+  if (u.pathname === '/isrc') return routeIsrc(u, res, json);
     if (!handler && u.pathname !== '/md2html' && u.pathname !== '/html2md' && u.pathname !== '/jsonpath' && u.pathname !== '/pipeline' && u.pathname !== '/nato') return json(res, 404, { error: 'not found. See /docs' });
     if (req.method !== 'POST' && req.method !== 'GET') return json(res, 405, { error: 'GET/POST. See /docs' });
     const q = Object.fromEntries(u.searchParams.entries());
