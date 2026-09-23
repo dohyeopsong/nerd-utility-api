@@ -1,79 +1,57 @@
-// /cron — validate cron expressions and compute next run times (5-field standard cron, server-local time)
-const ALIAS = { '@yearly': '0 0 1 1 *', '@annually': '0 0 1 1 *', '@monthly': '0 0 1 * *', '@weekly': '0 0 * * 0', '@daily': '0 0 * * *', '@midnight': '0 0 * * *', '@hourly': '0 * * * *' };
-function parseField(spec, min, max, names) {
+// /cron — cron expression explainer + next runs (5-field, no external deps)
+const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const DOWS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+function parseField(s, min, max, names) {
   const out = new Set();
-  for (const part of spec.split(',')) {
+  for (const part of s.split(',')) {
     let step = 1, range = part;
-    const sm = part.match(/^(.+)\/(\d+)$/);
-    if (sm) { range = sm[1]; step = +sm[2]; if (step < 1) throw new Error('invalid step'); }
-    let lo, hi;
-    if (range === '*') { lo = min; hi = max; }
+    const si = part.indexOf('/');
+    if (si >= 0) { step = parseInt(part.slice(si+1),10); range = part.slice(0,si); }
+    let a, b;
+    if (range === '*') { a = min; b = max; }
     else {
-      const rm = range.match(/^([0-7A-Za-z]+)-([0-7A-Za-z]+)$/);
-      if (rm) {
-        lo = names[rm[1].toLowerCase()] ?? +rm[1];
-        hi = names[rm[2].toLowerCase()] ?? +rm[2];
-      } else {
-        lo = hi = names[range.toLowerCase()] ?? +range;
-      }
+      const d = range.indexOf('-');
+      if (d >= 0) { a = range.slice(0,d); b = range.slice(d+1); }
+      else { a = range; b = range; }
     }
-    if (isNaN(lo) || isNaN(hi) || lo < min || hi > max || lo > hi) throw new Error(`invalid value "${part}"`);
-    for (let v = lo; v <= hi; v += step) out.add(v);
+    a = names ? (names[a] !== undefined ? names[a] : parseInt(a,10)) : parseInt(a,10);
+    b = names ? (names[b] !== undefined ? names[b] : parseInt(b,10)) : parseInt(b,10);
+    if (!range.includes('-') && si >= 0 && range !== '*') b = max; // "N/step" means N-max/step
+    if (isNaN(a) || isNaN(b) || isNaN(step) || a < min || b > max || a > b || step < 1) return null;
+    for (let i = a; i <= b; i += step) out.add(i % (max + 1));
   }
   return out;
 }
-const DOW = { sun:0, mon:1, tue:2, wed:3, thu:4, fri:5, sat:6 };
-const MON = { jan:1, feb:2, mar:3, apr:4, may:5, jun:6, jul:7, aug:8, sep:9, oct:10, nov:11, dec:12 };
-function parseCron(expr) {
-  expr = expr.trim().replace(/\s+/g, ' ');
-  if (ALIAS[expr]) expr = ALIAS[expr];
-  const f = expr.split(' ');
-  if (f.length !== 5) throw new Error('need exactly 5 fields: min hour dom month dow');
-  return {
-    expr,
-    minute: parseField(f[0], 0, 59),
-    hour: parseField(f[1], 0, 23),
-    dom: parseField(f[2], 1, 31),
-    month: parseField(f[3], 1, 12, MON),
-    dow: parseField(f[4], 0, 6, DOW),
-    domIsRestricted: f[2] !== '*',
-    dowIsRestricted: f[4] !== '*',
-  };
-}
-function next(c, from) {
-  const t = new Date(from); t.setSeconds(0, 0); t.setMilliseconds(0);
-  t.setMinutes(t.getMinutes() + 1);
-  for (let i = 0; i < 366 * 24 * 60; i++) {
-    if (!c.month.has(t.getMonth() + 1)) { t.setDate(1); t.setMonth(t.getMonth() + 1); t.setHours(0, 0, 0, 0); continue; }
-    const domOk = c.dom.has(t.getDate());
-    const dowOk = c.dow.has(t.getDay());
-    // standard cron: if both dom and dow are restricted, match either; else match both
-    const dayOk = (c.domIsRestricted && c.dowIsRestricted) ? (domOk || dowOk) : (domOk && dowOk);
-    if (!dayOk) { t.setDate(t.getDate() + 1); t.setHours(0, 0, 0, 0); continue; }
-    if (!c.hour.has(t.getHours())) { t.setHours(t.getHours() + 1, 0, 0, 0); continue; }
-    if (!c.minute.has(t.getMinutes())) { t.setMinutes(t.getMinutes() + 1); continue; }
-    return t;
-  }
-  return null;
-}
 function routeCron(u, res, json) {
   const p = u.searchParams;
-  const expr = p.get('expr') || p.get('c');
-  const count = Math.min(+(p.get('count') || 1) || 1, 10);
-  const from = p.get('from') ? new Date(p.get('from')) : new Date();
-  if (!expr) return json(res, 200, { usage: '?expr=*/15 * * * * [&count=3] [&from=ISO] — validate + next runs. Aliases @daily/@hourly etc. Times are server-local.' });
-  try {
-    const c = parseCron(expr);
-    const runs = [];
-    let t = from;
-    for (let i = 0; i < count; i++) {
-      t = next(c, t);
-      if (!t) break;
+  const expr = p.get('expr') || p.get('cron') || '';
+  if (!expr) return json(res, 200, { usage: '?expr=*/5 9-17 * * 1-5 — explain a 5-field cron and get next runs', fields: ['minute 0-59','hour 0-23','day-of-month 1-31','month 1-12','day-of-week 0-6 (0=Sun)'] });
+  const f = expr.trim().split(/\s+/);
+  if (f.length !== 5) return json(res, 422, { error: 'expected exactly 5 fields', input: expr, got_fields: f.length });
+  const mn = parseField(f[0],0,59), hh = parseField(f[1],0,23), dm = parseField(f[2],1,31);
+  const uc = s => s.toUpperCase(); const mo = parseField(f[3].toUpperCase(),1,12,{JAN:1,FEB:2,MAR:3,APR:4,MAY:5,JUN:6,JUL:7,AUG:8,SEP:9,OCT:10,NOV:11,DEC:12}); const dw = parseField(f[4].toUpperCase(),0,6,{SUN:0,MON:1,TUE:2,WED:3,THU:4,FRI:5,SAT:6});
+  const bad = [mn,hh,dm,mo,dw].some(s => s === null);
+  if (bad) return json(res, 422, { error: 'invalid field syntax', input: expr });
+  const domStar = f[2] === '*', dowStar = f[4] === '*';
+  // next runs: scan minutes from now
+  const runs = []; let t = new Date(); t.setSeconds(0,0); t.setMinutes(t.getMinutes()+1);
+  while (runs.length < 3 && t.getTime() - Date.now() < 366*24*3600*1000) {
+    if (mn.has(t.getMinutes()) && hh.has(t.getHours()) && mo.has(t.getMonth()+1)
+        && (domStar && dowStar ? true
+          : domStar ? dw.has(t.getDay())
+          : dowStar ? dm.has(t.getDate())
+          : dm.has(t.getDate()) || dw.has(t.getDay()))) {
       runs.push(t.toISOString());
+      t = new Date(t.getTime() + 60000); t.setSeconds(0,0);
+      // skip to next minute to avoid dup
     }
-    return json(res, 200, { expression: c.expr, valid: true, next_runs: runs, from: from.toISOString() });
-  } catch (e) {
-    return json(res, 400, { expression: expr, valid: false, error: e.message });
+    t = new Date(t.getTime() + 60000); t.setSeconds(0,0);
+    // dedupe: if we just added, this extra +1 is fine
   }
+  return json(res, 200, {
+    input: expr,
+    fields: { minute: [...mn], hour: [...hh], day_of_month: [...dm], month: [...mo], day_of_week: [...dw] },
+    next_runs_utc: runs
+  });
 }
 module.exports = { routeCron };
