@@ -1,60 +1,43 @@
-// /eth — Ethereum address validation: format, EIP-55 mixed-case checksum, chain detection
-// EIP-55: keccak256 of lowercase hex address (without 0x), uppercase-hex the nibble where hash nibble >= 8
+// /eth — Ethereum address validation + EIP-55 mixed-case checksum
 const { keccak256 } = require('js-sha3');
 
 function toChecksumAddress(addr) {
-  const lower = addr.toLowerCase().replace(/^0x/, '');
-  const hash = keccak256(lower);
+  const lower = addr.toLowerCase();
+  const hash = keccak256(lower.slice(2)); // hash the hex STRING (ASCII bytes), not decoded bytes
   let out = '0x';
   for (let i = 0; i < 40; i++) {
     const nibble = parseInt(hash[i], 16);
-    out += nibble >= 8 ? lower[i].toUpperCase() : lower[i];
+    const ch = lower[2 + i];
+    out += nibble >= 8 ? ch.toUpperCase() : ch;
   }
   return out;
 }
 
 function validateEth(raw) {
-  const addr = raw.trim();
-  const out = { input: addr, valid: false };
+  const addr = (raw || '').trim();
   if (!/^0x[0-9a-fA-F]{40}$/.test(addr)) {
-    out.reason = 'must be 0x + 40 hex characters';
-    return out;
+    return { valid: false, error: 'address must be 0x + 40 hex characters' };
   }
-  const hasUpper = /[A-F]/.test(addr);
-  const hasLower = /[a-f]/.test(addr);
-  if (hasUpper && hasLower) {
-    // mixed case: must match EIP-55 checksum exactly
-    const checksummed = toChecksumAddress(addr);
-    out.checksum = addr === checksummed;
-    if (!out.checksum) {
-      out.reason = 'EIP-55 checksum mismatch';
-      out.expected = checksummed;
-      return out;
-    }
-    out.valid = true;
-    out.checksummed = checksummed;
-    out.checksumFormat = 'EIP-55';
-  } else {
-    // all lowercase or all uppercase: format valid, checksum not asserted
-    out.valid = true;
-    out.checksummed = toChecksumAddress(addr);
-    out.checksumFormat = 'not asserted (all-' + (hasLower ? 'lower' : 'upper') + 'case input)';
-  }
-  // well-known prefixes (no guarantee, informational)
-  out.hex = addr.toLowerCase();
-  return out;
+  const checksummed = toChecksumAddress(addr);
+  const isChecksummedForm = /[A-F]/.test(addr.slice(2));
+  const checksumValid = !isChecksummedForm || addr === checksummed;
+  return {
+    address: addr,
+    valid: true,
+    checksumAddress: checksummed,
+    allLower: addr === addr.toLowerCase(),
+    checksumValid
+  };
 }
 
 function routeEth(u, res, json) {
-  const addr = u.searchParams.get('addr') || u.searchParams.get('a') || u.searchParams.get('q');
-  if (!addr) return json(res, 400, { error: 'missing ?addr=0x...' });
-  // checksum conversion mode
-  if (u.searchParams.get('mode') === 'checksum') {
-    const v = validateEth(addr);
-    if (!/^0x[0-9a-fA-F]{40}$/.test(addr.trim())) return json(res, 400, { error: v.reason || 'invalid format' });
-    return json(res, 200, { input: addr, checksummed: toChecksumAddress(addr) });
-  }
-  return json(res, 200, validateEth(addr));
+  const p = u.searchParams;
+  const addr = p.get('address') || p.get('addr') || p.get('a');
+  if (!addr) return json(res, 400, { error: 'provide ?address=0x...' });
+
+  const r = validateEth(addr);
+  if (!r.valid) return json(res, 400, r);
+  return json(res, 200, r);
 }
 
-module.exports = { routeEth, validateEth, toChecksumAddress };
+module.exports = { routeEth, toChecksumAddress, validateEth };
