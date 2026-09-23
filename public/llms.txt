@@ -85,3 +85,5 @@ Password generation (?length=24&count=2, class toggles lower/upper/digits/symbol
 Cron expression parser (?expr=): field breakdown, plain-English explanation, next N runs in UTC (?count=).
 ## /semver
 Semver parse (?v=1.2.3) and compare (?a=&b=): prerelease ordering per spec. Note: URL-encode + in build metadata as %2B.
+## /ip
+IPv4 subnet calculator (?ip=192.168.1.10/26): netmask, network, broadcast, host range, class, private check.
