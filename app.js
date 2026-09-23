@@ -63,7 +63,6 @@ const { routeXml2json } = require('./routes/xml2json.js');
 const { routeUseragent } = require('./routes/useragent.js');
 const { routeBase58 } = require('./routes/base58.js');
 const { routeGeoip } = require("./routes/geoip.js");
-const { routeSemver } = require('./routes/semver.js');
 const { routeTimediff } = require('./routes/timediff.js');
 const { routeCsv2json } = require('./routes/csv2json.js');
 const { routeYamljson } = require('./routes/yamljson.js');
@@ -856,7 +855,6 @@ http.createServer(async (req, res) => {
               return routeCidr(u, res, json);
             }
             if (u.pathname === '/semver') {
-              try { return routeSemver(u, res, json); }
               catch (e) { return json(res, 500, { error: e.message }); }
             }
             if (u.pathname === '/timediff') {
