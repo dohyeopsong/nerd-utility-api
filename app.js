@@ -1359,6 +1359,7 @@ http.createServer(async (req, res) => {
   if (u.pathname === '/cuid') return routeCuid(u, res, json);
   if (u.pathname === '/ulid') return routeUlid(u, res, json);
   if (u.pathname === '/roman') return routeRoman(u, res, json);
+  if (u.pathname === '/soundex') return routeSoundex(u, res, json);
   if (u.pathname === '/nanoid') return routeNanoid(u, res, json);
   if (u.pathname === '/geoip') return routeGeoip(u, res, json);
   if (u.pathname === '/ipinfo') {
