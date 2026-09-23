@@ -66,6 +66,7 @@ const { routeYamljson } = require('./routes/yamljson.js');
 const { routeChecksum } = require('./routes/checksum.js');
 const { routeHash } = require('./routes/hash.js');
 const { routeCron } = require('./routes/cron.js');
+const { routeGravatar } = require('./routes/gravatar.js');
 const { routeHmac } = require('./routes/hmac.js');
 const { routeNetmask } = require('./routes/netmask.js');
 const { routeUa, setHeaders: setUaHeaders } = require('./routes/ua.js');
@@ -1246,3 +1247,4 @@ if (u.pathname === '/html2md') { return routeHtml2md(u, res, json, body, req.met
     } catch (e) { return json(res, (e && e.status) || 422, { error: String(e && e.message || e) }); }
   } catch (e) { json(res, 400, { error: e.message }); }
 }).listen(8080, () => console.log('Nerd utility API (with x402 /scrape) listening on :8080'));
+  if (u.pathname === '/gravatar') return routeGravatar(u, res, json);
