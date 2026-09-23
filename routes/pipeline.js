@@ -48,3 +48,4 @@ router.get('/pipeline', (req, res) => res.json({
 }));
 
 module.exports = router;
+module.exports.router = router;
