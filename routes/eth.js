@@ -1,46 +1,60 @@
-// /eth — Ethereum address validation: format, EIP-55 checksum, ICAP
+// /eth — Ethereum address validation: format, EIP-55 mixed-case checksum, chain detection
+// EIP-55: keccak256 of lowercase hex address (without 0x), uppercase-hex the nibble where hash nibble >= 8
 const { keccak256 } = require('js-sha3');
 
-function routeEth(u, res, json, body, isPost) {
-  const q = u.searchParams.get('q') || u.searchParams.get('addr');
-  const mode = u.searchParams.get('mode') || 'validate'; // validate | checksum
-  if (!isPost && !q) {
-    return json(res, 200, {
-      op: 'eth',
-      description: 'Ethereum address validation: format, EIP-55 mixed-case checksum.',
-      usage: '/eth?q=0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed',
-    });
+function toChecksumAddress(addr) {
+  const lower = addr.toLowerCase().replace(/^0x/, '');
+  const hash = keccak256(lower);
+  let out = '0x';
+  for (let i = 0; i < 40; i++) {
+    const nibble = parseInt(hash[i], 16);
+    out += nibble >= 8 ? lower[i].toUpperCase() : lower[i];
   }
-  if (!q) return json(res, 400, { error: 'Provide ?q=' });
-  const addr = String(q).trim();
-  if (!/^0x[0-9a-fA-F]{40}$/.test(addr)) {
-    return json(res, 200, { input: addr, valid: false, reason: 'not a 0x + 40 hex char address' });
-  }
-  const hex = addr.slice(2);
-  const hasUpper = /[A-F]/.test(hex), hasLower = /[a-f]/.test(hex);
-  if (mode === 'checksum') {
-    const hash = keccak256(hex.toLowerCase());
-    let out = '0x';
-    for (let i = 0; i < 40; i++) {
-      const c = hex[i];
-      out += parseInt(hash[i], 16) >= 8 ? c.toUpperCase() : c.toLowerCase();
-    }
-    return json(res, 200, { input: addr, checksummed: out });
-  }
-  const result = { input: addr, valid: true, length: 40 };
-  if (hasUpper && hasLower) {
-    const hash = keccak256(hex.toLowerCase());
-    let ok = true;
-    for (let i = 0; i < 40; i++) {
-      const c = hex[i];
-      const expectUpper = parseInt(hash[i], 16) >= 8;
-      if ((c >= 'a' && expectUpper) || (c >= 'A' && c <= 'F' && !expectUpper)) { ok = false; break; }
-    }
-    result.eip55Checksum = ok ? 'valid' : 'INVALID';
-  } else {
-    result.eip55Checksum = 'not checked (all one case)';
-  }
-  return json(res, 200, result);
+  return out;
 }
 
-module.exports = { routeEth };
+function validateEth(raw) {
+  const addr = raw.trim();
+  const out = { input: addr, valid: false };
+  if (!/^0x[0-9a-fA-F]{40}$/.test(addr)) {
+    out.reason = 'must be 0x + 40 hex characters';
+    return out;
+  }
+  const hasUpper = /[A-F]/.test(addr);
+  const hasLower = /[a-f]/.test(addr);
+  if (hasUpper && hasLower) {
+    // mixed case: must match EIP-55 checksum exactly
+    const checksummed = toChecksumAddress(addr);
+    out.checksum = addr === checksummed;
+    if (!out.checksum) {
+      out.reason = 'EIP-55 checksum mismatch';
+      out.expected = checksummed;
+      return out;
+    }
+    out.valid = true;
+    out.checksummed = checksummed;
+    out.checksumFormat = 'EIP-55';
+  } else {
+    // all lowercase or all uppercase: format valid, checksum not asserted
+    out.valid = true;
+    out.checksummed = toChecksumAddress(addr);
+    out.checksumFormat = 'not asserted (all-' + (hasLower ? 'lower' : 'upper') + 'case input)';
+  }
+  // well-known prefixes (no guarantee, informational)
+  out.hex = addr.toLowerCase();
+  return out;
+}
+
+function routeEth(u, res, json) {
+  const addr = u.searchParams.get('addr') || u.searchParams.get('a') || u.searchParams.get('q');
+  if (!addr) return json(res, 400, { error: 'missing ?addr=0x...' });
+  // checksum conversion mode
+  if (u.searchParams.get('mode') === 'checksum') {
+    const v = validateEth(addr);
+    if (!/^0x[0-9a-fA-F]{40}$/.test(addr.trim())) return json(res, 400, { error: v.reason || 'invalid format' });
+    return json(res, 200, { input: addr, checksummed: toChecksumAddress(addr) });
+  }
+  return json(res, 200, validateEth(addr));
+}
+
+module.exports = { routeEth, validateEth, toChecksumAddress };
