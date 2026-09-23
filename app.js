@@ -1,5 +1,6 @@
 const { routeBip39 } = require('./routes/bip39.js'); // bip39
 const { routeEthaddr } = require('./routes/ethaddr.js'); // ethaddr
+const { routeIban } = require('./routes/iban.js'); // iban
 const { routeHtml2md } = require('./routes/html2md.js'); // html2md
 const { routeNato } = require('./routes/nato.js');
 const { routeEth } = require('./routes/eth.js');
