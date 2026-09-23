@@ -3,6 +3,7 @@ const { routeNato } = require('./routes/nato.js');
 const { routeEth } = require('./routes/eth.js');
 const { routePunycode } = require('./routes/punycode.js');
 const { routeLangcode } = require('./routes/langcode.js');
+const { routeAirport } = require('./routes/airport.js');
 const { routeGeohash } = require('./routes/geohash.js');
 const { routeDomain } = require('./routes/domain.js');
 const { routePipeline } = require('./routes/pipeline.js'); // pipeline
@@ -1349,6 +1350,7 @@ http.createServer(async (req, res) => {
   if (u.pathname === '/base58') return routeBase58(u, res, json);
   if (u.pathname === '/eth') return routeEth(u, res, json);
   if (u.pathname === '/geohash') return routeGeohash(u, res, json);
+  if (u.pathname === '/airport') return routeAirport(u, res, json);
   if (u.pathname === '/langcode') return routeLangcode(u, res, json);
   if (u.pathname === '/punycode') return routePunycode(u, res, json);
   if (u.pathname === '/domain') return routeDomain(u, res, json).catch(e => json(res, 500, {error: e.message}));
