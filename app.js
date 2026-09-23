@@ -1,3 +1,4 @@
+app.use('/', require('./routes/pipeline'));
 const { routeHtml2md } = require('./routes/html2md.js'); // html2md
 const { routeIso } = require('./routes/iso.js'); // iso
 const { routeNumber } = require('./routes/number.js'); // number
