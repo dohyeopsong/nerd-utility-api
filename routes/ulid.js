@@ -16,7 +16,7 @@ function routeUlid(u, res, json) {
   for (let i = 0; i < count; i++) {
     // time part: 48-bit ms -> 10 chars (50 bits, top 2 are zero)
     let ts = ''; let T = BigInt(now);
-    for (let k = 9; k >= 0; k--) { ts = C[Number(T / (32n ** BigInt(k)) % 32n)] + ts; }
+    for (let k = 0; k < 10; k++) { ts = C[Number(T % 32n)] + ts; T /= 32n; }
     // randomness: 80 bits from crypto -> 16 chars
     let r = crypto.randomBytes(10).reduce((a, b) => (a << 8n) | BigInt(b), 0n);
     let rs = '';
