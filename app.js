@@ -8,6 +8,7 @@ const { routeLeap } = require('./routes/leap.js');
 const { routeCallingcode } = require('./routes/callingcode.js');
 const { routeBraille } = require('./routes/braille.js');
 const { routeRna } = require('./routes/rna.js');
+const { routeElement } = require('./routes/element.js');
 const { routeGeohash } = require('./routes/geohash.js');
 const { routeDomain } = require('./routes/domain.js');
 const { routePipeline } = require('./routes/pipeline.js'); // pipeline
@@ -1354,6 +1355,7 @@ http.createServer(async (req, res) => {
   if (u.pathname === '/base58') return routeBase58(u, res, json);
   if (u.pathname === '/eth') return routeEth(u, res, json);
   if (u.pathname === '/geohash') return routeGeohash(u, res, json);
+  if (u.pathname === '/element') return routeElement(u, res, json);
   if (u.pathname === '/rna') return routeRna(u, res, json);
   if (u.pathname === '/braille') return routeBraille(u, res, json);
   if (u.pathname === '/callingcode') return routeCallingcode(u, res, json);
