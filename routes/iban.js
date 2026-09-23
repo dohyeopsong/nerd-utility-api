@@ -15,12 +15,12 @@ function mod97(s) {
 }
 
 function routeIban(u, res, json, body, isPost) {
-  const q = u.searchParams.get('q');
+  const q = u.searchParams.get('q') || u.searchParams.get('check');
   if (!isPost && !q) {
     return json(res, 200, {
       op: 'iban',
       description: 'IBAN validation: format, country length check, mod-97 checksum.',
-      usage: '/iban?q=GB82WEST12345698765432',
+      usage: '/iban?q=GB82WEST12345698765432' (alias: ?check=)',
     });
   }
   if (!q) return json(res, 400, { error: 'Provide ?q=' });
