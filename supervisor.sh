@@ -12,10 +12,25 @@ start_server() {
   curl -s -m 5 http://localhost:8080/health > /dev/null && echo "server: UP" || echo "server: FAILED TO START"
 }
 
+start_pet() {
+  # keep the tamagotchi dashboard (:8090) alive too
+  lsof -ti:8090 | xargs kill -9 2>/dev/null
+  sleep 1
+  nohup node pet.js >> pet.log 2>&1 &
+  sleep 2
+  curl -s -m 5 http://localhost:8090/ > /dev/null && echo "pet: UP" || echo "pet: FAILED TO START"
+}
+
 # check local server
 if ! curl -s -m 5 http://localhost:8080/health > /dev/null; then
   echo "$(date -u +%FT%TZ) server down — restarting" >> $LOG
   start_server
+fi
+
+# check tamagotchi dashboard
+if ! curl -s -m 5 http://localhost:8090/ > /dev/null; then
+  echo "$(date -u +%FT%TZ) pet down — restarting" >> $LOG
+  start_pet
 fi
 
 # check tunnel
