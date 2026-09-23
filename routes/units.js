@@ -1,54 +1,41 @@
-// /units — convert between units (length, mass, temperature, data, speed)
-const FACTORS = {
-  length: { mm: 0.001, cm: 0.01, m: 1, km: 1000, in: 0.0254, ft: 0.3048, yd: 0.9144, mi: 1609.344, nmi: 1852 },
-  mass: { mg: 1e-6, g: 0.001, kg: 1, t: 1000, oz: 0.028349523125, lb: 0.45359237, st: 6.35029318 },
-  data: { b: 1, kb: 1000, mb: 1e6, gb: 1e9, tb: 1e12, kib: 1024, mib: 1048576, gib: 1073741824, tib: 1099511627776 },
-  speed: { 'm/s': 1, 'km/h': 0.2777777778, mph: 0.44704, kn: 0.5144444444, 'ft/s': 0.3048 },
-  area: { 'm2': 1, 'cm2': 1e-4, 'km2': 1e6, ha: 1e4, 'ft2': 0.09290304, ac: 4046.8564224, 'mi2': 2589988.110336 },
-  volume: { ml: 0.001, l: 1, 'm3': 1000, tsp: 0.00492892159375, tbsp: 0.01478676478125, 'fl oz': 0.0295735295625, cup: 0.2365882365, pt: 0.473176473, qt: 0.946352946, gal: 3.785411784 }
-};
-const TEMPS = ['c', 'f', 'k'];
+// /units — convert between units (length, mass, temperature, data, volume, time)
+const L = { m: 1, km: 1000, cm: 0.01, mm: 0.001, mi: 1609.344, yd: 0.9144, ft: 0.3048, in: 0.0254, nmi: 1852 };
+const M = { kg: 1, g: 0.001, mg: 1e-6, t: 1000, lb: 0.45359237, oz: 0.028349523125, st: 6.35029318 };
+const D = { B: 1, KB: 1024, MB: 1024**2, GB: 1024**3, TB: 1024**4, PB: 1024**5, KiB: 1000, MiB: 1e6, GiB: 1e9, TiB: 1e12 };
+const V = { l: 1, ml: 0.001, m3: 1000, gal: 3.785411784, qt: 0.946352946, pt: 0.473176473, cup: 0.2365882365, floz: 0.0295735295625, tbsp: 0.01478676478125, tsp: 0.00492892159375 };
+const T = { s: 1, ms: 0.001, min: 60, h: 3600, d: 86400, wk: 604800, yr: 31557600 };
+const GROUPS = { length: L, mass: M, data: D, volume: V, time: T };
 
-function tempConvert(v, from, to) {
-  // normalize to celsius
-  let c = v;
-  if (from === 'f') c = (v - 32) * 5 / 9;
-  else if (from === 'k') c = v - 273.15;
-  if (to === 'c') return c;
-  if (to === 'f') return c * 9 / 5 + 32;
-  if (to === 'k') return c + 273.15;
-  return null;
+function temp(v, from, to) {
+  const f = from.toLowerCase(), t = to.toLowerCase();
+  if (!['c','f','k'].includes(f) || !['c','f','k'].includes(t)) return null;
+  let c = f === 'c' ? v : f === 'f' ? (v - 32) * 5 / 9 : v - 273.15;
+  if (t === 'c') return c;
+  if (t === 'f') return c * 9 / 5 + 32;
+  return c + 273.15;
 }
 
 function routeUnits(u, res, json) {
-  const q = u.searchParams;
-  const v = parseFloat(q.get('value'));
-  const from = (q.get('from') || '').toLowerCase().trim();
-  const to = (q.get('to') || '').toLowerCase().trim();
-  if (isNaN(v)) return json(res, 400, { error: 'provide ?value=&from=&to=', example: '/units?value=100&from=cm&to=in' });
-  if (!from || !to) return json(res, 400, { error: 'provide both from= and to= units', categories: Object.keys(FACTORS) });
+  const p = u.searchParams;
+  if (!p.get('to')) return json(res, 200, {
+    usage: '?value=10&from=km&to=mi — also ?groups=1 to list units',
+    groups: p.get('groups') ? Object.fromEntries(Object.entries(GROUPS).map(([g, u]) => [g, Object.keys(u)])) : undefined,
+    temperature: ['c', 'f', 'k'],
+  });
+  const value = parseFloat(p.get('value'));
+  const from = (p.get('from') || '').toLowerCase(), to = (p.get('to') || '').toLowerCase();
+  if (isNaN(value)) return json(res, 400, { error: 'invalid value' });
 
-  // temperature special-case
-  if (TEMPS.includes(from) || TEMPS.includes(to)) {
-    if (!TEMPS.includes(from) || !TEMPS.includes(to)) {
-      return json(res, 400, { error: 'temperature units are c, f, k — cannot mix with other categories' });
-    }
-    const r = tempConvert(v, from, to);
-    return json(res, 200, { value: v, from, to, category: 'temperature', result: Math.round(r * 1000) / 1000 });
+  if (['c','f','k'].includes(from) && ['c','f','k'].includes(to)) {
+    const r = temp(value, from, to);
+    return json(res, 200, { value, from, to, result: Math.round(r * 1e6) / 1e6, type: 'temperature' });
   }
-
-  for (const [cat, units] of Object.entries(FACTORS)) {
-    if (from in units && to in units) {
-      const base = v * units[from];
-      const r = base / units[to];
-      return json(res, 200, {
-        value: v, from, to, category: cat,
-        result: Math.round(r * 1e6) / 1e6,
-        available_units: Object.keys(units)
-      });
+  for (const [g, table] of Object.entries(GROUPS)) {
+    if (table[from] !== undefined && table[to] !== undefined) {
+      const r = value * table[from] / table[to];
+      return json(res, 200, { value, from, to, result: Math.round(r * 1e10) / 1e10, type: g });
     }
   }
-  return json(res, 400, { error: `cannot convert ${from} -> ${to}`, categories: Object.keys(FACTATORS || FACTORS) });
+  return json(res, 400, { error: `cannot convert '${from}' to '${to}'. Use ?groups=1 to list supported units.` });
 }
-
 module.exports = { routeUnits };
