@@ -1,57 +1,47 @@
-// /isbn — ISBN-10/13 validation, checksum, conversion
-function isbn13Checksum(d) {
+// /isbn — ISBN-10/13 validation and hyphenation
+function isbn10Check(d) { // d: 9 digits, returns check char
   let sum = 0;
-  for (let i = 0; i < 12; i++) sum += d[i] * (i % 2 === 0 ? 1 : 3);
-  return (10 - (sum % 10)) % 10;
-}
-function isbn10Checksum(d) {
-  let sum = 0;
-  for (let i = 0; i < 9; i++) sum += d[i] * (10 - i);
+  for (let i = 0; i < 9; i++) sum += (10 - i) * d[i];
   const r = (11 - (sum % 11)) % 11;
   return r === 10 ? 'X' : String(r);
 }
-function clean(s) { return s.replace(/[-\s]/g, '').toUpperCase(); }
-
-function validateISBN13(s) {
-  if (!/^\d{13}$/.test(s)) return { error: 'ISBN-13 must be 13 digits' };
-  const d = [...s].map(Number);
-  const check = isbn13Checksum(d);
-  return { valid: d[12] === check, expectedCheckDigit: check, actualCheckDigit: d[12] };
-}
-function validateISBN10(s) {
-  if (!/^\d{9}[\dX]$/.test(s)) return { error: 'ISBN-10 must be 9 digits + check digit (0-9 or X)' };
-  const d = [...s.slice(0, 9)].map(Number);
-  const check = isbn10Checksum(d);
-  return { valid: s[9] === check, expectedCheckDigit: check, actualCheckDigit: s[9] };
-}
-function isbn10to13(s) {
-  const core = '978' + s.slice(0, 9);
-  const d = [...core].map(Number);
-  return core + isbn13Checksum(d);
-}
-function isbn13to10(s) {
-  if (!s.startsWith('978')) return { error: 'only ISBN-13 with prefix 978 can convert to ISBN-10' };
-  const core = s.slice(3, 12);
-  const d = [...core].map(Number);
-  return core + isbn10Checksum(d);
-}
-
 function routeIsbn(u, res, json) {
   const p = u.searchParams;
-  const q = p.get('isbn');
-  if (!q) return json(res, 400, { error: 'provide ?isbn=978-3-16-148410-0' });
-  const s = clean(q);
-  const result = { input: q };
-  if (/^\d{13}$/.test(s)) {
-    Object.assign(result, validateISBN13(s), { type: 'ISBN-13' });
-    if (result.valid && p.get('convert')) result.isbn10 = isbn13to10(s);
-  } else if (/^\d{9}[\dX]$/.test(s)) {
-    Object.assign(result, validateISBN10(s), { type: 'ISBN-10' });
-    if (result.valid && p.get('convert')) result.isbn13 = isbn10to13(s);
-  } else {
-    return json(res, 400, { error: 'not a valid ISBN-10 or ISBN-13 format' });
+  const raw = p.get('isbn');
+  if (!raw) return json(res, 200, { usage: '?isbn=9780306406157 — validates ISBN-10 and ISBN-13, computes check digits' });
+  const clean = raw.replace(/[^0-9Xx]/g, '').toUpperCase();
+  const mode = p.get('mode'); // 'check10' or 'check13' to compute check digit
+  if (mode === 'check10' || mode === 'check13') {
+    const body = clean.slice(0, mode === 'check10' ? 9 : 12).split('').map(Number);
+    if (mode === 'check10') {
+      if (body.length !== 9 || body.some(isNaN)) return json(res, 400, { error: 'need 9 digits for check10' });
+      return json(res, 200, { type: 'ISBN-10', check_digit: isbn10Check(body), full: clean.slice(0, 9) + isbn10Check(body) });
+    } else {
+      if (clean.length !== 12 || [...clean].some(c => isNaN(c))) return json(res, 400, { error: 'need 12 digits for check13' });
+      let sum = 0;
+      for (let i = 0; i < 12; i++) sum += +clean[i] * (i % 2 === 0 ? 1 : 3);
+      return json(res, 200, { type: 'ISBN-13', check_digit: String((10 - (sum % 10)) % 10), full: clean + String((10 - (sum % 10)) % 10) });
+    }
   }
-  return json(res, 200, result);
-}
 
-module.exports = { routeIsbn, validateISBN10, validateISBN13, isbn10to13, isbn13to10 };
+  if (clean.length === 10) {
+    if (!/^\d{9}[\dX]$/.test(clean)) return json(res, 400, { error: 'invalid ISBN-10 format' });
+    const digits = clean.slice(0, 9).split('').map(Number);
+    const expected = isbn10Check(digits);
+    const valid = clean[9] === expected;
+    // convert to ISBN-13
+    const i13 = '978' + clean.slice(0, 9);
+    let sum = 0;
+    for (let i = 0; i < 12; i++) sum += +i13[i] * (i % 2 === 0 ? 1 : 3);
+    return json(res, 200, { type: 'ISBN-10', valid, check_digit: clean[9], expected_check_digit: expected, isbn13: i13 + String((10 - (sum % 10)) % 10) });
+  }
+  if (clean.length === 13) {
+    if (!/^\d{13}$/.test(clean)) return json(res, 400, { error: 'invalid ISBN-13 format' });
+    let sum = 0;
+    for (let i = 0; i < 12; i++) sum += +clean[i] * (i % 2 === 0 ? 1 : 3);
+    const expected = String((10 - (sum % 10)) % 10);
+    return json(res, 200, { type: 'ISBN-13', valid: clean[12] === expected, check_digit: clean[12], expected_check_digit: expected, prefix: clean.slice(0, 3) === '978' || clean.slice(0, 3) === '979' ? clean.slice(0, 3) : null });
+  }
+  return json(res, 400, { error: 'ISBN must be 10 or 13 digits' });
+}
+module.exports = { routeIsbn };
