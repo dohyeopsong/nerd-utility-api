@@ -1321,6 +1321,7 @@ http.createServer(async (req, res) => {
   if (u.pathname === '/xml2json') return routeXml2json(u, res, json, reqBody);
   if (u.pathname === '/sunrise') { try { return routeSunrise(u, res, json); } catch (e) { return json(res, 400, { error: e.message }); } }
   if (u.pathname === '/moon') { try { return routeMoon(u, res, json); } catch (e) { return json(res, 400, { error: e.message }); } }
+  if (u.pathname === '/extract') { try { return routeHtmlExtract(await readBody(req), u, res, json); } catch (e) { return json(res, 400, { error: e.message }); } }
   if (u.pathname === '/html') return routeHtml(u, res, json);
   if (u.pathname === '/pwstrength') return routePwstrength(u, res, json);
   if (u.pathname === '/cuid') return routeCuid(u, res, json);
