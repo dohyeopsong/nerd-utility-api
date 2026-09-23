@@ -1,49 +1,53 @@
-// /useragent — parse a User-Agent string: browser, engine, OS, device, bot detection
-function routeUseragent(u, res, json) {
-  const q = Object.fromEntries(u.searchParams.entries());
-  const ua = q.ua || q.useragent || q.u;
-  if (!ua) throw new Error('missing ?ua=<User-Agent string>');
-  const out = { userAgent: ua };
-  // browser (order matters — check specific first)
-  const browsers = [
-    ['Edge', /Edg(?:e|A|iOS)?\/([\d.]+)/], ['Opera', /(?:OPR|Opera)\/([\d.]+)/],
-    ['Samsung Internet', /SamsungBrowser\/([\d.]+)/], ['Firefox', /(?:Firefox|FxiOS)\/([\d.]+)/],
-    ['Chrome', /(?:Chrome|CriOS)\/([\d.]+)/], ['Safari', /Version\/([\d.]+).*Safari/],
-    ['MSIE', /MSIE ([\d.]+)/], ['IE', /Trident\/.*rv:([\d.]+)/],
+// /useragent — parse a User-Agent string: browser, engine, OS, device type, bot detection
+function parseUA(ua) {
+  const out = { browser: null, engine: null, os: null, device: 'desktop', bot: false };
+  // Bots
+  if (/bot|crawler|spider|crawling|slurp|bingpreview|facebookexternalhit|monitor|lighthouse|headless/i.test(ua)) out.bot = true;
+  // Browser
+  const b = [
+    [/Edg\/([\d.]+)/, 'Edge'], [/OPR\/([\d.]+)/, 'Opera'], [/SamsungBrowser\/([\d.]+)/, 'Samsung Internet'],
+    [/Firefox\/([\d.]+)/, 'Firefox'], [/CriOS\/([\d.]+)/, 'Chrome iOS'],
+    [/FxiOS\/([\d.]+)/, 'Firefox iOS'], [/Chrome\/([\d.]+)/, 'Chrome'], [/Version\/([\d.]+).*Safari/, 'Safari'],
   ];
-  for (const [name, re] of browsers) {
+  for (const [re, name] of b) {
     const m = ua.match(re);
-    if (m) { out.browser = name; out.browserVersion = m[1]; break; }
+    if (m) { out.browser = { name, version: m[1] }; break; }
   }
-  // engine
-  if (/Gecko\/|rv:/.test(ua) && !/like Gecko/.test(ua)) out.engine = 'Gecko';
-  else if (/AppleWebKit/.test(ua)) out.engine = /Chrome|Edg|OPR/.test(ua) ? 'Blink' : 'WebKit';
-  else if (/Trident/.test(ua)) out.engine = 'Trident';
+  // Engine
+  out.engine = /Gecko\/|Firefox/.test(ua) && !/like Gecko/.test(ua) ? 'Gecko'
+    : /AppleWebKit/.test(ua) && /Chrome|Chromium|Edg|OPR/.test(ua) ? 'Blink'
+    : /AppleWebKit/.test(ua) ? 'WebKit' : /Trident/.test(ua) ? 'Trident' : null;
   // OS
-  const oses = [
-    ['Windows', /Windows NT ([\d.]+)/, v => ({ '10.0': '10/11', '6.3': '8.1', '6.2': '8', '6.1': '7' }[v] || v)],
-    ['macOS', /Mac OS X ([\d_]+)/, v => v.replace(/_/g, '.')],
-    ['Android', /Android ([\d.]+)/], ['iOS', /(?:iPhone|iPad).*OS ([\d_]+)/, v => v.replace(/_/g, '.')],
-    ['Linux', /(?:X11; )?Linux/], ['CrOS', /CrOS/],
+  const os = [
+    [/Windows NT ([\d.]+)/, m => `Windows ${({10:'10/11',6.3:'8.1',6.2:'8',6.1:'7'})[m[1]] || m[1]}`],
+    [/iPhone OS ([\d_]+)/, m => `iOS ${m[1].replace(/_/g,'.')}`],
+    [/CPU OS ([\d_]+)/, m => `iPadOS ${m[1].replace(/_/g,'.')}`],
+    [/Android ([\d.]+)/, m => `Android ${m[1]}`],
+    [/Mac OS X ([\d_.]+)/, m => `macOS ${m[1].replace(/_/g,'.')}`],
+    [/CrOS/, () => 'ChromeOS'], [/Linux/, () => 'Linux'],
   ];
-  for (const [name, re, xf] of oses) {
-    const m = ua.match(re);
-    if (m) { out.os = name; if (m[1]) out.osVersion = xf ? xf(m[1]) : m[1]; break; }
-  }
-  // device
-  if (/iPad/.test(ua)) out.device = { type: 'tablet', model: 'iPad' };
-  else if (/iPhone/.test(ua)) out.device = { type: 'mobile', model: 'iPhone' };
-  else if (/Android.*Mobile/.test(ua)) out.device = { type: 'mobile', model: 'Android phone' };
-  else if (/Android/.test(ua)) out.device = { type: 'tablet', model: 'Android tablet' };
-  else if (/Mobi|Windows Phone/.test(ua)) out.device = { type: 'mobile' };
-  else out.device = { type: 'desktop' };
-  // bot detection
-  const botRe = /(bot|crawler|spider|slurp|bingpreview|facebookexternalhit|lighthouse|headless|curl|wget|python-requests|axios|node-fetch|postman|insomnia|httpclient|okhttp|java\/|go-http)/i;
-  out.isBot = botRe.test(ua) || /HeadlessChrome/.test(ua);
-  if (out.isBot) {
-    const bm = ua.match(/([a-z-]+bot|crawler|spider|curl|wget|python-requests|HeadlessChrome|lighthouse)/i);
-    out.botName = bm ? bm[1] : 'unknown';
-  }
-  return json(res, 200, out);
+  for (const [re, fn] of os) { const m = ua.match(re); if (m) { out.os = fn(m); break; } }
+  // Device
+  if (/iPhone|iPod/.test(ua)) out.device = 'mobile';
+  else if (/Android.*Mobile/.test(ua)) out.device = 'mobile';
+  else if (/iPad|Tablet|Android(?!.*Mobile)/.test(ua)) out.device = 'tablet';
+  return out;
 }
-module.exports = { routeUseragent };
+
+function routeUseragent(u, res, json, body, isPost) {
+  const q = u.searchParams.get('ua') || u.searchParams.get('q');
+  const viaHeader = !q && (isPost ? body : null);
+  if (!q && !isPost) {
+    return json(res, 200, {
+      op: 'useragent',
+      description: 'Parse a User-Agent string: browser, engine, OS, device type, bot detection.',
+      usage: '/useragent?ua=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ...',
+    });
+  }
+  const ua = q || (viaHeader && viaHeader.ua);
+  if (!ua) return json(res, 400, { error: 'Provide ?ua=' });
+  const parsed = parseUA(String(ua));
+  return json(res, 200, { userAgent: ua, ...parsed });
+}
+
+module.exports = { routeUseragent, parseUA };
