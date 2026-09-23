@@ -1319,6 +1319,7 @@ http.createServer(async (req, res) => {
       return res.end(csv);
     }
   if (u.pathname === '/useragent') return routeUseragent(u, res, json);
+  if (u.pathname === '/eth') return routeEth(u, res, json);
   if (u.pathname === '/jwt') return routeJwt(u, res, json);
   if (u.pathname === '/xml2json') return routeXml2json(u, res, json, reqBody);
   if (u.pathname === '/sunrise') { try { return routeSunrise(u, res, json); } catch (e) { return json(res, 400, { error: e.message }); } }
