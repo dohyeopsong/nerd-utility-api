@@ -75,3 +75,5 @@ Ethereum address validation. ?q=0x... -> format check, EIP-55 checksum verificat
 Ethereum address validation. ?q=0x... -> format check, EIP-55 checksum validation; ?mode=checksum returns the checksummed form.
 ## /base58
 Base58 encode/decode (?encode=/?decode=/?text=) and Bitcoin address validation (?btc=) with base58check + bech32 checksums, address type detection.
+## /jwt
+JWT decode (?jwt=): header/payload/alg, HS256/384/512 signature verify with ?secret=, exp/nbf/iat checks.
