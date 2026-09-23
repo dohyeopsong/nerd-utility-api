@@ -97,6 +97,7 @@ const { routeVin } = require('./routes/vin.js'); // vin decode
 const { routeCard } = require('./routes/card.js'); // card luhn
 const { routeIban } = require('./routes/iban.js');
 const { routeSwift } = require('./routes/swift.js');
+const { routeOtp } = require('./routes/otp.js');
 const { routeVat } = require('./routes/vat.js'); // iban validate
 const { routeSubnet } = require('./routes/subnet.js');
 const { routeBase } = require('./routes/base.js');
