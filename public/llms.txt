@@ -83,3 +83,5 @@ DNS records lookup (?domain=example.com, ?type=A|AAAA|MX|TXT|NS|CNAME|SOA|SRV, d
 Password generation (?length=24&count=2, class toggles lower/upper/digits/symbols/ambiguous) + strength analysis (?analyze=pw): entropy bits, strength, warnings.
 ## /cron
 Cron expression parser (?expr=): field breakdown, plain-English explanation, next N runs in UTC (?count=).
+## /semver
+Semver parse (?v=1.2.3) and compare (?a=&b=): prerelease ordering per spec. Note: URL-encode + in build metadata as %2B.
