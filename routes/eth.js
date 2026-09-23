@@ -19,7 +19,7 @@ function routeEth(u, res, json, body, isPost) {
   const hex = addr.slice(2);
   const hasUpper = /[A-F]/.test(hex), hasLower = /[a-f]/.test(hex);
   if (mode === 'checksum') {
-    const hash = keccak256(Buffer.from(hex.toLowerCase(), 'hex'));
+    const hash = keccak256(hex.toLowerCase());
     let out = '0x';
     for (let i = 0; i < 40; i++) {
       const c = hex[i];
@@ -29,7 +29,7 @@ function routeEth(u, res, json, body, isPost) {
   }
   const result = { input: addr, valid: true, length: 40 };
   if (hasUpper && hasLower) {
-    const hash = keccak256(Buffer.from(hex.toLowerCase(), 'hex'));
+    const hash = keccak256(hex.toLowerCase());
     let ok = true;
     for (let i = 0; i < 40; i++) {
       const c = hex[i];
