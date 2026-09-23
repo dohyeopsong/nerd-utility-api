@@ -9,13 +9,13 @@ function routeCron(u, res, json) {
   const aliases = { '@yearly':'0 0 1 1 *', '@annually':'0 0 1 1 *', '@monthly':'0 0 1 * *', '@weekly':'0 0 * * 0', '@daily':'0 0 * * *', '@midnight':'0 0 * * *', '@hourly':'0 * * * *' };
   // field parse: returns null if '*'
   const parseField = (s, min, max, names) => {
-    if (s === '*') return null;
+    if (s === '*') return null; // handled below too via range '*'
     const vals = new Set();
     for (const piece of s.split(',')) {
       let step = 1, range = piece;
       const sm = piece.match(/^(.*)\/(\d+)$/);
       if (sm) { range = sm[1]; step = parseInt(sm[2]); }
-      let [a, b] = range.split('-').map(x => {
+      if (range === '*') { for (let v = min; v <= max; v += step) vals.add(v); return vals; } let [a, b] = range.split('-').map(x => {
         if (/^\d+$/.test(x)) return parseInt(x);
         const idx = names ? names.findIndex(n => n.toLowerCase().startsWith(x.toLowerCase()) && x.length >= 3) : -1;
         return idx;
@@ -38,20 +38,20 @@ function routeCron(u, res, json) {
   const describe = `At minute ${fieldStr(minute)}, hour ${fieldStr(hour)}, day-of-month ${fieldStr(dom)}, during ${fieldStr(month, MONTHS.slice(1)) || 'every month'}, on ${fieldStr(dow, DOWS) || 'every day-of-week'}`;
   // next 3 runs: brute force scan
   const from = u.searchParams.get('from') ? new Date(Number(u.searchParams.get('from')) * 1000 || u.searchParams.get('from')) : new Date();
-  from.setSeconds(0, 0); from.setMinutes(from.getMinutes() + 1);
+  from.setUTCSeconds(0, 0); from.setUTCMinutes(from.getMinutes() + 1);
   const next = [];
   const d = new Date(from);
   for (let i = 0; i < 527040 && next.length < 3; i++) { // scan up to 1 year of minutes
-    if ((!minute || minute.has(d.getMinutes())) && (!hour || hour.has(d.getHours())) && (!month || month.has(d.getMonth() + 1)) &&
-        (!dom || dom.has(d.getDate())) && (!dow || dow.has(d.getDay())) &&
+    if ((!minute || minute.has(d.getUTCMinutes())) && (!hour || hour.has(d.getUTCHours())) && (!month || month.has(d.getUTCMonth() + 1)) &&
+        (!dom || dom.has(d.getUTCDate())) && (!dow || dow.has(d.getUTCDay())) &&
         (!dom === !dow || (dom && dow) || true)) {
       // cron rule: if both dom and dow are restricted, match either
-      const domOk = !dom || dom.has(d.getDate());
-      const dowOk = !dow || dow.has(d.getDay());
+      const domOk = !dom || dom.has(d.getUTCDate());
+      const dowOk = !dow || dow.has(d.getUTCDay());
       const bothRestricted = dom && dow;
       if (bothRestricted ? (domOk || dowOk) : (domOk && dowOk)) next.push(new Date(d));
     }
-    d.setMinutes(d.getMinutes() + 1);
+    d.setUTCMinutes(d.getUTCMinutes() + 1);
   }
   return json(res, 200, {
     expression: expr,
