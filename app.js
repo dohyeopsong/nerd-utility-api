@@ -12,6 +12,8 @@ const { routeElement } = require('./routes/element.js');
 const { routeBmi } = require('./routes/bmi.js');
 const { routeZodiac } = require('./routes/zodiac.js');
 const { routeCaesar } = require('./routes/caesar.js');
+const { routePiglatin } = require('./routes/piglatin.js');
+const { routeLeet } = require('./routes/leet.js');
 const { routeGeohash } = require('./routes/geohash.js');
 const { routeDomain } = require('./routes/domain.js');
 const { routePipeline } = require('./routes/pipeline.js'); // pipeline
@@ -1358,6 +1360,8 @@ http.createServer(async (req, res) => {
   if (u.pathname === '/base58') return routeBase58(u, res, json);
   if (u.pathname === '/eth') return routeEth(u, res, json);
   if (u.pathname === '/geohash') return routeGeohash(u, res, json);
+  if (u.pathname === '/piglatin') return routePiglatin(u, res, json);
+  if (u.pathname === '/leet' || u.pathname === '/leetspeak') return routeLeet(u, res, json);
   if (u.pathname === '/caesar') return routeCaesar(u, res, json);
   if (u.pathname === '/zodiac') return routeZodiac(u, res, json);
   if (u.pathname === '/bmi') return routeBmi(u, res, json);
