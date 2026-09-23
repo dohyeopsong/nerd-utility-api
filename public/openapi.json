@@ -1,0 +1,542 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "nerd.tools Utility API",
+    "version": "1.0.0",
+    "description": "47+ free, no-auth utility endpoints. Contact: 0x85fe24c7668577ae04106Be4fb806915a77384e0"
+  },
+  "servers": [
+    {
+      "url": "https://feminine-neatness-coliseum.ngrok-free.dev"
+    }
+  ],
+  "paths": {
+    "/format": {
+      "get": {
+        "summary": "format utility endpoint",
+        "description": "See /docs for parameters. GET/POST, JSON response.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/hash": {
+      "get": {
+        "summary": "hash utility endpoint",
+        "description": "See /docs for parameters. GET/POST, JSON response.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/base64": {
+      "get": {
+        "summary": "base64 utility endpoint",
+        "description": "See /docs for parameters. GET/POST, JSON response.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/uuid": {
+      "get": {
+        "summary": "uuid utility endpoint",
+        "description": "See /docs for parameters. GET/POST, JSON response.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/timestamp": {
+      "get": {
+        "summary": "timestamp utility endpoint",
+        "description": "See /docs for parameters. GET/POST, JSON response.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/text-stats": {
+      "get": {
+        "summary": "text-stats utility endpoint",
+        "description": "See /docs for parameters. GET/POST, JSON response.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/qrcode": {
+      "get": {
+        "summary": "qrcode utility endpoint",
+        "description": "See /docs for parameters. GET/POST, JSON response.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/dns": {
+      "get": {
+        "summary": "dns utility endpoint",
+        "description": "See /docs for parameters. GET/POST, JSON response.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/headers": {
+      "get": {
+        "summary": "headers utility endpoint",
+        "description": "See /docs for parameters. GET/POST, JSON response.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/price": {
+      "get": {
+        "summary": "price utility endpoint",
+        "description": "See /docs for parameters. GET/POST, JSON response.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/ipinfo": {
+      "get": {
+        "summary": "ipinfo utility endpoint",
+        "description": "See /docs for parameters. GET/POST, JSON response.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/scrape": {
+      "get": {
+        "summary": "scrape utility endpoint",
+        "description": "See /docs for parameters. GET/POST, JSON response.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/iban": {
+      "get": {
+        "summary": "iban utility endpoint",
+        "description": "See /docs for parameters. GET/POST, JSON response.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/vat": {
+      "get": {
+        "summary": "vat utility endpoint",
+        "description": "See /docs for parameters. GET/POST, JSON response.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/vin": {
+      "get": {
+        "summary": "vin utility endpoint",
+        "description": "See /docs for parameters. GET/POST, JSON response.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/imei": {
+      "get": {
+        "summary": "imei utility endpoint",
+        "description": "See /docs for parameters. GET/POST, JSON response.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/isbn": {
+      "get": {
+        "summary": "isbn utility endpoint",
+        "description": "See /docs for parameters. GET/POST, JSON response.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/ean": {
+      "get": {
+        "summary": "ean utility endpoint",
+        "description": "See /docs for parameters. GET/POST, JSON response.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/phone": {
+      "get": {
+        "summary": "phone utility endpoint",
+        "description": "See /docs for parameters. GET/POST, JSON response.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/postal": {
+      "get": {
+        "summary": "postal utility endpoint",
+        "description": "See /docs for parameters. GET/POST, JSON response.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/cron": {
+      "get": {
+        "summary": "cron utility endpoint",
+        "description": "See /docs for parameters. GET/POST, JSON response.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/useragent": {
+      "get": {
+        "summary": "useragent utility endpoint",
+        "description": "See /docs for parameters. GET/POST, JSON response.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/jwt": {
+      "get": {
+        "summary": "jwt utility endpoint",
+        "description": "See /docs for parameters. GET/POST, JSON response.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/semver": {
+      "get": {
+        "summary": "semver utility endpoint",
+        "description": "See /docs for parameters. GET/POST, JSON response.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/units": {
+      "get": {
+        "summary": "units utility endpoint",
+        "description": "See /docs for parameters. GET/POST, JSON response.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/math": {
+      "get": {
+        "summary": "math utility endpoint",
+        "description": "See /docs for parameters. GET/POST, JSON response.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/cidr": {
+      "get": {
+        "summary": "cidr utility endpoint",
+        "description": "See /docs for parameters. GET/POST, JSON response.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/slug": {
+      "get": {
+        "summary": "slug utility endpoint",
+        "description": "See /docs for parameters. GET/POST, JSON response.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/luhn": {
+      "get": {
+        "summary": "luhn utility endpoint",
+        "description": "See /docs for parameters. GET/POST, JSON response.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/email": {
+      "get": {
+        "summary": "email utility endpoint",
+        "description": "See /docs for parameters. GET/POST, JSON response.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/color": {
+      "get": {
+        "summary": "color utility endpoint",
+        "description": "See /docs for parameters. GET/POST, JSON response.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/diff": {
+      "get": {
+        "summary": "diff utility endpoint",
+        "description": "See /docs for parameters. GET/POST, JSON response.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/regex": {
+      "get": {
+        "summary": "regex utility endpoint",
+        "description": "See /docs for parameters. GET/POST, JSON response.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/number": {
+      "get": {
+        "summary": "number utility endpoint",
+        "description": "See /docs for parameters. GET/POST, JSON response.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/roman": {
+      "get": {
+        "summary": "roman utility endpoint",
+        "description": "See /docs for parameters. GET/POST, JSON response.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/rot13": {
+      "get": {
+        "summary": "rot13 utility endpoint",
+        "description": "See /docs for parameters. GET/POST, JSON response.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/datediff": {
+      "get": {
+        "summary": "datediff utility endpoint",
+        "description": "See /docs for parameters. GET/POST, JSON response.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/random": {
+      "get": {
+        "summary": "random utility endpoint",
+        "description": "See /docs for parameters. GET/POST, JSON response.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/url": {
+      "get": {
+        "summary": "url utility endpoint",
+        "description": "See /docs for parameters. GET/POST, JSON response.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/case": {
+      "get": {
+        "summary": "case utility endpoint",
+        "description": "See /docs for parameters. GET/POST, JSON response.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/swift": {
+      "get": {
+        "summary": "swift utility endpoint",
+        "description": "See /docs for parameters. GET/POST, JSON response.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/csv": {
+      "get": {
+        "summary": "csv utility endpoint",
+        "description": "See /docs for parameters. GET/POST, JSON response.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/json": {
+      "get": {
+        "summary": "json utility endpoint",
+        "description": "See /docs for parameters. GET/POST, JSON response.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/html": {
+      "get": {
+        "summary": "html utility endpoint",
+        "description": "See /docs for parameters. GET/POST, JSON response.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/markdown": {
+      "get": {
+        "summary": "markdown utility endpoint",
+        "description": "See /docs for parameters. GET/POST, JSON response.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/convert": {
+      "get": {
+        "summary": "convert utility endpoint",
+        "description": "See /docs for parameters. GET/POST, JSON response.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/password": {
+      "get": {
+        "summary": "password utility endpoint",
+        "description": "See /docs for parameters. GET/POST, JSON response.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/docs": {
+      "get": {
+        "summary": "Human docs",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    }
+  }
+}
