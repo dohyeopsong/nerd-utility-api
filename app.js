@@ -101,6 +101,7 @@ const { routeCard } = require('./routes/card.js'); // card luhn
 const { routeIban } = require('./routes/iban.js');
 const { routeSwift } = require('./routes/swift.js');
 const { routeOtp } = require('./routes/otp.js');
+const { routeSedol } = require('./routes/sedol.js');
 const { routeVat } = require('./routes/vat.js'); // iban validate
 const { routeSubnet } = require('./routes/subnet.js');
 const { routeBase } = require('./routes/base.js');
@@ -1233,6 +1234,7 @@ http.createServer(async (req, res) => {
   if (u.pathname === '/gravatar') return routeGravatar(u, res, json);
   if (u.pathname === '/haversine') return routeHaversine(u, res, json);
   if (u.pathname === '/isrc') return routeIsrc(u, res, json);
+  if (u.pathname === '/sedol') return routeSedol(u, res, json);
     if (!handler && u.pathname !== '/md2html' && u.pathname !== '/html2md' && u.pathname !== '/jsonpath' && u.pathname !== '/pipeline' && u.pathname !== '/nato') return json(res, 404, { error: 'not found. See /docs' });
     if (req.method !== 'POST' && req.method !== 'GET') return json(res, 405, { error: 'GET/POST. See /docs' });
     const q = Object.fromEntries(u.searchParams.entries());
