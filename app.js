@@ -74,6 +74,7 @@ const { routeYamljson } = require('./routes/yamljson.js');
 const { routeChecksum } = require('./routes/checksum.js');
 const { routeHash } = require('./routes/hash.js');
 const { routeCron } = require('./routes/cron.js');
+const { routeGstin } = require('./routes/gstin.js');
 const { routeGravatar } = require('./routes/gravatar.js');
 const { routeHaversine } = require('./routes/haversine.js');
 const { routeIsrc } = require('./routes/isrc.js');
@@ -849,6 +850,7 @@ http.createServer(async (req, res) => {
             if (u.pathname === '/convert') {
               return routeConvert(u, res, json);
             if (u.pathname === '/swift') {
+  if (u.pathname === '/gstin') return routeGstin(u, res, json);
               return routeSwift(u, res, json);
             }
             }
