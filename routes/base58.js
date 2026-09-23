@@ -76,30 +76,24 @@ function convertBits(data, fromBits, toBits, pad) {
   return ret;
 }
 
+const { bech32, bech32m } = require('bech32');
 function validateSegwit(addr) {
-  const sep = addr.lastIndexOf('1');
-  if (sep < 1 || sep + 7 > addr.length || addr.length > 90) return { valid: false, reason: 'bad structure' };
-  const hrp = addr.slice(0, sep).toLowerCase();
-  const dataPart = addr.slice(sep + 1);
-  if (!/^[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+$/.test(dataPart)) return { valid: false, reason: 'invalid charset' };
-  if (hrp !== 'bc' && hrp !== 'tb') return { valid: false, reason: 'unknown hrp ' + hrp };
-  const dataChars = [...dataPart].map(c => BECH32_CHARSET.indexOf(c));
-  if (!bech32Polymod(hrpExpand(hrp).concat(dataChars)) === false) { /* fallthrough handled below */ }
-  const mod = bech32Polymod(hrpExpand(hrp).concat(dataChars));
-  const encoding = mod === 1 ? 'bech32' : mod === 0x2bc830a3 ? 'bech32m' : null;
-  if (!encoding) return { valid: false, reason: 'bad checksum' };
-  // witness version = first data char, rest = program
-  const witnessVersion = dataChars[0];
-  if (witnessVersion > 16) return { valid: false, reason: 'witness version out of range' };
-  const program5 = dataChars.slice(1, -6);
-  const program = convertBits(program5, 5, 8, false);
-  if (!program || program.length < 2 || program.length > 40) return { valid: false, reason: 'bad witness program' };
-  if (witnessVersion === 0 && program.length !== 20 && program.length !== 32) return { valid: false, reason: 'v0 program must be 20 or 32 bytes' };
-  if (witnessVersion === 0 && encoding !== 'bech32') return { valid: false, reason: 'v0 must use bech32' };
-  if (witnessVersion !== 0 && encoding !== 'bech32m') return { valid: false, reason: 'v1+ must use bech32m' };
-  const net = hrp === 'bc' ? 'mainnet' : 'testnet';
-  const type = witnessVersion === 0 ? (program.length === 20 ? 'P2WPKH' : 'P2WSH') : 'P2TR (taproot)';
-  return { valid: true, network: net, encoding, witnessVersion, programLength: program.length, addressType: type };
+  try {
+    // bech32 package expects data part after the separator; decode handles hrp+data
+    const lower = addr.toLowerCase() === addr || addr.toUpperCase() === addr ? addr : addr;
+    let dec;
+    try { dec = bech32.decode(addr, 90); var enc = 'bech32'; }
+    catch (e1) { try { dec = bech32m.decode(addr, 90); enc = 'bech32m'; } catch (e2) { return { valid: false, reason: 'decode failed: ' + (e2.message || e1.message) }; } }
+    const hrp = dec.prefix;
+    if (hrp !== 'bc' && hrp !== 'tb') return { valid: false, reason: 'unknown hrp ' + hrp };
+    const version = dec.words[0];
+    const program = bech32.fromWords(dec.words.slice(1));
+    if (version > 16) return { valid: false, reason: 'witness version out of range' };
+    if (version === 0 && program.length !== 20 && program.length !== 32) return { valid: false, reason: 'v0 program must be 20 or 32 bytes' };
+    if (version === 0 && enc !== 'bech32') return { valid: false, reason: 'v0 must use bech32' };
+    if (version !== 0 && enc !== 'bech32m') return { valid: false, reason: 'v1+ must use bech32m' };
+    return { valid: true, network: hrp === 'bc' ? 'mainnet' : 'testnet', encoding: enc, witnessVersion: version, programLength: program.length, addressType: version === 0 ? (program.length === 20 ? 'P2WPKH' : 'P2WSH') : 'P2TR (taproot)' };
+  } catch (e) { return { valid: false, reason: e.message }; }
 }
 
 function validateBtc(addr) {
