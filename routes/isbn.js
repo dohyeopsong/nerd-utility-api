@@ -1,74 +1,97 @@
-// /isbn — ISBN-10/13 validation, conversion, hyphenation
-function routeIsbn(u, res, json) {
-  const q = u.searchParams;
-  const check = q.get('check');
-  const convert = q.get('convert');
-  const inp = check || convert;
-  if (!inp) return json(res, 400, { error: 'provide ?check=ISBN or ?convert=ISBN', example: '/isbn?check=9780306406157' });
+// /isbn — validate and convert ISBN-10 <-> ISBN-13, with book info lookup
+function isbn10Checksum(d) {
+  // d: first 9 digits; returns check char
+  let sum = 0;
+  for (let i = 0; i < 9; i++) sum += (10 - i) * parseInt(d[i], 10);
+  const r = (11 - (sum % 11)) % 11;
+  return r === 10 ? 'X' : String(r);
+}
+function isbn13Checksum(d) {
+  // d: first 12 digits
+  let sum = 0;
+  for (let i = 0; i < 12; i++) sum += (i % 2 === 0 ? 1 : 3) * parseInt(d[i], 10);
+  return String((10 - (sum % 10)) % 10);
+}
 
-  // normalize: strip spaces, hyphens
-  const s = inp.replace(/[\s-]/g, '').toUpperCase();
-
-  if (/[^0-9X]/.test(s)) { return json(res, 200, { input: inp, valid: false, reason: 'invalid characters' }); }
-
-  const out = { input: inp, isbn: s };
-
-  // ISBN-10
-  if (s.length === 10) {
-    if (!/^[0-9]{9}[0-9X]$/.test(s)) { out.valid = false; out.reason = 'bad ISBN-10 format'; return json(res, 200, out); }
-    let sum = 0;
-    for (let i = 0; i < 10; i++) {
-      const v = s[i] === 'X' && i === 9 ? 10 : +s[i];
-      sum += v * (10 - i);
-    }
-    out.type = 'ISBN-10';
-    out.valid = sum % 11 === 0;
-    out.check_digit = s[9];
-    out.expected_check_digit = String((11 - (sum - (s[9]==='X'?10:+s[9]))) % 11).replace('10','X');
-    if (out.valid && convert) {
-      out.converted_to_isbn13 = to13(s);
+function routeIsbn(u, res, json, body, isPost) {
+  const raw = u.searchParams.get('q') || u.searchParams.get('isbn');
+  if (!isPost && !raw) {
+    return json(res, 200, {
+      op: 'isbn',
+      description: 'Validate ISBN-10/ISBN-13 and convert between them.',
+      usage: '/isbn?q=9780306406157 or /isbn?q=0-306-40615-2',
+      modes: 'default: validate + convert; ?info=1 to also fetch book metadata from OpenLibrary (may be slow)',
+    });
+  }
+  if (!raw) return json(res, 400, { error: 'Provide ?q=' });
+  const digits = String(raw).replace(/[^0-9Xx]/g, '').toUpperCase();
+  if (digits.length === 10) {
+    const body9 = digits.slice(0, 9);
+    if (!/^\d{9}$/.test(body9)) return json(res, 400, { error: 'ISBN-10 must have 9 digits before check char' });
+    const expected = isbn10Checksum(body9);
+    const valid = digits[9] === expected;
+    const out = {
+      input: String(raw),
+      type: 'ISBN-10',
+      valid,
+      expectedCheckDigit: expected,
+      isbn13: '978' + body9 + isbn13Checksum('978' + body9),
+    };
+    if (valid && (u.searchParams.get('info') === '1')) {
+      return lookupOpenLibrary(out.isbn13, out, res, json);
     }
     return json(res, 200, out);
   }
-
-  // ISBN-13
-  if (s.length === 13) {
-    if (!/^[0-9]{13}$/.test(s)) { out.valid = false; out.reason = 'bad ISBN-13 format (X only valid in ISBN-10)'; return json(res, 200, out); }
-    let sum = 0;
-    for (let i = 0; i < 13; i++) sum += +s[i] * (i % 2 === 0 ? 1 : 3);
-    out.type = 'ISBN-13';
-    out.valid = sum % 10 === 0;
-    out.check_digit = s[12];
-    out.expected_check_digit = String((10 - sum % 10) % 10);
-    // GS1 prefix: 978/979
-    out.gs1_prefix = s.slice(0, 3);
-    if (out.valid && convert) {
-      out.converted_to_isbn10 = to10(s);
+  if (digits.length === 13) {
+    const body12 = digits.slice(0, 12);
+    if (!/^\d{12}$/.test(body12)) return json(res, 400, { error: 'ISBN-13 must be all digits' });
+    if (!/^97[89]/.test(body12)) return json(res, 400, { error: 'ISBN-13 must start with 978 or 979' });
+    const expected = isbn13Checksum(body12);
+    const valid = digits[12] === expected;
+    const out = {
+      input: String(raw),
+      type: 'ISBN-13',
+      valid,
+      expectedCheckDigit: expected,
+    };
+    if (body12.startsWith('978')) {
+      const nine = body12.slice(3);
+      const c10 = isbn10Checksum(nine);
+      out.isbn10 = nine + c10;
+    }
+    if (valid && (u.searchParams.get('info') === '1')) {
+      return lookupOpenLibrary(digits, out, res, json);
     }
     return json(res, 200, out);
   }
-
-  out.valid = false;
-  out.reason = `expected 10 or 13 digits, got ${s.length}`;
-  return json(res, 200, out);
+  return json(res, 400, { error: 'Not 10 or 13 digits after stripping hyphens/spaces' });
 }
 
-function to13(s10) {
-  // ISBN-10 → ISBN-13: prepend 978, drop check digit, recompute
-  const core = '978' + s10.slice(0, 9);
-  let sum = 0;
-  for (let i = 0; i < 12; i++) sum += +core[i] * (i % 2 === 0 ? 1 : 3);
-  return core + String((10 - sum % 10) % 10);
-}
-
-function to10(s13) {
-  // ISBN-13 → ISBN-10: only valid for 978 prefix
-  if (s13.slice(0,3) !== '978') return null;
-  const core = s13.slice(3, 12);
-  let sum = 0;
-  for (let i = 0; i < 9; i++) sum += +core[i] * (10 - i);
-  const rem = (11 - (sum % 11)) % 11;
-  return core + (rem === 10 ? 'X' : String(rem));
+function lookupOpenLibrary(isbn13, out, res, json) {
+  const https = require('https');
+  const req = https.get(`https://openlibrary.org/api/books?bibkeys=ISBN:${isbn13}&format=json&jscmd=data`, (r) => {
+    let data = '';
+    r.on('data', (c) => data += c);
+    r.on('end', () => {
+      try {
+        const j = JSON.parse(data);
+        const b = j[`ISBN:${isbn13}`];
+        if (b) {
+          out.title = b.title;
+          out.authors = (b.authors || []).map(a => a.name);
+          out.publishers = (b.publishers || []).map(p => p.name);
+          out.publishDate = b.publish_date;
+          out.pages = b.number_of_pages;
+          if (b.cover) out.coverUrl = b.cover.medium || b.cover.large;
+        } else {
+          out.openLibrary = 'not found';
+        }
+      } catch { out.openLibrary = 'lookup failed'; }
+      json(res, 200, out);
+    });
+  });
+  req.on('error', () => { out.openLibrary = 'lookup failed'; json(res, 200, out); });
+  req.setTimeout(5000, () => { req.destroy(); out.openLibrary = 'timeout'; json(res, 200, out); });
 }
 
 module.exports = { routeIsbn };

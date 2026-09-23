@@ -1,4 +1,5 @@
 const { routeHtml2md } = require('./routes/html2md.js'); // html2md
+const { routeNato } = require('./routes/nato.js');
 const { routePipeline } = require('./routes/pipeline.js'); // pipeline
 const { routeIso } = require('./routes/iso.js'); // iso
 const { routeNumber } = require('./routes/number.js'); // number
@@ -1404,7 +1405,7 @@ http.createServer(async (req, res) => {
       try { return routeUrl(u, res, json); }
       catch (e) { return json(res, 400, { error: e.message }); }
     }
-    if (!handler && u.pathname !== '/md2html' && u.pathname !== '/html2md' && u.pathname !== '/jsonpath' && u.pathname !== '/pipeline') return json(res, 404, { error: 'not found. See /docs' });
+    if (!handler && u.pathname !== '/md2html' && u.pathname !== '/html2md' && u.pathname !== '/jsonpath' && u.pathname !== '/pipeline' && u.pathname !== '/nato') return json(res, 404, { error: 'not found. See /docs' });
     if (req.method !== 'POST' && req.method !== 'GET') return json(res, 405, { error: 'GET/POST. See /docs' });
     const q = Object.fromEntries(u.searchParams.entries());
     const body = req.method === 'POST' ? reqBody
@@ -1414,7 +1415,8 @@ http.createServer(async (req, res) => {
               catch (e) { return json(res, 400, { error: e.message }); }
             }
             if (u.pathname === '/jsonpath') { return await routeJsonpath(u, res, json, reqBody, req.method); }
-    if (u.pathname === '/pipeline') { return routePipeline(u, res, json, body, req.method === 'POST'); }
+    if (u.pathname === '/nato') { return routeNato(u, res, json, body, req.method === 'POST'); }
+if (u.pathname === '/pipeline') { return routePipeline(u, res, json, body, req.method === 'POST'); }
 if (u.pathname === '/html2md') { return routeHtml2md(u, res, json, body, req.method === 'POST'); }
     try {
       const out = await handler(body, q);
