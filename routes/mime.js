@@ -1,71 +1,20 @@
-// /mime — MIME type lookup (ext -> type) and reverse (type -> extensions)
-const MIME = {
-  '.html': ['text/html'], '.htm': ['text/html'], '.css': ['text/css'],
-  '.js': ['text/javascript'], '.mjs': ['text/javascript'], '.json': ['application/json'],
-  '.jsonld': ['application/ld+json'], '.xml': ['application/xml'], '.txt': ['text/plain'],
-  '.md': ['text/markdown'], '.csv': ['text/csv'], '.tsv': ['text/tab-separated-values'],
-  '.pdf': ['application/pdf'], '.zip': ['application/zip'], '.gz': ['application/gzip'],
-  '.tar': ['application/x-tar'], '.7z': ['application/x-7z-compressed'],
-  '.png': ['image/png'], '.jpg': ['image/jpeg'], '.jpeg': ['image/jpeg'],
-  '.gif': ['image/gif'], '.webp': ['image/webp'], '.svg': ['image/svg+xml'],
-  '.ico': ['image/vnd.microsoft.icon'], '.bmp': ['image/bmp'], '.tiff': ['image/tiff'],
-  '.avif': ['image/avif'], '.heic': ['image/heic'],
-  '.mp3': ['audio/mpeg'], '.wav': ['audio/wav'], '.ogg': ['audio/ogg'],
-  '.flac': ['audio/flac'], '.aac': ['audio/aac'],
-  '.mp4': ['video/mp4'], '.webm': ['video/webm'], '.mov': ['video/quicktime'],
-  '.avi': ['video/x-msvideo'], '.mkv': ['video/x-matroska'],
-  '.woff': ['font/woff'], '.woff2': ['font/woff2'], '.ttf': ['font/ttf'],
-  '.otf': ['font/otf'], '.eot': ['application/vnd.ms-fontobject'],
-  '.wasm': ['application/wasm'],
-  '.doc': ['application/msword'],
-  '.docx': ['application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
-  '.xls': ['application/vnd.ms-excel'],
-  '.xlsx': ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
-  '.ppt': ['application/vnd.ms-powerpoint'],
-  '.pptx': ['application/vnd.openxmlformats-officedocument.presentationml.presentation'],
-  '.odt': ['application/vnd.oasis.opendocument.text'],
-  '.rtf': ['application/rtf'],
-  '.yml': ['application/yaml'], '.yaml': ['application/yaml'],
-  '.toml': ['application/toml'], '.ini': ['text/plain'], '.conf': ['text/plain'],
-  '.sql': ['application/sql'], '.sh': ['application/x-sh'], '.bash': ['application/x-sh'],
-  '.py': ['text/x-python'], '.rb': ['text/x-ruby'], '.go': ['text/x-go'],
-  '.rs': ['text/x-rust'], '.c': ['text/x-c'], '.h': ['text/x-c'],
-  '.cpp': ['text/x-c++'], '.java': ['text/x-java-source'], '.php': ['application/x-httpd-php'],
-  '.svgz': ['image/svg+xml'],
-  '.epub': ['application/epub+zip'],
-  '.apk': ['application/vnd.android.package-archive'],
-  '.iso': ['application/x-iso9660-image'],
-  '.dmg': ['application/x-apple-diskimage'],
-  '.exe': ['application/x-msdownload'], '.dll': ['application/x-msdownload'],
-  '.deb': ['application/vnd.debian.binary-package'], '.rpm': ['application/x-rpm'],
-  '.eml': ['message/rfc822'], '.mjs2': null,
-};
-delete MIME['.mjs2'];
-
-const REVERSE = {};
-for (const [ext, types] of Object.entries(MIME)) {
-  for (const t of types) (REVERSE[t] = REVERSE[t] || []).push(ext);
-}
-
+// /mime — extension → MIME type lookup (and reverse via ?type=)
+const MAP = { html:'text/html', htm:'text/html', css:'text/css', js:'application/javascript', mjs:'application/javascript', json:'application/json', jsonp:'application/javascript', xml:'application/xml', txt:'text/plain', md:'text/markdown', csv:'text/csv', tsv:'text/tab-separated-values', ics:'text/calendar', svg:'image/svg+xml', png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg', gif:'image/gif', webp:'image/webp', avif:'image/avif', bmp:'image/bmp', ico:'image/x-icon', tiff:'image/tiff', mp3:'audio/mpeg', wav:'audio/wav', ogg:'audio/ogg', m4a:'audio/mp4', flac:'audio/flac', mp4:'video/mp4', webm:'video/webm', mov:'video/quicktime', avi:'video/x-msvideo', mkv:'video/x-matroska', pdf:'application/pdf', zip:'application/zip', gz:'application/gzip', tar:'application/x-tar', '7z':'application/x-7z-compressed', rar:'application/vnd.rar', bz2:'application/x-bzip2', doc:'application/msword', docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document', xls:'application/vnd.ms-excel', xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', ppt:'application/vnd.ms-powerpoint', pptx:'application/vnd.openxmlformats-officedocument.presentationml.presentation', odt:'application/vnd.oasis.opendocument.text', ods:'application/vnd.oasis.opendocument.spreadsheet', odp:'application/vnd.oasis.opendocument.presentation', rtf:'application/rtf', woff:'font/woff', woff2:'font/woff2', ttf:'font/ttf', otf:'font/otf', eot:'application/vnd.ms-fontobject', wasm:'application/wasm', mpkg:'application/vnd.apple.installer+xml', dmg:'application/x-apple-diskimage', deb:'application/x-debian-package', rpm:'application/x-rpm', exe:'application/x-msdownload', msi:'application/x-msi', apk:'application/vnd.android.package-archive', jar:'application/java-archive', wasm_:'application/wasm', epub:'application/epub+zip', mobi:'application/x-mobipocket-ebook', yaml:'application/yaml', yml:'application/yaml', toml:'application/toml', ini:'text/plain', conf:'text/plain', env:'text/plain', sh:'text/x-shellscript', py:'text/x-python', rb:'text/x-ruby', php:'application/x-httpd-php', java:'text/x-java-source', c:'text/x-c', cpp:'text/x-c++', h:'text/x-c', go:'text/x-go', rs:'text/rust', ts:'application/typescript', tsx:'application/typescript', jsx:'application/javascript', vue:'text/x-vue', sql:'application/sql', graphql:'application/graphql', pem:'application/x-pem-file', crt:'application/x-x509-ca-cert', key:'application/x-pem-file', p12:'application/x-pkcs12', torrent:'application/x-bittorrent', wasm2:'application/wasm' };
 function routeMime(u, res, json) {
   const p = u.searchParams;
-  const query = (p.get('q') || p.get('ext') || p.get('type') || '').trim();
-  if (!query) return json(res, 400, { error: 'provide ?ext=.png (with dot) or ?type=image/png, or ?list=1 for full map' });
-  if (p.get('list')) {
-    return json(res, 200, { extensions: Object.keys(MIME).length, mimeTypes: Object.keys(REVERSE).length });
+  const ext = p.get('ext'), type = p.get('type');
+  if (ext) {
+    const e = ext.toLowerCase().replace(/^\./, '');
+    const m = MAP[e];
+    if (m) return json(res, 200, { ext: e, mime: m });
+    return json(res, 404, { error: `unknown extension: ${e}`, note: 'try ?type=text/html for reverse lookup' });
   }
-  // extension lookup
-  const ext = query.startsWith('.') ? query.toLowerCase() : '.' + query.toLowerCase();
-  if (MIME[ext]) {
-    const types = MIME[ext];
-    return json(res, 200, { extension: ext, mime: types[0], aliases: types, charset: types[0].startsWith('text/') ? 'utf-8' : undefined });
+  if (type) {
+    const t = type.toLowerCase().split(';')[0].trim();
+    const exts = Object.entries(MAP).filter(([,v]) => v === t).map(([k]) => k);
+    if (exts.length) return json(res, 200, { mime: t, extensions: exts });
+    return json(res, 404, { error: `unknown mime type: ${t}` });
   }
-  // mime type reverse lookup
-  const t = query.toLowerCase();
-  if (REVERSE[t]) {
-    return json(res, 200, { mime: t, extensions: REVERSE[t] });
-  }
-  return json(res, 404, { error: 'unknown extension or mime type', query });
+  return json(res, 200, { usage: '?ext=png or ?type=image/png (reverse lookup)', known_extensions: Object.keys(MAP).length });
 }
-
 module.exports = { routeMime };
