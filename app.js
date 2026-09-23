@@ -102,7 +102,6 @@ const { routeImei } = require('./routes/imei.js'); // imei validate
 const { routeEan } = require('./routes/ean.js'); // ean validate
 const { routeVin } = require('./routes/vin.js'); // vin decode
 const { routeCard } = require('./routes/card.js'); // card luhn
-const { routeIban } = require('./routes/iban.js');
 const { routeSwift } = require('./routes/swift.js');
 const { routeOtp } = require('./routes/otp.js');
 const { routeSedol } = require('./routes/sedol.js');
