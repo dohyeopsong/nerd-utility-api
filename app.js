@@ -1,4 +1,3 @@
-const { routeIban } = require('./routes/iban.js'); // iban
 const { routeBip39 } = require('./routes/bip39.js'); // bip39
 const { routeEthaddr } = require('./routes/ethaddr.js'); // ethaddr
 const { routeHtml2md } = require('./routes/html2md.js'); // html2md
