@@ -843,20 +843,9 @@ http.createServer(async (req, res) => {
             }
             if (u.pathname === '/convert') {
               return routeConvert(u, res, json);
-            if (u.pathname === '/swift') {
-  if (u.pathname === '/gstin') return routeGstin(u, res, json);
-              return routeSwift(u, res, json);
-            }
-            }
-            if (u.pathname === '/cidr') {
-  if (u.pathname === '/swift') return routeSwift(u, res, json);
-  if (u.pathname === '/swift') return routeSwift(u, res, json);
-  if (u.pathname === '/swift') return routeSwift(u, res, json);
-              return routeCidr(u, res, json);
-            }
-            if (u.pathname === '/semver') {
-              catch (e) { return json(res, 500, { error: e.message }); }
-            }
+            if (u.pathname === '/gstin') return routeGstin(u, res, json);
+            if (u.pathname === '/swift') return routeSwift(u, res, json);
+            if (u.pathname === '/cidr') return routeCidr(u, res, json);
             if (u.pathname === '/timediff') {
               try { return routeTimediff(u, res, json); }
               catch (e) { return json(res, 400, { error: e.message }); }
@@ -1154,7 +1143,6 @@ http.createServer(async (req, res) => {
   if (u.pathname === '/ethaddr') return routeEthaddr(u, res, json);
   if (u.pathname === '/bip39') return routeBip39(u, res, json);
   if (u.pathname === '/iban') return routeIban(u, res, json);
-  if (u.pathname === '/swift') return routeSwift(u, res, json);
   if (u.pathname === '/headers') return routeHeaders(u, res, json, req);
   if (u.pathname === '/mime') return routeMime(u, res, json);
   if (u.pathname === '/xml2json') return routeXml2json(u, res, json, reqBody);
