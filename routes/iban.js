@@ -20,7 +20,7 @@ function routeIban(u, res, json, body, isPost) {
     return json(res, 200, {
       op: 'iban',
       description: 'IBAN validation: format, country length check, mod-97 checksum.',
-      usage: '/iban?q=GB82WEST12345698765432' (alias: ?check=)',
+      usage: '/iban?q=GB82WEST12345698765432 (alias: ?check=)',
     });
   }
   if (!q) return json(res, 400, { error: 'Provide ?q=' });
