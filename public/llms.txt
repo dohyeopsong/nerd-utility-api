@@ -73,3 +73,5 @@ IBAN validation. ?q=GB82WEST12345698765432 -> valid, country, formatted, check d
 Ethereum address validation. ?q=0x... -> format check, EIP-55 checksum verification. ?mode=checksum returns checksummed form.
 ## /eth
 Ethereum address validation. ?q=0x... -> format check, EIP-55 checksum validation; ?mode=checksum returns the checksummed form.
+## /base58
+Base58 encode/decode (?encode=/?decode=/?text=) and Bitcoin address validation (?btc=) with base58check + bech32 checksums, address type detection.

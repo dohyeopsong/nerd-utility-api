@@ -38,6 +38,7 @@ const { routePassword } = require('./routes/password.js');
 const { routeJwt } = require('./routes/jwt.js');
 const { routeXml2json } = require('./routes/xml2json.js');
 const { routeUseragent } = require('./routes/useragent.js');
+const { routeBase58 } = require('./routes/base58.js');
 const { routeGeoip } = require("./routes/geoip.js");
 const { routeSemver } = require('./routes/semver.js');
 const { routeTimediff } = require('./routes/timediff.js');
@@ -1319,6 +1320,7 @@ http.createServer(async (req, res) => {
       return res.end(csv);
     }
   if (u.pathname === '/useragent') return routeUseragent(u, res, json);
+  if (u.pathname === '/base58') return routeBase58(u, res, json, body, isPost);
   if (u.pathname === '/eth') return routeEth(u, res, json);
   if (u.pathname === '/jwt') return routeJwt(u, res, json);
   if (u.pathname === '/xml2json') return routeXml2json(u, res, json, reqBody);
