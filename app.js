@@ -28,6 +28,7 @@ const docsGen = require('./docs.js'); // auto-docs
 const { routeCidr } = require('./routes/cidr.js'); // cidr
 const { routeSwift } = require('./routes/swift.js'); // swift
 const { routeSwift } = require('./routes/swift.js'); // swift
+const { routeSwift } = require('./routes/swift.js'); // swift
 const { routeMorse } = require('./routes/morse.js'); // morse
 const { routeRot13 } = require('./routes/rot13.js');
 const { landingPage } = require('./routes/landing.js'); // rot13
@@ -1154,6 +1155,7 @@ http.createServer(async (req, res) => {
   if (u.pathname === '/ethaddr') return routeEthaddr(u, res, json);
   if (u.pathname === '/bip39') return routeBip39(u, res, json);
   if (u.pathname === '/iban') return routeIban(u, res, json);
+  if (u.pathname === '/swift') return routeSwift(u, res, json);
   if (u.pathname === '/headers') return routeHeaders(u, res, json, req);
   if (u.pathname === '/mime') return routeMime(u, res, json);
   if (u.pathname === '/xml2json') return routeXml2json(u, res, json, reqBody);
