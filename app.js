@@ -26,7 +26,6 @@ const { routeNumber } = require('./routes/number.js'); // number
 const { routeConvert } = require('./routes/convert.js'); // convert
 const docsGen = require('./docs.js'); // auto-docs
 const { routeCidr } = require('./routes/cidr.js'); // cidr
-const { routeUuid7 } = require('./routes/uuid7.js'); // uuid7
 const { routeMorse } = require('./routes/morse.js'); // morse
 const { routeRot13 } = require('./routes/rot13.js');
 const { landingPage } = require('./routes/landing.js'); // rot13
