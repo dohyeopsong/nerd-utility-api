@@ -87,3 +87,5 @@ Cron expression parser (?expr=): field breakdown, plain-English explanation, nex
 Semver parse (?v=1.2.3) and compare (?a=&b=): prerelease ordering per spec. Note: URL-encode + in build metadata as %2B.
 ## /ip
 IPv4 subnet calculator (?ip=192.168.1.10/26): netmask, network, broadcast, host range, class, private check.
+## /punycode
+Punycode encode/decode (?q=日本 or ?mode=decode&q=wgv71a), IDN domains (?domain=1&q=日本.jp).

@@ -1,6 +1,7 @@
 const { routeHtml2md } = require('./routes/html2md.js'); // html2md
 const { routeNato } = require('./routes/nato.js');
 const { routeEth } = require('./routes/eth.js');
+const { routePunycode } = require('./routes/punycode.js');
 const { routeDomain } = require('./routes/domain.js');
 const { routePipeline } = require('./routes/pipeline.js'); // pipeline
 const { routeIso } = require('./routes/iso.js'); // iso
@@ -1323,6 +1324,7 @@ http.createServer(async (req, res) => {
   if (u.pathname === '/useragent') return routeUseragent(u, res, json);
   if (u.pathname === '/base58') return routeBase58(u, res, json);
   if (u.pathname === '/eth') return routeEth(u, res, json);
+  if (u.pathname === '/punycode') return routePunycode(u, res, json);
   if (u.pathname === '/domain') return routeDomain(u, res, json).catch(e => json(res, 500, {error: e.message}));
   if (u.pathname === '/jwt') return routeJwt(u, res, json);
   if (u.pathname === '/xml2json') return routeXml2json(u, res, json, reqBody);
