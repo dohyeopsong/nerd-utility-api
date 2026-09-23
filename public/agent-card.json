@@ -1,0 +1,9 @@
+{
+  "name": "Nerd Utility API",
+  "description": "Permissionless micro-service API: 30+ endpoints for data formatting, validation (IBAN/VAT/VIN/IMEI/ISBN/EAN/phone/postal), parsing (cron, useragent, JWT, semver), conversion (units, base64, hash, roman numerals), and generation (UUID, password, QR, random).",
+  "url": "https://feminine-neatness-coliseum.ngrok-free.dev",
+  "docs": "https://feminine-neatness-coliseum.ngrok-free.dev/docs",
+  "blockchain": { "type": "evm", "address": "0x85fe24c7668577ae04106Be4fb806915a77384e0" },
+  "payment": "USDC on Base (x402-ready)",
+  "capabilities": ["format/csv-json", "hash", "base64", "uuid", "timestamp", "text-stats", "qrcode", "dns", "headers", "price", "ipinfo", "scrape", "iban", "vat", "vin", "imei", "isbn", "ean", "phone", "postal", "cron", "useragent", "jwt", "semver", "units", "math", "cidr", "slug", "luhn", "email", "color", "diff", "regex", "number", "roman", "rot13", "emoji", "datediff", "random", "url", "case", "swift", "qr", "json", "csv"]
+}
