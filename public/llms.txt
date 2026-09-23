@@ -81,3 +81,5 @@ JWT decode (?jwt=): header/payload/alg, HS256/384/512 signature verify with ?sec
 DNS records lookup (?domain=example.com, ?type=A|AAAA|MX|TXT|NS|CNAME|SOA|SRV, default all).
 ## /password
 Password generation (?length=24&count=2, class toggles lower/upper/digits/symbols/ambiguous) + strength analysis (?analyze=pw): entropy bits, strength, warnings.
+## /cron
+Cron expression parser (?expr=): field breakdown, plain-English explanation, next N runs in UTC (?count=).
