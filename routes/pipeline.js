@@ -12,21 +12,27 @@ const ops = {
   hex: (i, o) => (o.mode === 'decode' ? Buffer.from(String(i), 'hex').toString('utf8') : Buffer.from(String(i)).toString('hex')),
 };
 
-async function routePipeline(u, res, json, body, method) {
-  const q = u.searchParams;
-  if (method === 'GET') {
+async function routePipeline(u, res, json, body, isPost) {
+  // GET (or empty POST) → usage docs
+  let payload = null;
+  if (typeof body === 'string' && body.trim()) {
+    try { payload = JSON.parse(body); } catch { payload = null; }
+  } else if (body && typeof body === 'object') {
+    payload = body;
+  }
+  if (!isPost || !payload) {
     return json(res, 200, {
       op: 'pipeline',
       description: 'Chain utility ops in one call. Output of step N is input to step N+1.',
-      usage: 'POST {"input":"hello","steps":[{"op":"upper"},{"op":"hash","options":{"algo":"md5"}}]}',
+      usage: 'POST /pipeline {"input":"hello","steps":[{"op":"upper"},{"op":"hash","options":{"algo":"md5"}}]}',
       availableOps: Object.keys(ops),
     });
   }
-  const steps = body && body.steps;
+  const steps = payload.steps;
   if (!Array.isArray(steps) || steps.length === 0 || steps.length > 20) {
-    return json(res, 400, { error: 'Provide steps: [{op, input?, options?}], 1-20 steps', available: Object.keys(ops) });
+    return json(res, 400, { error: 'Provide steps: [{op, options?}], 1-20 steps', available: Object.keys(ops) });
   }
-  let current = body.input;
+  let current = payload.input;
   const trace = [];
   for (let idx = 0; idx < steps.length; idx++) {
     const s = steps[idx];
