@@ -59,6 +59,7 @@ const { routeWhois } = require('./routes/whois.js');
 const { routeLoan } = require('./routes/loan.js');
 const { routeInterest } = require('./routes/interest.js');
 const { routeCurrency } = require('./routes/currency.js');
+const { routeFaker } = require('./routes/faker.js');
 const { routeCountry } = require('./routes/country.js');
 const { routeTimezone } = require('./routes/timezone.js');
 const { routeEmoji } = require('./routes/emoji.js');
@@ -413,6 +414,10 @@ http.createServer(async (req, res) => {
     }
     if (u.pathname === '/country') {
       try { return routeCountry(u, res, json); }
+      catch (e) { return json(res, 400, { error: e.message }); }
+    }
+    if (u.pathname === '/faker') {
+      try { return routeFaker(u, res, json); }
       catch (e) { return json(res, 400, { error: e.message }); }
     }
     if (u.pathname === '/currency') {
