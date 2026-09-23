@@ -1,28 +1,36 @@
-// /ulid — ULID generation and parsing (sortable, 128-bit identifiers)
-const crypto = require('crypto');
-const C = '0123456789ABCDEFGHJKMNPQRSTVWXYZ'; // Crockford base32, no I L O U
+// /ulid — generate and parse ULIDs (sortable, 128-bit identifiers)
+const ENC = '0123456789ABCDEFGHJKMNPQRSTVWXYZ'; // Crockford base32
+
+function encodeTime(ms, len) {
+  let out = '';
+  for (let i = 1; i <= len; i++) { out = ENC[ms % 32] + out; ms = Math.floor(ms / 32); }
+  return out;
+}
+
+function randLen(n) {
+  const b = require('crypto').randomBytes(n);
+  let out = '';
+  for (let i = 0; i < n; i++) out += ENC[b[i] % 32];
+  return out;
+}
+
 function routeUlid(u, res, json) {
   const p = u.searchParams;
-  if (p.get('ulid')) {
-    const s = p.get('ulid').toUpperCase().replace(/-/g, '');
-    if (!/^[0-9ABCDEFGHJKMNPQRSTVWXYZ]{26}$/.test(s)) return json(res, 400, { error: 'ULID must be 26 Crockford base32 chars (no I L O U)' });
-    let t = 0n; for (const c of s.slice(0, 10)) t = t * 32n + BigInt(C.indexOf(c));
-    let r = 0n; for (const c of s.slice(10)) r = r * 32n + BigInt(C.indexOf(c));
-    return json(res, 200, { ulid: s, timestamp_ms: Number(t), timestamp_iso: new Date(Number(t)).toISOString(), randomness_hex: r.toString(16).padStart(20, '0') });
+
+  if (p.get('parse')) {
+    const s = p.get('parse').toUpperCase();
+    if (!/^[0-9A-HJKMNP-TV-Z]{26}$/.test(s)) return json(res, 400, { error: 'invalid ULID' });
+    let ms = 0;
+    for (const c of s.slice(0, 10)) ms = ms * 32 + ENC.indexOf(c);
+    return json(res, 200, { ulid: s, timestamp: ms, iso: new Date(ms).toISOString() });
   }
-  const count = Math.min(Math.max(+(p.get('count') || p.get('n') || 1) || 1, 1), 100);
-  const now = Date.now();
+
+  const count = Math.min(parseInt(p.get('count') || '1', 10) || 1, 100);
+  const ts = p.get('time') ? Date.parse(p.get('time')) : Date.now();
+  if (isNaN(ts)) return json(res, 400, { error: 'invalid time param' });
   const ulids = [];
-  for (let i = 0; i < count; i++) {
-    // time part: 48-bit ms -> 10 chars (50 bits, top 2 are zero)
-    let ts = ''; let T = BigInt(now);
-    for (let k = 0; k < 10; k++) { ts = C[Number(T % 32n)] + ts; T /= 32n; }
-    // randomness: 80 bits from crypto -> 16 chars
-    let r = crypto.randomBytes(10).reduce((a, b) => (a << 8n) | BigInt(b), 0n);
-    let rs = '';
-    for (let k = 0; k < 16; k++) { rs = C[Number(r % 32n)] + rs; r /= 32n; }
-    ulids.push(ts + rs);
-  }
-  return json(res, 200, { ulids, count, timestamp_ms: now, timestamp_iso: new Date(now).toISOString() });
+  for (let i = 0; i < count; i++) ulids.push(encodeTime(ts, 10) + randLen(16));
+  return json(res, 200, { time: new Date(ts).toISOString(), count, ulids: count === 1 ? ulids[0] : ulids });
 }
+
 module.exports = { routeUlid };
