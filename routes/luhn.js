@@ -1,7 +1,7 @@
 // /luhn — Luhn algorithm check + check-digit computation (credit cards, IMEI, etc.)
 function routeLuhn(u, res, json) {
   const p = u.searchParams;
-  const num = (p.get('num') || '').replace(/[\s-]/g, '');
+  const num = (p.get('num') || p.get('compute') || '').replace(/[\s-]/g, '');
   if (!num) return json(res, 200, { usage: '?num=4532015112830366 — validate a Luhn number, or ?compute=453201511283036 to get the check digit' });
   if (!/^\d+$/.test(num)) return json(res, 400, { error: 'digits only (spaces/hyphens stripped)' });
   const digits = num.split('').map(Number);
