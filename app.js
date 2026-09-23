@@ -54,6 +54,7 @@ const { routeCuid } = require('./routes/cuid.js');
 const { routePassword } = require('./routes/password.js');
 const { routeJwt } = require('./routes/jwt.js');
 const { routeMime } = require('./routes/mime.js');
+const { routeHeaders } = require('./routes/headers.js');
 const { routeXml2json } = require('./routes/xml2json.js');
 const { routeUseragent } = require('./routes/useragent.js');
 const { routeBase58 } = require('./routes/base58.js');
@@ -1377,6 +1378,7 @@ http.createServer(async (req, res) => {
   if (u.pathname === '/punycode') return routePunycode(u, res, json);
   if (u.pathname === '/domain') return routeDomain(u, res, json).catch(e => json(res, 500, {error: e.message}));
   if (u.pathname === '/jwt') return routeJwt(u, res, json);
+  if (u.pathname === '/headers') return routeHeaders(u, res, json, req);
   if (u.pathname === '/mime') return routeMime(u, res, json);
   if (u.pathname === '/xml2json') return routeXml2json(u, res, json, reqBody);
   if (u.pathname === '/sunrise') { try { return routeSunrise(u, res, json); } catch (e) { return json(res, 400, { error: e.message }); } }
