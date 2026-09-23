@@ -1,82 +1,47 @@
-// /useragent — parse user-agent strings: browser, engine, OS, device type, bot detection
-const BROWSERS = [
-  { re: /Edg(?:e|A|iOS)?\/([\d.]+)/, name: 'Edge', group: 'edge' },
-  { re: /OPR\/([\d.]+)/, name: 'Opera', group: 'opera' },
-  { re: /YaBrowser\/([\d.]+)/, name: 'Yandex Browser', group: 'opera' },
-  { re: /SamsungBrowser\/([\d.]+)/, name: 'Samsung Internet', group: 'webkit' },
-  { re: /Chrome\/([\d.]+)/, name: 'Chrome', group: 'blink' },
-  { re: /CriOS\/([\d.]+)/, name: 'Chrome iOS', group: 'webkit' },
-  { re: /FxiOS\/([\d.]+)/, name: 'Firefox iOS', group: 'webkit' },
-  { re: /Firefox\/([\d.]+)/, name: 'Firefox', group: 'gecko' },
-  { re: /Version\/([\d.]+).*Safari/, name: 'Safari', group: 'webkit' },
-  { re: /MSIE ([\d.]+)/, name: 'Internet Explorer', group: 'trident' },
-  { re: /Trident\/([\d.]+)/, name: 'Internet Explorer', group: 'trident' }
-];
-
-const BOTS = [
-  { re: /Googlebot|bingbot|Slurp|DuckDuckBot|Baiduspider|YandexBot|Sogou/i, name: 'search engine crawler' },
-  { re: /facebookexternalhit|Twitterbot|LinkedInBot|Pinterest/i, name: 'social media crawler' },
-  { re: /GPTBot|ClaudeBot|anthropic-ai|ChatGPT-User|PerplexityBot|Google-Extended|CCBot/i, name: 'AI crawler' },
-  { re: /curl|Wget|python-requests|axios|node-fetch|Go-http-client|PostmanRuntime|insomnia/i, name: 'HTTP library / tool' },
-  { re: /bot|crawler|spider|scrape/i, name: 'generic bot' }
-];
-
-function parseUA(ua) {
-  if (!ua) return { error: 'missing user-agent string' };
-  const out = { userAgent: ua };
-
-  // bot check first
-  for (const b of BOTS) {
-    if (b.re.test(ua)) { out.isBot = true; out.botType = b.name; break; }
-  }
-  if (!out.isBot) out.isBot = false;
-
-  // browser
-  let browser = null;
-  for (const b of BROWSERS) {
-    const m = ua.match(b.re);
-    if (m) { browser = { name: b.name, version: m[1], engine: b.group === 'blink' ? 'Blink' : b.group === 'gecko' ? 'Gecko' : b.group === 'webkit' ? 'WebKit' : b.group === 'trident' ? 'Trident' : 'Blink' }; break; }
-  }
-  out.browser = browser || { name: 'unknown', version: null, engine: null };
-
-  // OS
-  let os = 'unknown';
-  if (/Windows NT 10/.test(ua)) os = 'Windows 10/11';
-  else if (/Windows NT 6\.3/.test(ua)) os = 'Windows 8.1';
-  else if (/Windows NT 6\.1/.test(ua)) os = 'Windows 7';
-  else if (/Windows Phone/.test(ua)) os = 'Windows Phone';
-  else if (/Android ([\d.]+)/.test(ua)) os = 'Android ' + ua.match(/Android ([\d.]+)/)[1];
-  else if (/(?:iPhone|iPad|iPod)/.test(ua)) {
-    const v = ua.match(/OS (\d+_\d+)/);
-    os = 'iOS' + (v ? ' ' + v[1].replace('_', '.') : '');
-  } else if (/Mac OS X ([\d_.]+)/.test(ua)) os = 'macOS ' + ua.match(/Mac OS X ([\d_.]+)/)[1].replace(/_/g, '.');
-  else if (/CrOS/.test(ua)) os = 'ChromeOS';
-  else if (/Linux/.test(ua)) os = 'Linux';
-  out.os = os;
-
-  // device type
-  let device = 'desktop';
-  if (/iPad|Tablet|PlayBook|Silk/.test(ua) || (/Android/.test(ua) && !/Mobile/.test(ua))) device = 'tablet';
-  else if (/Mobi|iPhone|iPod|Windows Phone|IEMobile/.test(ua)) device = 'mobile';
-  else if (/TV|SmartTV|AppleTV|GoogleTV|HbbTV|NetCast|Roku/.test(ua)) device = 'tv';
-  out.device = device;
-
-  return out;
-}
-
+// /useragent — parse User-Agent strings: browser, engine, OS, device type, bot detection
 function routeUseragent(u, res, json) {
   const p = u.searchParams;
-  let ua = p.get('ua') || p.get('user_agent') || p.get('agent');
-  if (!ua) {
-    // fall back to the request's own UA header? not available here; try common
-    const headers = p.get('raw');
-    if (headers) {
-      const m = decodeURIComponent(headers).match(/User-Agent:\s*([^\n\r]+)/i);
-      if (m) ua = m[1];
-    }
+  const ua = p.get('ua') || '';
+  if (!ua) return json(res, 200, { usage: '?ua=<user-agent string> — parse browser, engine, OS, device type, bot detection' });
+  const out = { input: ua };
+  // bots
+  if (/bot|crawl|spider|slurp|bingpreview|facebookexternalhit|embedly|headless|phantom|puppeteer|playwright|curl|wget|python-requests|axios|node-fetch|go-http-client|java\/|apache-httpclient|postman/i.test(ua)) {
+    out.bot = true;
+    const b = ua.match(/([a-z0-9_\-]+)(?:\/|\s+|$)/i);
+    out.bot_name = (ua.match(/(?:^|[\s;(\[])([A-Za-z0-9_.-]*(?:bot|crawler|spider|slurp|preview|fetch|scraper|monitor|analyz)[A-Za-z0-9_.-]*)/i) || [])[1];
+    if (/headless|phantom|puppeteer|playwright/i.test(ua)) out.headless = true;
+    return json(res, 200, out);
   }
-  if (!ua) return json(res, 400, { error: 'provide ?ua=<user-agent string>' });
-  return json(res, 200, parseUA(ua));
+  out.bot = false;
+  // browser
+  let browser = 'unknown', version = null;
+  const bt = [
+    [/Edg(?:e|A|iOS)?\/([\d.]+)/, 'Edge'],
+    [/OPR\/([\d.]+)/, 'Opera'],
+    [/Firefox\/([\d.]+)/, 'Firefox'],
+    [/Chrome\/([\d.]+)/, 'Chrome'],
+    [/Version\/([\d.]+).*Safari/, 'Safari'],
+    [/MSIE ([\d.]+)/, 'IE'],
+    [/Trident\/.*rv:([\d.]+)/, 'IE'],
+  ];
+  for (const [re, name] of bt) { const m = ua.match(re); if (m) { browser = name; version = m[1]; break; } }
+  out.browser = browser; if (version) out.browser_version = version;
+  // engine
+  if (/Gecko\//.test(ua) && !/like Gecko/.test(ua)) out.engine = 'Gecko';
+  else if (/like Gecko/.test(ua)) out.engine = 'Gecko-like';
+  if (/AppleWebKit/.test(ua)) out.engine = /Blink|Chrome|Chromium|Edg/.test(ua) ? 'Blink' : 'WebKit';
+  // OS
+  if (/Windows NT ([\d.]+)/.test(ua)) { out.os = 'Windows'; out.os_version = ua.match(/Windows NT ([\d.]+)/)[1]; }
+  else if (/iPhone/.test(ua)) { out.os = 'iOS'; out.device = 'iPhone'; }
+  else if (/iPad/.test(ua)) { out.os = 'iOS'; out.device = 'iPad'; }
+  else if (/Android ([\d.]+)/.test(ua)) { out.os = 'Android'; out.os_version = ua.match(/Android ([\d.]+)/)[1]; }
+  else if (/Mac OS X ([\d_.]+)/.test(ua)) { out.os = 'macOS'; out.os_version = ua.match(/Mac OS X ([\d_.]+)/)[1].replace(/_/g, '.'); }
+  else if (/CrOS/.test(ua)) out.os = 'ChromeOS';
+  else if (/Linux/.test(ua)) out.os = 'Linux';
+  // device type
+  if (/Mobi/.test(ua)) out.device_type = 'mobile';
+  else if (/iPad|Tablet/.test(ua)) out.device_type = 'tablet';
+  else if (out.os) out.device_type = 'desktop';
+  return json(res, 200, out);
 }
-
-module.exports = { routeUseragent, parseUA };
+module.exports = { routeUseragent };
