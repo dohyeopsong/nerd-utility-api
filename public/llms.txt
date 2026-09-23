@@ -53,3 +53,7 @@ Free, no-auth utility endpoints on :8080. GET-friendly (params in query string) 
 Webhook tester: GET /hook returns a unique capture URL; send any request there; GET /hook/<id> to inspect.
 
 Full spec: /openapi.json — Docs: /docs
+## /pipeline
+Chain up to 20 utility ops in one POST: {"input":"hello","steps":[{"op":"upper"},{"op":"hash","options":{"algo":"md5"}}]}. Ops: base64, hash, upper, lower, trim, json_parse, url, hex. GET returns docs.
+## /slug
+URL slug generation with diacritic stripping and separator control. POST {"text":"Héllo World"} or GET /slug?text=...
