@@ -863,11 +863,7 @@ http.createServer(async (req, res) => {
               try { return routeHmac(u, res, json, reqBody); }
               catch (e) { return json(res, 400, { error: e.message }); }
             }
-            if (u.pathname === '/cron') {
-  if (u.pathname === '/duration') return routeDuration(u, res, json, reqBody);
-              try { return routeCron(u, res, json); }
-              catch (e) { return json(res, 500, { error: e.message }); }
-            }
+
             if (u.pathname === '/whois') {
       try { return await routeWhois(u, res, json); }
       catch (e) { return json(res, 400, { error: e.message }); }
@@ -960,75 +956,7 @@ http.createServer(async (req, res) => {
               catch (e) { return json(res, 500, { error: e.message }); }
             }
 
-            if (u.pathname === '/cron') {
-              const q = u.searchParams;
-              const expr = q.get('expr');
-              if (!expr) return json(res, 400, {error: 'expr?=<cron expression> — 5 fields: minute hour day-of-month month day-of-week'});
-              const fields = expr.trim().split(/\s+/);
-              if (fields.length !== 5) return json(res, 400, {error: `expected 5 fields (min hour dom month dow), got ${fields.length}`, tip: 'use * * * * * for every minute'});
-              const ranges = [[0,59],[0,23],[1,31],[1,12],[0,6]];
-              const names = {month: {jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12}, dow: {sun:0,mon:1,tue:2,wed:3,thu:4,fri:5,sat:6}};
-              // parse field into set of allowed values
-              const parseField = (f, idx) => {
-                const [lo, hi] = ranges[idx];
-                const isDow = idx === 4, isMonth = idx === 3;
-                const resolve = (v) => {
-                  v = v.toLowerCase();
-                  if (isMonth && names.month[v] !== undefined) return names.month[v];
-                  if (isDow && names.dow[v] !== undefined) return names.dow[v];
-                  if (isDow && v === '7') return 0;
-                  const n = +v;
-                  if (isNaN(n) || n < lo || n > hi) throw `field ${idx+1}: bad value ${v} (range ${lo}-${hi})`;
-                  return n;
-                };
-                const out = new Set();
-                for (const part of f.split(',')) {
-                  const stepMatch = part.match(/^(.*)\/(\d+)$/);
-                  let base = part, step = 1;
-                  if (stepMatch) { base = stepMatch[1]; step = +stepMatch[2]; if (step < 1) throw `field ${idx+1}: bad step ${step}`; }
-                  let a = lo, b = hi;
-                  if (base !== '*' && base !== '') {
-                    if (base.includes('-')) { const [x, y] = base.split('-'); a = resolve(x); b = resolve(y); }
-                    else { a = resolve(base); b = stepMatch ? hi : a; }
-                  }
-                  for (let v = a; v <= b; v += step) out.add(v);
-                }
-                return out;
-              };
-              try {
-                const sets = fields.map((f, i) => parseField(f, i));
-                // special: dom/dow semantics — if both restricted, match either (standard Vixie cron)
-                const domRestricted = fields[2] !== '*';
-                const dowRestricted = fields[4] !== '*';
-                // brute-force next 3 runs within 1 year
-                const runs = [];
-                let t = new Date();
-                t.setSeconds(0, 0);
-                t.setMinutes(t.getMinutes() + 1);
-                outer: for (let i = 0; i < 527040 && runs.length < 3; i++) { // max 1 year of minutes
-                  if (sets[0].has(t.getMinutes()) && sets[1].has(t.getHours()) && sets[3].has(t.getMonth() + 1)) {
-                    const domOk = sets[2].has(t.getDate());
-                    const dowOk = sets[4].has(t.getDay());
-                    const dayOk = domRestricted && dowRestricted ? (domOk || dowOk) : (domOk && dowOk);
-                    if (dayOk) runs.push(new Date(t).toISOString());
-                  }
-                  t.setMinutes(t.getMinutes() + 1);
-                }
-                const describe = (f, i) => {
-                  if (f === '*') return 'every';
-                  if (f.startsWith('*/')) return `every ${f.slice(2)}`;
-                  return f;
-                };
-                return json(res, 200, {
-                  expression: expr, valid: true,
-                  fields: {minute: describe(fields[0]), hour: describe(fields[1]), dayOfMonth: describe(fields[2]), month: describe(fields[3]), dayOfWeek: describe(fields[4])},
-                  nextRuns: runs,
-                  note: 'day-of-month + day-of-week: if both restricted, either matches (Vixie cron standard)'
-                });
-              } catch (e) {
-                return json(res, 400, {valid: false, error: String(e)});
-              }
-            }
+
             if (u.pathname === '/chmod') {
               try { return routeChmod(u, res, json); }
               catch (e) { return json(res, 500, { error: e.message }); }
@@ -1048,78 +976,7 @@ http.createServer(async (req, res) => {
               s = s.replace(/[^a-z0-9\s-]/g, '').trim().replace(/[\s_-]+/g, (q.sep || '-')).replace(new RegExp('^-+|'+ (q.sep || '-') +'+$','g'), '');
               return json(res, 200, {input: q.text, slug: s});
             }
-            if (u.pathname === '/cron') {
-              const q = u.searchParams;
-              const expr = q.get('expr');
-              if (!expr) return json(res, 400, {error: 'expr?=<cron e.g. */5 9-17 * * 1-5>'});
-              const fields = expr.trim().split(/\s+/);
-              if (fields.length !== 5) return json(res, 400, {error: 'expected 5 fields: minute hour dom month dow'});
-              const ranges = [[0,59],[0,23],[1,31],[1,12],[0,7]];
-              const monthNames = {jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
-              const dowNames = {sun:0,mon:1,tue:2,wed:3,thu:4,fri:5,sat:6};
-              const parsed = [];
-              for (let i = 0; i < 5; i++) {
-                const [lo, hi] = ranges[i];
-                const vals = new Set();
-                for (const part of fields[i].split(',')) {
-                  let m = part.match(/^\*(?:\/(\d+))?$/);
-                  if (m) { const step = m[1] ? +m[1] : 1; for (let v = lo; v <= hi; v += step) vals.add(v === 7 && i === 4 ? 0 : v); continue; }
-                  m = part.match(/^(\w+)-(\w+)(?:\/(\d+))?$/);
-                  if (m) {
-                    let a = m[1], b = m[2];
-                    if (i === 3) a = monthNames[a] || a, b = monthNames[b] || b;
-                    if (i === 4) a = dowNames[a] !== undefined ? dowNames[a] : a, b = dowNames[b] !== undefined ? dowNames[b] : b;
-                    if (!/^\d+$/.test(a) || !/^\d+$/.test(b)) return json(res, 400, {error: `field ${i+1}: bad range "${part}"`});
-                    const step = m[3] ? +m[3] : 1;
-                    for (let v = +a; v <= +b; v += step) vals.add(v === 7 && i === 4 ? 0 : v);
-                    continue;
-                  }
-                  m = part.match(/^(\w+)$/);
-                  if (m) {
-                    let v = m[1];
-                    if (i === 3 && monthNames[v]) v = monthNames[v];
-                    if (i === 4 && dowNames[v] !== undefined) v = dowNames[v];
-                    if (!/^\d+$/.test(v)) return json(res, 400, {error: `field ${i+1}: bad value "${part}"`});
-                    v = +v;
-                    if (v < lo || v > (i === 4 ? 7 : hi)) return json(res, 400, {error: `field ${i+1}: value out of range "${part}"`});
-                    vals.add(v === 7 && i === 4 ? 0 : v);
-                    continue;
-                  }
-                  return json(res, 400, {error: `field ${i+1}: bad part "${part}"`});
-                }
-                parsed.push(vals);
-              }
-              const [mins, hours, doms, months, dows] = parsed;
-              const monthsArr = [...months].sort((a,b)=>a-b).map(m => ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'][m-1]);
-              const dowsArr = [...dows].sort((a,b)=>a-b).map(d => ['sun','mon','tue','wed','thu','fri','sat'][d]);
-              const fmt = (vals, hi, unit, unitPl) => {
-                if (vals.size === hi + 1 || vals.size >= hi) return `every ${unit}`;
-                if (vals.size === 1) return `at ${unit} ${[...vals][0]}`;
-                const arr = [...vals].sort((a,b)=>a-b);
-                if (arr.every((v,i) => i === 0 || v === arr[i-1] + 1)) return `${unitPl} ${arr[0]}-${arr[arr.length-1]}`;
-                return `${unitPl} ${arr.join(', ')}`;
-              };
-              const desc = [
-                fmt(mins, 59, 'minute', 'minutes'),
-                fmt(hours, 23, 'hour', 'hours'),
-                dows.size === 7 ? 'every day' : `on ${dowsArr.join(', ')}`,
-                months.size === 12 ? '' : `in ${monthsArr.join(', ')}`
-              ].filter(Boolean).join(' ');
-              const next = [];
-              const t = new Date();
-              t.setSeconds(0, 0); t.setMinutes(t.getMinutes() + 1);
-              const match = d => mins.has(d.getMinutes()) && hours.has(d.getHours()) && months.has(d.getMonth()+1) && dows.has(d.getDay()) && doms.has(d.getDate());
-              for (let i = 0; i < 60 * 24 * 400 && next.length < 5; i++) {
-                if (match(t)) next.push(t.toISOString());
-                t.setMinutes(t.getMinutes() + 1);
-              }
-              return json(res, 200, {
-                expression: expr, fields,
-                minutes: [...mins].sort((a,b)=>a-b), hours: [...hours].sort((a,b)=>a-b),
-                daysOfMonth: [...doms].sort((a,b)=>a-b), months: monthsArr, daysOfWeek: dowsArr,
-                humanReadable: desc, nextRuns: next
-              });
-            }
+
             if (u.pathname === '/diff') {
               const q = Object.fromEntries(u.searchParams);
               if (!q.a || !q.b) return json(res, 400, {error: 'provide ?a=...&b=...'});
