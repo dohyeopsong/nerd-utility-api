@@ -1,91 +1,103 @@
-// /semver — semantic versioning parse, compare, and satisfy
-function parseSemver(v) {
-  const m = String(v).trim().match(/^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+([0-9A-Za-z.-]+))?$/);
+// /semver — parse semver, compare two versions, or test a version against a range
+function parse(v) {
+  const m = v.trim().match(/^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+([0-9A-Za-z.-]+))?$/);
   if (!m) return null;
   return { major: +m[1], minor: +m[2], patch: +m[3], prerelease: m[4] || null, build: m[5] || null };
 }
-function cmp(a, b) { // a<b: -1, a>b: 1
-  if (a.major !== b.major) return a.major < b.major ? -1 : 1;
-  if (a.minor !== b.minor) return a.minor < b.minor ? -1 : 1;
-  if (a.patch !== b.patch) return a.patch < b.patch ? -1 : 1;
+function cmp(a, b) {
+  if (a.major !== b.major) return Math.sign(a.major - b.major);
+  if (a.minor !== b.minor) return Math.sign(a.minor - b.minor);
+  if (a.patch !== b.patch) return Math.sign(a.patch - b.patch);
   const ap = a.prerelease, bp = b.prerelease;
-  if (!ap && bp) return 1; if (ap && !bp) return -1; if (!ap && !bp) return 0;
+  if (!ap && !bp) return 0;
+  if (!ap) return 1;      // release > prerelease
+  if (!bp) return -1;
   const as = ap.split('.'), bs = bp.split('.');
   for (let i = 0; i < Math.max(as.length, bs.length); i++) {
     const x = as[i], y = bs[i];
-    if (x === undefined) return -1; if (y === undefined) return 1;
+    if (x === undefined) return -1;
+    if (y === undefined) return 1;
     const xn = /^\d+$/.test(x), yn = /^\d+$/.test(y);
-    if (xn && yn) { if (+x !== +y) return +x < +y ? -1 : 1; }
-    else { if (x !== y) return x < y ? -1 : 1; }
+    if (xn && yn) { if (+x !== +y) return Math.sign(+x - +y); }
+    else if (xn) return -1;   // numeric < alphanumeric
+    else if (yn) return 1;
+    else if (x !== y) return x < y ? -1 : 1;
   }
   return 0;
 }
-function satisfies(v, range) {
-  // supports: ^x.y.z, ~x.y.z, >=x, >x, <x, <=x, =x, x.y.z exact, wildcards *
-  const r = range.trim();
-  let m;
-  if ((m = r.match(/^(\^)(\d+)(?:\.(\d+|x|\*))?(?:\.(\d+|x|\*))?/))) {
-    const M = +m[2], mnr = m[3] && /^\d/.test(m[3]) ? +m[3] : 0, pt = m[4] && /^\d/.test(m[4]) ? +m[4] : 0;
-    if (v.major !== M) return false;
-    if (mnr === 0 && (m[3] === undefined)) return v.major === M;
-    if (v.minor < mnr) return false;
-    if (v.minor === mnr && v.patch < pt) return false;
-    return true;
-  }
-  if ((m = r.match(/^(\d+|\*)(?:\.(\d+|\*))?(?:\.(\d+|\*))?$/))) {
-    if (m[1] !== '*' && v.major !== +m[1]) return false;
-    if (m[2] !== undefined && m[2] !== '*' && v.minor !== +m[2]) return false;
-    if (m[3] !== undefined && m[3] !== '*' && v.patch !== +m[3]) return false;
-    return true;
-  }
-  if ((m = r.match(/^~(\d+)(?:\.(\d+|x|\*))?(?:\.(\d+|x|\*))?/))) {
-    const M = +m[1], mnr = m[2] && /^\d/.test(m[2]) ? +m[2] : null;
-    if (v.major !== M) return false;
-    if (mnr !== null && v.minor !== mnr) return false;
-    return true;
-  }
-  if ((m = r.match(/^(>=|<=|>|<|=)?\s*v?(\d+)(?:\.(\d+|\*))?(?:\.(\d+|\*))?$/))) {
-    const op = m[1] || '=';
-    const t = { major: +m[2], minor: m[3] !== undefined && m[3] !== '*' ? +m[3] : (m[3] === undefined ? undefined : 0), patch: m[4] !== undefined && m[4] !== '*' ? +m[4] : (m[4] === undefined ? undefined : 0), prerelease: null };
-    const target = { major: t.major, minor: t.minor === undefined ? 0 : t.minor, patch: t.patch === undefined ? 0 : t.patch, prerelease: null };
-    const c = cmp(v, target);
-    // if partial version given, treat missing parts as wildcard by adjusting
-    let result;
-    if (t.minor === undefined) { // major-only
-      result = op === '=' ? v.major === t.major : op === '>' || op === '>=' ? v.major >= t.major : v.major <= t.major;
-    } else if (t.patch === undefined) {
-      const same = v.major === t.major && v.minor === t.minor;
-      result = op === '=' ? same : op === '>' || op === '>=' ? cmp(v, target) >= 0 : cmp(v, target) <= 0;
-    } else {
-      result = op === '=' ? c === 0 : op === '>' ? c > 0 : op === '>=' ? c >= 0 : op === '<' ? c < 0 : c <= 0;
+function testRange(v, range) {
+  // supports: exact, ^x.y.z, ~x.y.z, >x <x >=x <=x, x.y.z - a.b.c, || alternatives, x/* wildcards
+  return range.split('||').some(alt => {
+    // hyphen range
+    const hm = alt.match(/^\s*(\S+)\s+-\s+(\S+)\s*$/);
+    if (hm) return cmp(v, parseLoose(hm[1])) >= 0 && cmp(v, parseLoose(hm[2])) <= 0;
+    const conds = alt.trim().split(/\s+/).filter(Boolean);
+    if (conds.length === 0) return true;
+    // exact / wildcard version
+    if (conds.length === 1) {
+      const c = conds[0];
+      if (!/^[><=~^]| - /.test(c)) return matchWild(v, c);
     }
-    return result;
+    return conds.every(c => {
+      const m = c.match(/^([><]=?|=|~|\^)?(.+)$/);
+      const op = m[1] || '=', base = parseLoose(m[2]);
+      const r = cmp(v, base);
+      if (op === '=') return matchWild(v, m[2]);
+      if (op === '>') return r > 0;
+      if (op === '>=') return r >= 0;
+      if (op === '<') return r < 0;
+      if (op === '<=') return r <= 0;
+      if (op === '~') { // ~1.2.3 := >=1.2.3 <1.3.0 ; ~1 := >=1.0.0 <2.0.0
+        if (r < 0) return false;
+        if (m[2].split('.').length === 1) return v.major === base.major;
+        return v.major === base.major && v.minor === base.minor;
+      }
+      if (op === '^') { // ^1.2.3 := >=1.2.3 <2.0.0 ; ^0.2.3 := >=0.2.3 <0.3.0 ; ^0.0.3 := >=0.0.3 <0.0.4
+        if (r < 0) return false;
+        if (base.major > 0) return v.major === base.major;
+        if (base.minor > 0) return v.major === 0 && v.minor === base.minor;
+        return v.major === 0 && v.minor === 0 && v.patch === base.patch;
+      }
+      return false;
+    });
+  });
+}
+function parseLoose(s) { // x or x.y -> x.y.0
+  const parts = s.replace(/^v/, '').replace(/-.*|\+.*/, '').split('.');
+  while (parts.length < 3) parts.push('0');
+  return parse(parts.join('.'));
+}
+function matchWild(v, spec) {
+  spec = spec.replace(/^v/, '');
+  const sp = spec.split('.');
+  const vp = [v.major, v.minor, v.patch];
+  for (let i = 0; i < Math.min(sp.length, 3); i++) {
+    if (sp[i] === '*' || sp[i] === 'x' || sp[i] === 'X') return true;
+    if (parseInt(sp[i]) !== vp[i]) return false;
+    if (sp.length - 1 === i && sp.length < 3) return true; // 1.2 matches 1.2.x
   }
-  return null; // unsupported range
+  return spec === '' || sp.join('.') === vp.join('.');
 }
 function routeSemver(u, res, json) {
   const p = u.searchParams;
-  const a = p.get('a'), b = p.get('b'), range = p.get('range'), v = p.get('v');
-  if (!a && !b && !range && !v) return json(res, 200, { usage: '?a=1.2.3&b=1.10.0 (compare) | ?range=^1.2.0&v=1.5.0 (satisfy) | ?v=1.2.3-beta.1+build (parse)' });
-  if (a && b) {
-    const A = parseSemver(a), B = parseSemver(b);
-    if (!A) return json(res, 400, { error: 'invalid version a' });
-    if (!B) return json(res, 400, { error: 'invalid version b' });
-    const c = cmp(A, B);
-    return json(res, 200, { comparison: c < 0 ? 'a<b' : c > 0 ? 'a>b' : 'a=b', result: c < 0 ? -1 : c > 0 ? 1 : 0, a: A, b: B });
+  const v = p.get('v') || p.get('version');
+  const v2 = p.get('v2') || p.get('other');
+  const range = p.get('range');
+  if (!v) return json(res, 200, { usage: '?v=1.2.3 (parse), ?v=1.2.3&v2=1.10.0 (compare), ?v=1.2.3&range=^1.0.0 (range test)' });
+  const pv = parse(v);
+  if (!pv) return json(res, 400, { error: `invalid semver: ${v}` });
+  const out = { version: pv };
+  if (v2) {
+    const pv2 = parse(v2);
+    if (!pv2) return json(res, 400, { error: `invalid semver: ${v2}` });
+    const r = cmp(pv, pv2);
+    out.comparison = r === 0 ? 'equal' : r > 0 ? 'greater' : 'less';
+    out.result = r; // -1, 0, 1
   }
-  if (range && v) {
-    const V = parseSemver(v);
-    if (!V) return json(res, 400, { error: 'invalid version v' });
-    const s = satisfies(V, range);
-    if (s === null) return json(res, 400, { error: 'unsupported range syntax' });
-    return json(res, 200, { satisfies: s, version: V, range });
+  if (range) {
+    out.satisfies = testRange(pv, range);
+    out.range = range;
   }
-  if (v) {
-    const V = parseSemver(v);
-    if (!V) return json(res, 400, { error: 'invalid semver' });
-    return json(res, 200, V);
-  }
-  return json(res, 400, { error: 'see usage' });
+  return json(res, 200, out);
 }
-module.exports = { routeSemver, parseSemver, cmp };
+module.exports = { routeSemver };
