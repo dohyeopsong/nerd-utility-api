@@ -1,28 +1,44 @@
-// /domain — DNS record lookup (A, AAAA, MX, TXT, NS, CNAME, SOA, SRV) via node:dns
+// /domain — domain syntax validation + DNS resolution
 const dns = require('dns').promises;
 
-const TYPES = ['A', 'AAAA', 'MX', 'TXT', 'NS', 'CNAME', 'SOA', 'SRV'];
-
-async function routeDomain(u, res, json) {
-  const domain = (u.searchParams.get('domain') || u.searchParams.get('d') || '').trim().toLowerCase();
-  if (!domain) return json(res, 400, { error: 'missing ?domain=example.com' });
-  if (!/^[a-z0-9][a-z0-9.-]*\.[a-z]{2,}$/.test(domain)) return json(res, 400, { error: 'invalid domain syntax' });
-
-  let type = (u.searchParams.get('type') || '').toUpperCase();
-  const types = type && TYPES.includes(type) ? [type] : TYPES;
-
-  const results = {};
-  await Promise.all(types.map(async (t) => {
-    try {
-      const resolver = new (require('dns').promises.Resolver)();
-      results[t] = await resolver.resolve(domain, t);
-      if (t === 'SOA' || t === 'MX' || t === 'SRV') results[t] = results[t]; // objects fine
-    } catch (e) {
-      if (e.code === 'ENOTFOUND' || e.code === 'ENODATA') results[t] = null;
-      else results[t] = { error: e.code || e.message };
-    }
-  }));
-  return json(res, 200, { domain, records: results });
+function validateDomainSyntax(d) {
+  if (!d || d.length > 253) return false;
+  if (d.endsWith('.')) d = d.slice(0, -1);
+  if (!d.includes('.')) return false;
+  const labels = d.split('.');
+  if (labels.length < 2) return false;
+  return labels.every(l =>
+    l.length >= 1 && l.length <= 63 &&
+    /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/i.test(l)
+  );
 }
 
-module.exports = { routeDomain };
+function getTld(d) { return d.slice(d.lastIndexOf('.') + 1).toLowerCase(); }
+
+async function routeDomain(u, res, json) {
+  const q = u.searchParams.get('d') || u.searchParams.get('domain');
+  if (!q) return json(res, 400, { error: 'provide ?d=example.com' });
+  const d = q.trim().toLowerCase().replace(/\.$/, '');
+  const result = { domain: d, valid: validateDomainSyntax(d), tld: getTld(d) };
+  if (!result.valid) return json(res, 200, result);
+
+  try {
+    const [a, aaaa] = await Promise.all([
+      dns.resolve4(d).catch(() => []),
+      dns.resolve6(d).catch(() => [])
+    ]);
+    result.a = a; result.aaaa = aaaa;
+    result.resolves = a.length > 0 || aaaa.length > 0;
+  } catch (e) { result.resolves = false; }
+
+  const type = u.searchParams.get('type') || 'A';
+  if (['A', 'AAAA', 'MX', 'TXT', 'NS', 'CNAME', 'SOA'].includes(type)) {
+    try {
+      const records = await dns.resolve(d, type);
+      result[type] = records;
+    } catch (e) { result[type] = []; }
+  }
+  return json(res, 200, result);
+}
+
+module.exports = { routeDomain, validateDomainSyntax };
