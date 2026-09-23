@@ -1,4 +1,4 @@
-// /jwt — decode JWT, verify HS256 signature (given ?secret=), check exp/nbf/iat
+// /jwt — JWT decode, HS256 verify, exp/nbf checks
 const crypto = require('crypto');
 
 function b64urlDecode(s) {
@@ -6,53 +6,71 @@ function b64urlDecode(s) {
   while (s.length % 4) s += '=';
   return Buffer.from(s, 'base64');
 }
-function b64url(buf) {
-  return Buffer.from(buf).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+function b64urlEncode(buf) {
+  return Buffer.from(buf).toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
 }
 
-function routeJwt(u, res, json) {
-  const token = u.searchParams.get('jwt') || u.searchParams.get('token') || u.searchParams.get('t');
-  if (!token) return json(res, 400, { error: 'missing ?jwt=' });
-  const secret = u.searchParams.get('secret');
+function decodeJwt(token) {
   const parts = token.split('.');
-  if (parts.length !== 3) return json(res, 400, { error: 'expected 3 dot-separated parts, got ' + parts.length });
-
-  let header, payload, signature;
+  if (parts.length !== 3) return { error: 'JWT must have 3 dot-separated parts (header.payload.signature)' };
+  let header, payload;
   try {
     header = JSON.parse(b64urlDecode(parts[0]).toString('utf8'));
     payload = JSON.parse(b64urlDecode(parts[1]).toString('utf8'));
-    signature = b64urlDecode(parts[2]);
-  } catch (e) { return json(res, 400, { error: 'malformed base64/JSON: ' + e.message }); }
-
-  const out = { header, payload, alg: header.alg };
-
-  // signature verification (HS256/HS384/HS512)
-  if (secret) {
-    const algMap = { HS256: 'sha256', HS384: 'sha384', HS512: 'sha512' };
-    const hashAlg = algMap[header.alg];
-    if (!hashAlg) {
-      out.signatureVerified = null;
-      out.note = 'cannot verify alg ' + header.alg + ' (only HS256/384/512 supported)';
-    } else {
-      const expected = crypto.createHmac(hashAlg, secret).update(parts[0] + '.' + parts[1]).digest();
-      const sigValid = expected.length === signature.length && crypto.timingSafeEqual(expected, signature);
-      out.signatureVerified = sigValid;
-      if (!sigValid) out.reason = 'HMAC mismatch';
-    }
+  } catch (e) {
+    return { error: 'failed to decode header/payload: ' + e.message };
   }
-
-  // time-based claims (now in seconds)
-  const now = Math.floor(Date.now() / 1000);
-  const checks = {};
-  if (typeof payload.exp === 'number') {
-    checks.exp = { value: payload.exp, expired: now >= payload.exp, secondsRemaining: payload.exp - now };
-  }
-  if (typeof payload.nbf === 'number') checks.nbf = { value: payload.nbf, active: now >= payload.nbf };
-  if (typeof payload.iat === 'number') checks.iat = { value: payload.iat, ageSeconds: now - payload.iat };
-  if (Object.keys(checks).length) out.timeChecks = checks;
-  if (checks.exp && checks.exp.expired) out.expired = true;
-
-  return json(res, 200, out);
+  return { header, payload, signature: parts[2] };
 }
 
-module.exports = { routeJwt };
+function verifyJwt(token, secret) {
+  const parts = token.split('.');
+  if (parts.length !== 3) return { valid: false, error: 'malformed token' };
+  let header;
+  try { header = JSON.parse(b64urlDecode(parts[0]).toString('utf8')); }
+  catch (e) { return { valid: false, error: 'bad header' }; }
+
+  if (!header.alg) return { valid: false, error: 'missing alg' };
+  if (header.alg === 'none') return { valid: false, error: 'alg "none" not allowed' };
+  if (header.alg !== 'HS256') return { valid: false, error: 'only HS256 supported, got ' + header.alg };
+
+  if (!secret) return { valid: false, error: 'missing ?secret= for verification' };
+
+  const expected = b64urlEncode(crypto.createHmac('sha256', secret).update(parts[0] + '.' + parts[1]).digest());
+  const sigOk = crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(parts[2]));
+  if (!sigOk) return { valid: false, error: 'signature mismatch' };
+
+  let payload;
+  try { payload = JSON.parse(b64urlDecode(parts[1]).toString('utf8')); }
+  catch (e) { return { valid: false, error: 'bad payload' }; }
+
+  const now = Math.floor(Date.now() / 1000);
+  const claims = {};
+  if (payload.exp !== undefined) claims.exp = { value: payload.exp, expired: now >= payload.exp };
+  if (payload.nbf !== undefined) claims.nbf = { value: payload.nbf, notYetValid: now < payload.nbf };
+  if (payload.iat !== undefined) claims.iat = payload.iat;
+
+  const expired = claims.exp && claims.exp.expired;
+  const notYet = claims.nbf && claims.nbf.notYetValid;
+
+  return { valid: !expired && !notYet, header, payload, claims, expired: !!expired, notYetValid: !!notYet };
+}
+
+function routeJwt(u, res, json) {
+  const p = u.searchParams;
+  const token = p.get('token') || p.get('jwt');
+  if (!token) return json(res, 400, { error: 'provide ?token=<jwt>' });
+  const secret = p.get('secret');
+
+  const d = decodeJwt(token);
+  if (d.error) return json(res, 400, d);
+
+  if (secret) {
+    const v = verifyJwt(token, secret);
+    return json(res, 200, { decoded: { header: d.header, payload: d.payload }, ...v });
+  }
+  return json(res, 200, { header: d.header, payload: d.payload, note: 'not verified — provide ?secret= to verify HS256 signature' });
+}
+
+module.exports = { routeJwt, decodeJwt, verifyJwt };
