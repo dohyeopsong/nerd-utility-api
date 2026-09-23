@@ -14,13 +14,6 @@ function luhnSum(ds) {
 
 function routeLuhn(u, res, json) {
   const p = u.searchParams;
-  const num = (p.get('num') || p.get('n') || '').replace(/[\s-]/g, '');
-
-  if (!num) {
-    return json(res, 200, { usage: '?num=4532015112830366 (validate) | ?partial=453201511283036 (compute check digit)' });
-  }
-
-  // compute check digit for a partial number
   const partial = p.get('partial');
   if (partial) {
     const ds = digits(partial);
@@ -29,6 +22,10 @@ function routeLuhn(u, res, json) {
     return json(res, 200, { partial, checkDigit: check, complete: partial + check });
   }
 
+  const num = (p.get('num') || p.get('n') || '').replace(/[\s-]/g, '');
+  if (!num) {
+    return json(res, 200, { usage: '?num=4532015112830366 (validate) | ?partial=453201511283036 (compute check digit)' });
+  }
   if (!/^\d+$/.test(num)) return json(res, 400, { error: 'digits only (spaces/dashes tolerated)' });
   const ds = digits(num);
   const valid = luhnSum(ds) % 10 === 0;
