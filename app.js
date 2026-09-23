@@ -50,6 +50,7 @@ const { routeNanoid } = require('./routes/nanoid.js');
 const { routeSoundex } = require('./routes/soundex.js');
 const { routeRoman } = require('./routes/roman.js');
 const { routeUlid } = require('./routes/ulid.js');
+const { routeSlugify } = require('./routes/slugify.js');
 const { routeCuid } = require('./routes/cuid.js');
 const { routePassword } = require('./routes/password.js');
 const { routeJwt } = require('./routes/jwt.js');
