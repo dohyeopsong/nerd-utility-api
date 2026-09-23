@@ -69,3 +69,5 @@ Luhn algorithm. ?q=4532015112830366 (validate with brand hint), ?q=4532015112830
 Parse a User-Agent. ?ua=<string> -> browser, engine, OS, device type, bot detection.
 ## /iban
 IBAN validation. ?q=GB82WEST12345698765432 -> valid, country, formatted, check digits.
+## /eth
+Ethereum address validation. ?q=0x... -> format check, EIP-55 checksum verification. ?mode=checksum returns checksummed form.

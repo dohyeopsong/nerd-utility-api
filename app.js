@@ -1,5 +1,6 @@
 const { routeHtml2md } = require('./routes/html2md.js'); // html2md
 const { routeNato } = require('./routes/nato.js');
+const { routeEth } = require('./routes/eth.js');
 const { routePipeline } = require('./routes/pipeline.js'); // pipeline
 const { routeIso } = require('./routes/iso.js'); // iso
 const { routeNumber } = require('./routes/number.js'); // number
@@ -1416,6 +1417,7 @@ http.createServer(async (req, res) => {
             }
             if (u.pathname === '/jsonpath') { return await routeJsonpath(u, res, json, reqBody, req.method); }
     if (u.pathname === '/nato') { return routeNato(u, res, json, body, req.method === 'POST'); }
+if (u.pathname === '/eth') { return routeEth(u, res, json, body, req.method === 'POST'); }
 if (u.pathname === '/pipeline') { return routePipeline(u, res, json, body, req.method === 'POST'); }
 if (u.pathname === '/html2md') { return routeHtml2md(u, res, json, body, req.method === 'POST'); }
     try {
