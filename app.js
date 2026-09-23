@@ -3,7 +3,6 @@ const { routePipeline } = require('./routes/pipeline.js'); // pipeline
 const { routeIso } = require('./routes/iso.js'); // iso
 const { routeNumber } = require('./routes/number.js'); // number
 const { routeConvert } = require('./routes/convert.js'); // convert
-const { routeLorem } = require('./routes/lorem.js'); // /lorem — lorem ipsum generator
 const docsGen = require('./docs.js'); // auto-docs
 const { routeCidr } = require('./routes/cidr.js'); // cidr
 const { routeUuid7 } = require('./routes/uuid7.js'); // uuid7
