@@ -1,12 +1,5 @@
 // /eth — Ethereum address validation: format, EIP-55 checksum, ICAP
-const crypto = require('crypto');
-function keccak256(buf) {
-  // keccak-256 via crypto (node >= 17 supports 'keccak256'? No — use sha3-256? EIP-55 needs keccak, not sha3).
-  // Node's 'sha3-256' is NIST SHA3 (differs from keccak). Implement keccak-f[1600] fallback is heavy;
-  // use createHash('keccak256') if available, else 'sha3-256' (approximate — flagged in output).
-  try { return crypto.createHash('keccak256').update(buf).digest(); }
-  catch (e) { return crypto.createHash('sha3-256').update(buf).digest(); }
-}
+const { keccak256 } = require('js-sha3');
 
 function routeEth(u, res, json, body, isPost) {
   const q = u.searchParams.get('q') || u.searchParams.get('addr');
@@ -26,7 +19,7 @@ function routeEth(u, res, json, body, isPost) {
   const hex = addr.slice(2);
   const hasUpper = /[A-F]/.test(hex), hasLower = /[a-f]/.test(hex);
   if (mode === 'checksum') {
-    const hash = keccak256(Buffer.from(hex.toLowerCase(), 'hex')).toString('hex');
+    const hash = keccak256(Buffer.from(hex.toLowerCase(), 'hex'));
     let out = '0x';
     for (let i = 0; i < 40; i++) {
       const c = hex[i];
@@ -36,7 +29,7 @@ function routeEth(u, res, json, body, isPost) {
   }
   const result = { input: addr, valid: true, length: 40 };
   if (hasUpper && hasLower) {
-    const hash = keccak256(Buffer.from(hex.toLowerCase(), 'hex')).toString('hex');
+    const hash = keccak256(Buffer.from(hex.toLowerCase(), 'hex'));
     let ok = true;
     for (let i = 0; i < 40; i++) {
       const c = hex[i];
