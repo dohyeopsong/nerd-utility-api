@@ -37,7 +37,7 @@ function b58decode(s) {
 }
 
 // ---- bech32 (BIP-173 / BIP-350) ----
-const BECH32_CHARSET = 'qpzry9x8gf2tvdcw0s3jn54khce6mua7l';
+const BECH32_CHARSET = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l';
 const GEN = [0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3];
 function bech32Polymod(values) {
   let chk = 1;
@@ -81,7 +81,7 @@ function validateSegwit(addr) {
   if (sep < 1 || sep + 7 > addr.length || addr.length > 90) return { valid: false, reason: 'bad structure' };
   const hrp = addr.slice(0, sep).toLowerCase();
   const dataPart = addr.slice(sep + 1);
-  if (!/^[qpzry9x8gf2tvdcw0s3jn54khce6mua7l]+$/.test(dataPart)) return { valid: false, reason: 'invalid charset' };
+  if (!/^[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+$/.test(dataPart)) return { valid: false, reason: 'invalid charset' };
   if (hrp !== 'bc' && hrp !== 'tb') return { valid: false, reason: 'unknown hrp ' + hrp };
   const dataChars = [...dataPart].map(c => BECH32_CHARSET.indexOf(c));
   if (!bech32Polymod(hrpExpand(hrp).concat(dataChars)) === false) { /* fallthrough handled below */ }
