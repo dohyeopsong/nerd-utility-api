@@ -26,6 +26,7 @@ const { routeNumber } = require('./routes/number.js'); // number
 const { routeConvert } = require('./routes/convert.js'); // convert
 const docsGen = require('./docs.js'); // auto-docs
 const { routeCidr } = require('./routes/cidr.js'); // cidr
+const { routeSwift } = require('./routes/swift.js'); // swift
 const { routeMorse } = require('./routes/morse.js'); // morse
 const { routeRot13 } = require('./routes/rot13.js');
 const { landingPage } = require('./routes/landing.js'); // rot13
@@ -845,6 +846,7 @@ http.createServer(async (req, res) => {
               return routeConvert(u, res, json);
             }
             if (u.pathname === '/cidr') {
+  if (u.pathname === '/swift') return routeSwift(u, res, json);
               return routeCidr(u, res, json);
             }
             if (u.pathname === '/semver') {
