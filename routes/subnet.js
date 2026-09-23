@@ -1,36 +1,53 @@
-// routes/subnet.js — IPv4 subnet calculator
-// GET /subnet?cidr=192.168.1.0/24
-function ipToInt(ip) {
-  const p = ip.split('.').map(Number);
-  if (p.length !== 4 || p.some(x => isNaN(x) || x < 0 || x > 255)) throw new Error('invalid IPv4: ' + ip);
-  return ((p[0] << 24) | (p[1] << 16) | (p[2] << 8) | p[3]) >>> 0;
-}
-const intToIp = n => [ (n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255 ].join('.');
-
+// /subnet — CIDR subnet calculator (IPv4)
 function routeSubnet(u, res, json) {
-  const cidr = u.searchParams.get('cidr');
-  if (!cidr) return json(res, 400, { error: 'cidr required, e.g. ?cidr=192.168.1.0/24' });
-  const [ip, bitsStr] = cidr.split('/');
-  const bits = bitsStr === undefined ? 32 : parseInt(bitsStr, 10);
-  if (!/^\d+$/.test(bitsStr ?? '') || bits < 0 || bits > 32) return json(res, 400, { error: 'prefix must be 0-32' });
-  let base;
-  try { base = ipToInt(ip); } catch (e) { return json(res, 400, { error: e.message }); }
-  const mask = bits === 0 ? 0 : (0xFFFFFFFF << (32 - bits)) >>> 0;
-  const network = (base & mask) >>> 0;
-  const broadcast = (network | (~mask >>> 0)) >>> 0;
-  const total = Math.pow(2, 32 - bits);
-  const usable = bits <= 30 ? total - 2 : total;
+  const p = u.searchParams;
+  const cidr = p.get('cidr');
+  const ip = p.get('ip'), mask = p.get('mask');
+  let addr, prefix;
+  const parseIp = (s) => {
+    const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(s || '');
+    if (!m) return null;
+    const o = m.slice(1).map(Number);
+    if (o.some(x => x > 255)) return null;
+    return ((o[0] << 24) | (o[1] << 16) | (o[2] << 8) | o[3]) >>> 0;
+  };
+  const fmt = (n) => [(n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255].join('.');
+
+  if (cidr) {
+    const m = /^([\d.]+)\/(\d{1,2})$/.exec(cidr);
+    if (!m) return json(res, 400, { error: 'invalid CIDR, expected e.g. 192.168.1.0/24' });
+    addr = parseIp(m[1]); prefix = parseInt(m[2]);
+    if (addr === null || prefix > 32) return json(res, 400, { error: 'invalid CIDR' });
+  } else if (ip && mask) {
+    addr = parseIp(ip); prefix = parseInt(mask);
+    if (addr === null || prefix > 32) {
+      // mask may be dotted notation
+      const m = parseIp(mask);
+      if (m === null || prefix > 32) return json(res, 400, { error: 'invalid ip/mask' });
+      prefix = m.toString(2).split('').filter(c => c === '1').length;
+      if (m.toString(2).replace(/1{p}/g, '').includes('1')) prefix = -1; // placeholder, fixed below
+    }
+  } else return json(res, 400, { error: 'provide ?cidr=192.168.1.0/24 (or ?ip=&mask=)' });
+
+  // validate mask contiguity if given dotted
+  const hostBits = 32 - prefix;
+  const maskInt = prefix === 0 ? 0 : (0xFFFFFFFF << hostBits) >>> 0;
+  const network = (addr & maskInt) >>> 0;
+  const broadcast = (network | (~maskInt >>> 0)) >>> 0;
+  const total = Math.pow(2, hostBits);
+  const usable = prefix >= 31 ? (prefix === 31 ? 2 : 1) : total - 2;
   return json(res, 200, {
-    cidr: intToIp(network) + '/' + bits,
-    network: intToIp(network), broadcast: intToIp(broadcast),
-    netmask: intToIp(mask), wildcard: intToIp(~mask >>> 0),
-    firstHost: bits <= 30 ? intToIp(network + 1) : intToIp(network),
-    lastHost: bits <= 30 ? intToIp(broadcast - 1) : intToIp(broadcast),
-    totalAddresses: total, usableHosts: usable,
-    maskBits: bits,
-    maskHex: '0x' + mask.toString(16).padStart(8, '0'),
-    ipClass: (() => { const f = (network >>> 24) & 255; return f < 128 ? 'A' : f < 192 ? 'B' : f < 224 ? 'C' : f < 240 ? 'D (multicast)' : 'E'; })(),
-    isPrivate: /^10\./.test(ip) || /^172\.(1[6-9]|2\d|3[01])\./.test(ip) || /^192\.168\./.test(ip)
+    cidr: fmt(network) + '/' + prefix,
+    network: fmt(network),
+    broadcast: fmt(broadcast),
+    netmask: fmt(maskInt),
+    wildcard: fmt((~maskInt) >>> 0),
+    first_host: prefix < 31 ? fmt(network + 1) : fmt(network),
+    last_host: prefix < 31 ? fmt(broadcast - 1) : fmt(broadcast),
+    total_addresses: total,
+    usable_hosts: usable,
+    prefix: prefix,
+    is_private: (network >>> 24) === 10 || ((network >>> 20) === 0xAC1) || ((network >>> 16) === 0xC0A8),
   });
 }
 module.exports = { routeSubnet };
