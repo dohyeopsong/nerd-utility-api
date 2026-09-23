@@ -71,3 +71,5 @@ Parse a User-Agent. ?ua=<string> -> browser, engine, OS, device type, bot detect
 IBAN validation. ?q=GB82WEST12345698765432 -> valid, country, formatted, check digits.
 ## /eth
 Ethereum address validation. ?q=0x... -> format check, EIP-55 checksum verification. ?mode=checksum returns checksummed form.
+## /eth
+Ethereum address validation. ?q=0x... -> format check, EIP-55 checksum validation; ?mode=checksum returns the checksummed form.
