@@ -1,80 +1,30 @@
-// /phone — international phone number validation (E.164 format, country prefix + length rules, best-effort)
-const COUNTRY_PHONES = {
-  // cc: [dial code, typical significant number length range]
-  US: ['1', 10], CA: ['1', 10], GB: ['44', 10], DE: ['49', [10, 11]], FR: ['33', 9], IT: ['39', [9, 11]],
-  ES: ['34', 9], NL: ['31', 9], BE: ['32', [8, 9]], AT: ['43', [10, 11]], CH: ['41', 9], SE: ['46', [7, 9]],
-  NO: ['47', 8], DK: ['45', 8], FI: ['358', [9, 10]], PL: ['48', 9], CZ: ['420', 9], PT: ['351', 9],
-  IE: ['353', 9], GR: ['30', 10], TR: ['90', 10], RU: ['7', 10], UA: ['380', 9], AU: ['61', 9],
-  NZ: ['64', [8, 10]], JP: ['81', [9, 10]], CN: ['86', 11], KR: ['82', [9, 10]], IN: ['91', 10],
-  BR: ['55', [10, 11]], MX: ['52', 10], AR: ['54', 10], ZA: ['27', 9], EG: ['20', 10], NG: ['234', 10],
-  AE: ['971', 9], SA: ['966', 9], IL: ['972', 9], SG: ['65', [8, 9]], HK: ['852', 8], MY: ['60', [9, 10]],
-  ID: ['62', [9, 12]], TH: ['66', 9], VN: ['84', [9, 10]], PH: ['63', 10], PK: ['92', 10], BD: ['880', 10]
-};
-
-const DIAL_TO_CC = {};
-for (const [cc, [dial]] of Object.entries(COUNTRY_PHONES)) {
-  (DIAL_TO_CC[dial] = DIAL_TO_CC[dial] || []).push(cc);
-}
-
+// /phone — E.164 phone validation, country code detection, formatting variants
+const COUNTRY = { 1:'US/CA', 7:'RU/KZ', 20:'EG', 27:'ZA', 30:'GR', 31:'NL', 32:'BE', 33:'FR', 34:'ES', 36:'HU', 39:'IT', 40:'RO', 41:'CH', 43:'AT', 44:'GB', 45:'DK', 46:'SE', 47:'NO', 48:'PL', 49:'DE', 51:'PE', 52:'MX', 53:'CU', 54:'AR', 55:'BR', 56:'CL', 57:'CO', 58:'VE', 60:'MY', 61:'AU', 62:'ID', 63:'PH', 64:'NZ', 65:'SG', 66:'TH', 81:'JP', 82:'KR', 84:'VN', 86:'CN', 90:'TR', 91:'IN', 92:'PK', 93:'AF', 94:'LK', 95:'MM', 98:'IR', 211:'SS', 212:'MA', 213:'DZ', 216:'TN', 218:'LY', 220:'GM', 221:'SN', 223:'ML', 224:'GN', 225:'CI', 226:'BF', 227:'NE', 228:'TG', 229:'BJ', 230:'MU', 231:'LR', 232:'SL', 233:'GH', 234:'NG', 235:'TD', 236:'CF', 237:'CM', 238:'CV', 239:'ST', 240:'GQ', 241:'GA', 242:'CG', 243:'CD', 244:'AO', 245:'GW', 246:'IO', 247:'AC', 248:'SC', 249:'SD', 250:'RW', 251:'ET', 252:'SO', 253:'DJ', 254:'KE', 255:'TZ', 256:'UG', 257:'BI', 258:'MZ', 260:'ZM', 261:'MG', 262:'RE', 263:'ZW', 264:'NA', 265:'MW', 266:'LS', 267:'BW', 268:'SZ', 269:'KM', 290:'SH', 291:'ER', 297:'AW', 298:'FO', 299:'GL', 350:'GI', 351:'PT', 352:'LU', 353:'IE', 354:'IS', 355:'AL', 356:'MT', 357:'CY', 358:'FI/AX', 359:'BG', 370:'LT', 371:'LV', 372:'EE', 373:'MD', 374:'AM', 375:'BY', 376:'AD', 377:'MC', 378:'SM', 380:'UA', 381:'RS', 382:'ME', 383:'XK', 385:'HR', 386:'SI', 387:'BA', 389:'MK', 420:'CZ', 421:'SK', 423:'LI', 500:'FK', 501:'BZ', 502:'GT', 503:'SV', 504:'HN', 505:'NI', 506:'CR', 507:'PA', 508:'PM', 509:'HT', 590:'GP', 591:'BO', 592:'GY', 593:'EC', 594:'GF', 595:'PY', 596:'MQ', 597:'SR', 598:'UY', 599:'CW', 670:'TL', 672:'NF', 673:'BN', 674:'NR', 675:'PG', 676:'TO', 677:'SB', 678:'VU', 679:'FJ', 680:'PW', 681:'WF', 682:'CK', 683:'NU', 685:'WS', 686:'KI', 687:'NC', 688:'TV', 689:'PF', 690:'TK', 691:'FM', 692:'MH', 850:'KP', 852:'HK', 853:'MO', 855:'KH', 856:'LA', 880:'BD', 886:'TW', 960:'MV', 961:'LB', 962:'JO', 963:'SY', 964:'IQ', 965:'KW', 966:'SA', 967:'YE', 968:'OM', 970:'PS', 971:'AE', 972:'IL', 973:'BH', 974:'QA', 975:'BT', 976:'MN', 977:'NP', 992:'TJ', 993:'TM', 994:'AZ', 995:'GE', 996:'KG', 998:'UZ' };
 function routePhone(u, res, json) {
-  const q = u.searchParams;
-  const raw = (q.get('check') || '').trim();
-  if (!raw) return json(res, 400, { error: 'provide ?check=%2B4915112345678', example: '/phone?check=+14155551234' });
-
-  const out = { input: raw };
-
-  // normalize: strip spaces, dashes, parens, dots
-  let digits = raw.replace(/[\s().-]/g, '');
-  let hasPlus = digits.startsWith('+');
-  digits = digits.replace(/^\+/, '').replace(/\D/g, '');
-
-  if (!digits) {
-    out.valid = false; out.reason = 'no digits found';
-    return json(res, 200, out);
+  const raw = u.searchParams.get('phone');
+  if (!raw) return json(res, 200, { usage: '?phone=%2B14155552671 — validates phone, detects country code, returns E.164/national/dashed formats' });
+  let p = raw.trim();
+  const hadPlus = p.startsWith('+');
+  const digits = p.replace(/\D/g, '');
+  if (digits.length < 7 || digits.length > 15) return json(res, 400, { error: 'invalid length: E.164 numbers are 7-15 digits', digits: digits.length });
+  // find longest matching country code (1-3 digits)
+  let cc = null, rest = null;
+  for (const len of [3,2,1]) {
+    const ccTry = digits.slice(0, len);
+    if (COUNTRY[ccTry]) { cc = '+' + ccTry; rest = digits.slice(len); break; }
   }
-  if (digits.length > 15) {
-    out.valid = false; out.reason = `too long for E.164 (max 15 digits, got ${digits.length})`;
-    return json(res, 200, out);
-  }
-  if (!hasPlus) {
-    out.valid = false; out.reason = 'expected international format with leading + (E.164)';
-    out.normalized = '+' + digits;
-    return json(res, 200, out);
-  }
-
-  out.e164 = '+' + digits;
-
-  // match dial code (longest first)
-  const dials = Object.keys(DIAL_TO_CC).sort((a, b) => b.length - a.length);
-  let matched = null;
-  for (const d of dials) {
-    if (digits.startsWith(d)) { matched = d; break; }
-  }
-  if (!matched) {
-    out.valid = false; out.reason = 'unknown country dial code';
-    return json(res, 200, out);
-  }
-
-  out.dial_code = '+' + matched;
-  out.possible_countries = DIAL_TO_CC[matched];
-  const significant = digits.slice(matched.length);
-  out.subscriber_number_length = significant.length;
-
-  // length check against first candidate country (best effort)
-  const cc = out.possible_countries[0];
-  out.country = cc;
-  const lenRule = COUNTRY_PHONES[cc][1];
-  const lens = Array.isArray(lenRule) ? lenRule : [lenRule];
-  out.expected_lengths = { country: cc, significant: lens };
-  if (!lens.includes(significant.length)) {
-    out.valid = false;
-    out.reason = `significant number length ${significant.length} unusual for ${cc} (expected ${lens.join(' or ')})`;
-    return json(res, 200, out);
-  }
-
-  out.valid = true;
-  out.note = 'structural validation only — carrier/type detection requires a lookup service (e.g. libphonenumber)';
-  return json(res, 200, out);
+  if (hadPlus && !cc) return json(res, 400, { error: 'unknown country code', digits });
+  const natl = rest || digits;
+  const nationalFormat = natl.length === 10 ? `(${natl.slice(0,3)}) ${natl.slice(3,6)}-${natl.slice(6)}` : natl;
+  return json(res, 200, {
+    input: raw,
+    e164: (cc || '') + natl,
+    valid: true,
+    country_code: cc,
+    country: cc ? COUNTRY[cc.slice(1)] : 'unknown (no country code)',
+    national_format: nationalFormat,
+    digits: digits,
+    length: digits.length,
+  });
 }
-
 module.exports = { routePhone };
