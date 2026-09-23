@@ -67,3 +67,5 @@ ISBN validation/conversion. ?q=isbn validates ISBN-10/13 checksums; ?mode=conver
 Luhn algorithm. ?q=4532015112830366 (validate with brand hint), ?q=453201511283036&mode=checkdigit (compute missing digit). Spaces/dashes tolerated.
 ## /useragent
 Parse a User-Agent. ?ua=<string> -> browser, engine, OS, device type, bot detection.
+## /iban
+IBAN validation. ?q=GB82WEST12345698765432 -> valid, country, formatted, check digits.
