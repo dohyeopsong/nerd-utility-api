@@ -1,8 +1,8 @@
-// /semver — parse, compare, and range-check semantic versions (semver.org)
+// /semver — parse, compare, sort, and range-check semantic versions (semver.org)
 function parse(v) {
   const m = v.trim().match(/^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/);
   if (!m) return null;
-  return { major: +m[1], minor: +m[2], patch: +m[3], prerelease: m[4] || null };
+  return { major: +m[1], minor: +m[2], patch: +m[3], prerelease: m[4] || null, raw: v.trim() };
 }
 function cmp(a, b) {
   for (const k of ['major', 'minor', 'patch']) {
@@ -26,11 +26,9 @@ function cmp(a, b) {
   return 0;
 }
 function satisfies(v, range) {
-  // supports: ^x.y.z ~x.y.z >x.y.z <x.y.z >=x.y.z <=x.y.z =x.y.z x.y.z x.y.z-* (hyphen) || or-space separated
   const alts = range.split(/\s*\|\|\s*/).filter(Boolean);
   if (!alts.length) return false;
   for (const alt of alts) {
-    // hyphen range: "1.2.3 - 2.3.4"
     const hm = alt.match(/^\s*(v?\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)\s+-\s+(v?\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)\s*$/);
     let ok = true;
     if (hm) { ok = cmp(v, parse(hm[1])) >= 0 && cmp(v, parse(hm[2])) <= 0; }
@@ -59,7 +57,6 @@ function satisfies(v, range) {
           const target = parse(ver.replace(/^v/, '') + '.0'.repeat(3 - parts.length));
           if (!target) { ok = false; break; }
           if (parts.length < 3) {
-            // partial version: treat as range x.y.* => >=x.y.0 <x.(y+1).0 ; x.* => >=x.0.0 <(x+1).0.0
             const [ma, mi] = parts;
             let lo, hi;
             if (parts.length === 1) { lo = parse(`v${ma}.0.0`); hi = parse(`v${ma + 1}.0.0`); }
@@ -79,13 +76,21 @@ function satisfies(v, range) {
 }
 function routeSemver(u, res, json) {
   const p = u.searchParams;
-  const a = p.get('version') || p.get('a');
+  const a = p.get('a') || p.get('version');
   const b = p.get('b');
   const range = p.get('range');
-  if (!a) return json(res, 200, { usage: '?version=1.2.3[&b=2.0.0 compare][&range=^1.0.0 range check]' });
+  const list = p.get('list');
+  if (list) {
+    const vs = list.split(',').map(s => s.trim());
+    const parsed = vs.map(parse);
+    if (parsed.some(x => !x)) return json(res, 400, { error: 'invalid semver in list' });
+    const sorted = parsed.slice().sort(cmp);
+    return json(res, 200, { input: vs, sorted: sorted.map(v => v.raw), latest: sorted[sorted.length - 1].raw, oldest: sorted[0].raw });
+  }
+  if (!a) return json(res, 200, { usage: '?a=1.2.3[&b=2.0.0 compare][&range=^1.0.0 range check][&list=1.0.0,2.0.0 sort]' });
   const pa = parse(a);
   if (!pa) return json(res, 400, { error: 'invalid semver: ' + a });
-  const out = { version: a, ...pa };
+  const out = { version: a, major: pa.major, minor: pa.minor, patch: pa.patch, prerelease: pa.prerelease };
   if (b) {
     const pb = parse(b);
     if (!pb) return json(res, 400, { error: 'invalid semver: ' + b });
