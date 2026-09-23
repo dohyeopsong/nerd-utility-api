@@ -45,15 +45,15 @@ function routeCron(u, res, json) {
   // next runs: brute force forward 366 days, 15-min granularity (plus exact minute matching)
   const next = [];
   const start = new Date();
-  start.setSeconds(0, 0); start.setMinutes(start.getMinutes() + 1);
+  start.setUTCSeconds(0, 0); start.setUTCMinutes(start.getUTCMinutes() + 1);
   const cur = new Date(start);
   outer: for (let days = 0; days < 366 && next.length < 5; days++) {
-    cur.setDate(cur.getDate() + (days ? 1 : 0));
-    if (days === 0) cur.setHours(0, 0, 0, 0);
-    if (!months.has(cur.getMonth() + 1) || !dows.has(cur.getDay()) || !doms.has(cur.getDate())) continue;
+    cur.setUTCDate(cur.getUTCDate() + (days ? 1 : 0));
+    if (days === 0) cur.setUTCHours(0, 0, 0, 0);
+    if (!months.has(cur.getUTCMonth() + 1) || !dows.has(cur.getUTCDay()) || !doms.has(cur.getUTCDate())) continue;
     for (const h of [...hours].sort((a, b) => a - b)) {
       for (const m of [...mins].sort((a, b) => a - b)) {
-        const t = new Date(cur); t.setHours(h, m, 0, 0);
+        const t = new Date(cur); t.setUTCHours(h, m, 0, 0);
         if (t >= start && next.findIndex(x => x.getTime() === t.getTime()) === -1) {
           next.push(t);
           if (next.length === 5) break outer;
