@@ -1417,7 +1417,6 @@ http.createServer(async (req, res) => {
             }
             if (u.pathname === '/jsonpath') { return await routeJsonpath(u, res, json, reqBody, req.method); }
     if (u.pathname === '/nato') { return routeNato(u, res, json, body, req.method === 'POST'); }
-if (u.pathname === '/eth') { return routeEth(u, res, json, body, req.method === 'POST'); }
 if (u.pathname === '/pipeline') { return routePipeline(u, res, json, body, req.method === 'POST'); }
 if (u.pathname === '/html2md') { return routeHtml2md(u, res, json, body, req.method === 'POST'); }
     try {
