@@ -1,32 +1,30 @@
 #!/bin/bash
-# supervisor.sh — keeps app.js and watchdog.js running forever (PID-file based)
-NODE=/usr/local/bin/node
-DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$DIR"
+# supervisor.sh — keep the API alive forever. Checked by heartbeat/cron.
+cd /Users/dohyeopsong/service
+LOG=srv.log
 
-start_app() {
-  nohup "$NODE" "$DIR/app.js" >> service.log 2>&1 &
-  echo $! > app.pid
-  echo "[$(date -u +%FT%TZ)] supervisor: started app.js pid $!" >> supervisor.log
-}
-start_watchdog() {
-  nohup "$NODE" "$DIR/watchdog.js" >> watchdog.log 2>&1 &
-  echo $! > watchdog.pid
-  echo "[$(date -u +%FT%TZ)] supervisor: started watchdog.js pid $!" >> supervisor.log
-}
-alive() { # alive <pidfile>
-  [ -f "$1" ] || return 1
-  local p; p=$(cat "$1")
-  [ -n "$p" ] && kill -0 "$p" 2>/dev/null
+start_server() {
+  # kill anything stale on 8080 first (prevents EADDRINUSE crash-loops)
+  lsof -ti:8080 | xargs kill -9 2>/dev/null
+  sleep 1
+  nohup node app.js >> $LOG 2>&1 &
+  sleep 2
+  curl -s -m 5 http://localhost:8080/health > /dev/null && echo "server: UP" || echo "server: FAILED TO START"
 }
 
-while true; do
-  alive app.pid || start_app
-  alive watchdog.pid || start_watchdog
-  sleep 30
-done
+# check local server
+if ! curl -s -m 5 http://localhost:8080/health > /dev/null; then
+  echo "$(date -u +%FT%TZ) server down — restarting" >> $LOG
+  start_server
+fi
 
-# tunnel watchdog loop: every 60s, restart tunnel if unhealthy
-# ngrok replaces cloudflared quick tunnel (stable URL, no watchdog churn)
-# ( while true; do ./tunnel-watchdog.sh; sleep 60; done ) &
-echo $! > tunnel-watchdog.pid
+# check tunnel
+TUNNEL_URL=$(cat tunnel.url 2>/dev/null)
+if [ -n "$TUNNEL_URL" ] && ! curl -s -m 8 "$TUNNEL_URL/health" | grep -q '"ok"'; then
+  echo "$(date -u +%FT%TZ) tunnel dead — restarting cloudflared" >> $LOG
+  pkill -f cloudflared 2>/dev/null; sleep 2
+  nohup cloudflared tunnel --url http://localhost:8080 > tunnel.log 2>&1 &
+  sleep 8
+  NEW_URL=$(grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' tunnel.log | head -1)
+  if [ -n "$NEW_URL" ]; then echo "$NEW_URL" > tunnel.url; echo "new tunnel: $NEW_URL"; fi
+fi
