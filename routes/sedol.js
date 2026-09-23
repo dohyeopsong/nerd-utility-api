@@ -1,23 +1,21 @@
-// /sedol — UK/NASDAQ SEDOL security identifier validation
+// /sedol — SEDOL security identifier validation (7 chars: 6 body + check digit)
 const W = [1, 3, 1, 7, 3, 9, 1];
 function routeSedol(u, res, json) {
   const p = u.searchParams;
-  const raw = (p.get('sedol') || p.get('code') || '').trim();
-  if (!raw) return json(res, 200, { usage: '?sedol=B0YBKJ7 — validate & parse a 7-char SEDOL (6 chars + Luhn-style check digit)' });
-  const s = raw.toUpperCase().replace(/[^A-Z0-9]/g, '');
-  if (s.length !== 7) return json(res, 400, { valid: false, error: `SEDOL must be 7 alphanumeric chars, got ${s.length}` });
-  if (/[AEIOU]/.test(s)) return json(res, 400, { valid: false, error: 'SEDOL never contains vowels (A E I O U)' });
-  const body = s.slice(0, 6), given = s[6];
-  const v = ch => ch <= '9' ? +ch : ch.charCodeAt(0) - 55; // A=10..Z=35
-  const sum = body.split('').reduce((a, ch, i) => a + v(ch) * W[i], 0);
-  const expected = String((10 - (sum % 10)) % 10);
-  return json(res, 200, {
-    valid: given === expected,
+  const input = p.get('sedol') || p.get('s');
+  if (!input) return json(res, 200, { usage: '?sedol=B0YBKJ7 — validate a 7-character SEDOL' });
+  const s = input.toUpperCase().replace(/[-\s]/g, '');
+  if (!/^[0-9B-DF-HJ-NP-TV-Z]{6}[0-9]$/.test(s))
+    return json(res, 400, { error: 'SEDOL must be 7 chars: 6 alphanumeric (no vowels) + check digit' });
+  const val = (c) => (c >= '0' && c <= '9') ? +c : c.charCodeAt(0) - 55; // A=10..Z=35
+  let sum = 0;
+  for (let i = 0; i < 7; i++) sum += val(s[i]) * W[i];
+  const valid = sum % 10 === 0;
+  return json(res, valid ? 200 : 422, {
     sedol: s,
-    identifier: body,
-    check_digit_given: given,
-    check_digit_expected: expected,
-    error: given === expected ? undefined : 'checksum mismatch',
+    valid,
+    computed_check_digit: String((10 - (sum - val(s[6]) * W[6]) % 10) % 10),
+    check_digit: s[6],
   });
 }
 module.exports = { routeSedol };

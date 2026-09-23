@@ -50,7 +50,7 @@ const { routeNanoid } = require('./routes/nanoid.js');
 const { routeSoundex } = require('./routes/soundex.js');
 const { routeRoman } = require('./routes/roman.js');
 const { routeUlid } = require('./routes/ulid.js');
-const { routeSlugify } = require('./routes/slugify.js');
+const { routeSlugify: routeSlugify2 } = require('./routes/slugify.js');
 const { routeCuid } = require('./routes/cuid.js');
 const { routePassword } = require('./routes/password.js');
 const { routeJwt } = require('./routes/jwt.js');
@@ -835,7 +835,7 @@ http.createServer(async (req, res) => {
               catch (e) { return json(res, 500, { error: e.message }); }
             }
             if (u.pathname === '/string') { return routeString(u, res, json); }
-            if (u.pathname === '/slugify') { return routeSlugify(u, res, json); }
+            if (u.pathname === '/slugify') { return routeSlugify2(u, res, json); }
             if (u.pathname === '/escape') { return routeEscape(u, res, json); }
             if (u.pathname === '/crc32') {
               return routeCrc32(u, res, json);
