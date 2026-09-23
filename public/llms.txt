@@ -57,3 +57,5 @@ Full spec: /openapi.json — Docs: /docs
 Chain up to 20 utility ops in one POST: {"input":"hello","steps":[{"op":"upper"},{"op":"hash","options":{"algo":"md5"}}]}. Ops: base64, hash, upper, lower, trim, json_parse, url, hex. GET returns docs.
 ## /slug
 URL slug generation with diacritic stripping and separator control. POST {"text":"Héllo World"} or GET /slug?text=...
+## /roman
+Roman numeral conversion. ?q=2026 -> MMXXVI, ?q=MCMXCIV -> 1994. Integers 1-3999 both directions.
