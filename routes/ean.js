@@ -1,51 +1,37 @@
-// /ean — EAN-8/EAN-13/UPC-A checksum validation + check-digit computation
+// /ean — EAN/GTIN barcode validation (EAN-8, EAN-13, UPC-A via GTIN-12, GTIN-14)
 function routeEan(u, res, json) {
-  const q = u.searchParams;
-  const compute = q.get('compute');
-  const check = q.get('check');
+  const p = u.searchParams;
+  const raw = (p.get('ean') || p.get('code') || '').trim().replace(/[\s-]/g, '');
+  const ean = raw;
 
-  if (compute !== null) {
-    const s = compute.replace(/[\s-]/g, '');
-    if (!/^\d+$/.test(s)) return json(res, 400, { error: 'digits only' });
-    if (s.length !== 7 && s.length !== 12 && s.length !== 11)
-      return json(res, 400, { error: 'compute accepts 7 (EAN-8), 11 (UPC-A), or 12 (EAN-13) digits' });
-    return json(res, 200, { input: s, check_digit: eanCheckDigit(s), complete: s + eanCheckDigit(s) });
+  if (!ean) return json(res, 200, { usage: '?ean=4006381333931 (EAN-8/12/13/14, UPC-A accepted as 12 digits)' });
+  if (!/^\d{8}$|^\d{12}$|^\d{13}$|^\d{14}$/.test(ean)) {
+    return json(res, 400, { ean: raw, error: 'length must be 8, 12, 13, or 14 digits (EAN-8, UPC-A/GTIN-12, EAN-13, GTIN-14)' });
   }
-  if (check !== null) {
-    const s = check.replace(/[\s-]/g, '');
-    if (!/^\d+$/.test(s)) return json(res, 400, { error: 'digits only' });
-    const out = { input: s };
-    if (s.length === 8) out.type = 'EAN-8';
-    else if (s.length === 12) out.type = 'UPC-A';
-    else if (s.length === 13) out.type = 'EAN-13';
-    else { out.valid = false; out.reason = 'length must be 8, 12, or 13'; return json(res, 200, out); }
-    const partial = s.slice(0, -1);
-    const expected = eanCheckDigit(partial);
-    out.check_digit = s.slice(-1);
-    out.expected_check_digit = expected;
-    out.valid = expected === out.check_digit;
-    return json(res, 200, out);
-  }
-  return json(res, 400, { error: 'provide ?check=CODE or ?compute=PARTIAL', examples: ['/ean?check=4006381333931', '/ean?compute=400638133393'] });
-}
 
-// EAN-13: weights 1,3,1,3... from left (weight of last data digit is 3)
-// UPC-A (12): effectively EAN-13 with leading 0 -> weights 3,1,3,1... from left
-// EAN-8: weights 3,1,3,1... from left
-function eanCheckDigit(partial) {
-  const n = partial.length;
+  // GS1 mod-10: weights alternate 3 and 1, rightmost (check) digit weight 1
+  const digits = ean.split('').map(Number);
+  const check = digits.pop();
   let sum = 0;
-  for (let i = 0; i < n; i++) {
-    // EAN-13/UPC-A/EAN-8: weight of position i (0-indexed from left, data digits)
-    // For 12-digit partial (EAN-13): weights 1,3,1,3...
-    // For 11-digit partial (UPC-A): weights 3,1,3,1...
-    // For 7-digit partial (EAN-8): weights 3,1,3,1...
-    let w;
-    if (n === 12) w = i % 2 === 0 ? 1 : 3;
-    else w = i % 2 === 0 ? 3 : 1;
-    sum += +partial[i] * w;
+  digits.reverse().forEach((d, i) => { sum += d * (i % 2 === 0 ? 3 : 1); });
+  const expected = (10 - (sum % 10)) % 10;
+
+  const type = { 8: 'EAN-8', 12: 'UPC-A (GTIN-12)', 13: 'EAN-13 (GTIN-13)', 14: 'GTIN-14 (ITF-14)' }[ean.length];
+  const result = { code: ean, type, valid: check === expected, checkDigit: check, expectedCheckDigit: expected };
+
+  if (ean.length === 13) {
+    const prefixes = [['000-019', 'US/CA'], ['030-039', 'US'], ['040-049', 'US (internal)'], ['050-059', 'coupons'], ['060-139', 'US/CA'], ['300-379', 'FR/MC'], ['380', 'BG'], ['400-440', 'DE'], ['450-459,490-499', 'JP'], ['460-469', 'RU'], ['471', 'TW'], ['474', 'EE'], ['480', 'PH'], ['484', 'MD'], ['485', 'HR'], ['489', 'HK'], ['490-499', 'JP'], ['500-509', 'UK'], ['520', 'GR'], ['528', 'LB'], ['529', 'CY'], ['535', 'MT'], ['539', 'IE'], ['540-549', 'BE/LU'], ['560', 'PT'], ['569', 'IS'], ['570-579', 'DK'], ['590', 'PL'], ['594', 'RO'], ['599', 'HU'], ['600-601', 'ZA'], ['603', 'GH'], ['608', 'BH'], ['609', 'MU'], ['611', 'MA'], ['613', 'DZ'], ['619', 'TN'], ['620', 'TZ'], ['621', 'SY'], ['622', 'EG'], ['625', 'JO'], ['626', 'IR'], ['627', 'KW'], ['640-649', 'FI'], ['690-699', 'CN'], ['700-709', 'NO'], ['729', 'IL'], ['730-739', 'SE'], ['740-745', 'GT,SV,HN,NI,CR,PA'], ['746', 'DO'], ['750', 'MX'], ['754-755', 'CA'], ['759', 'VE'], ['760-769', 'CH'], ['770-771', 'CO'], ['773', 'UY'], ['775', 'PE'], ['777', 'BO'], ['778-779', 'AR'], ['780', 'CL'], ['784', 'PY'], ['786', 'EC'], ['789-790', 'BR'], ['800-839', 'IT,SM,VA'], ['840-849', 'ES'], ['850', 'CU'], ['858', 'SK'], ['859', 'CZ'], ['860', 'RS'], ['865', 'MN'], ['867', 'KP'], ['868-869', 'TR'], ['870-879', 'NL'], ['880', 'KR'], ['884', 'KH'], ['885', 'TH'], ['888', 'SG'], ['890', 'IN'], ['893', 'VN'], ['896', 'PK'], ['899', 'ID'], ['900-919', 'AT'], ['930-939', 'AU'], ['940-949', 'NZ'], ['950', 'GM'], ['955', 'MY'], ['958', 'MA'], ['977', 'ISSN'], ['978-979', 'ISBN'], ['980', 'refund receipts'], ['981-984', 'coupons'], ['990-999', 'coupons']];
+    const three = parseInt(ean.slice(0, 3), 10);
+    for (const [range, name] of prefixes) {
+      for (const r of range.split(',')) {
+        const [a, b] = r.includes('-') ? r.split('-').map(Number) : [Number(r), Number(r)];
+        if (three >= a && three <= b) { result.country = name; break; }
+      }
+      if (result.country) break;
+    }
   }
-  return String((10 - (sum % 10)) % 10);
+
+  return json(res, 200, result);
 }
 
 module.exports = { routeEan };
