@@ -35,19 +35,13 @@ function toNum(s, names, min) {
 }
 function nextRuns(minute, hour, dom, mon, dow, from, count) {
   const out = [];
-  let t = new Date(Math.ceil(from.getTime() / 60000) * 60000 + 60000); // next whole minute
-  while (out.length < count && t < new Date(from.getTime() + 366 * 864e5)) {
-    if (mon.has(t.getMonth() + 1) &&
-        dom.has(t.getDate()) && dow.has(t.getDay()) &&
-        hour.has(t.getHours()) && minute.has(t.getMinutes())) {
-      // dom/dow: standard cron = OR when both restricted
-      const domStar = dom.size === 31, dowStar = dow.size === 7;
-      if (domStar || dowStar || dom.has(t.getDate()) || dow.has(t.getDay())) {
-        out.push(new Date(t));
-        t = new Date(t.getTime() + 60000 * (60 - t.getMinutes() - 1 + 1)); // skip to next hour approx
-        t.setMinutes(59); t = new Date(t.getTime() + 60000);
-      } else t = new Date(t.getTime() + 60000);
-    } else t = new Date(t.getTime() + 60000);
+  let t = new Date(Math.ceil(from.getTime() / 60000) * 60000 + 60000);
+  const limit = new Date(from.getTime() + 366 * 864e5);
+  while (out.length < count && t < limit) {
+    const ok = mon.has(t.getMonth() + 1) && hour.has(t.getHours()) && minute.has(t.getMinutes()) &&
+      (dom.size === 31 || dow.size === 7 ? (dom.has(t.getDate()) && dow.has(t.getDay()) ? true : (dom.has(t.getDate()) || dow.has(t.getDay()))) : (dom.has(t.getDate()) && dow.has(t.getDay())));
+    if (ok) out.push(new Date(t));
+    t = new Date(t.getTime() + 60000);
   }
   return out;
 }
