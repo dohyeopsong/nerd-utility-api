@@ -1,35 +1,48 @@
-// /html — HTML entity escaping/unescaping + tag stripping
-const ENTITIES = { '&': 'amp', '<': 'lt', '>': 'gt', '"': 'quot', "'": '#39' };
-const REV = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', copy: '©', reg: '®', hellip: '…', mdash: '—', ndash: '–', laquo: '«', raquo: '»', deg: '°', plusmn: '±', times: '×', divide: '÷', euro: '€', pound: '£', yen: '¥', cent: '¢' };
-const REV_NUM = { 39: "'", 34: '"', 169: '©', 174: '®', 8230: '…', 8212: '—', 8211: '–', 171: '«', 187: '»', 176: '°', 177: '±', 215: '×', 247: '÷', 160: ' ' };
-
-function routeHtml(u, res, json) {
+// /html — extract structured data from raw HTML (title, meta, links, text)
+function routeHtml(body, u, res, json) {
   const q = Object.fromEntries(u.searchParams.entries());
-  const text = q.text || q.data;
-  if (text === undefined) throw new Error('provide ?text=<string>');
-  if (text.length > 100000) throw new Error('text too long (max 100000)');
-  const mode = (q.mode || 'escape').toLowerCase();
-
-  if (mode === 'escape') {
-    return json(res, 200, { escaped: text.replace(/[&<>"']/g, c => `&${ENTITIES[c]};`) });
+  const html = body || q.html || '';
+  if (!html) throw new Error('POST raw HTML body (or ?html=)');
+  const get = re => { const m = html.match(re); return m ? m[1].trim() : null; };
+  const out = { };
+  if (q.title !== '0') out.title = get(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  const metas = [];
+  const metaRe = /<meta\s+[^>]*>/gi; let m;
+  while ((m = metaRe.exec(html))) {
+    const tag = m[0];
+    const name = (tag.match(/(?:name|property)\s*=\s*["']([^"']+)["']/i) || [])[1];
+    const content = (tag.match(/content\s*=\s*["']([^"']*)["']/i) || [])[1];
+    if (name && content !== undefined) metas.push({ name, content });
   }
-  if (mode === 'unescape') {
-    return json(res, 200, { unescaped: text.replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z]+);/g, (m, body) => {
-      if (body[0] === '#') {
-        const isHex = body[1] === 'x' || body[1] === 'X';
-        const code = parseInt(body.slice(isHex ? 2 : 1), isHex ? 16 : 10);
-        if (!REV_NUM[code] && (code < 32 || code > 0x10FFFF || Number.isNaN(code))) return m;
-        return String.fromCodePoint(code);
-      }
-      return REV[body.toLowerCase()] !== undefined ? REV[body.toLowerCase()] : m;
-    }) });
+  if (metas.length) out.meta = metas;
+  if (q.description !== '0') {
+    const d = metas.find(x => /description/i.test(x.name));
+    if (d) out.description = d.content;
   }
-  if (mode === 'strip') {
-    // remove tags, collapse whitespace
-    const stripped = text.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<style[\s\S]*?<\/style>/gi, '').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
-    return json(res, 200, { stripped, length: stripped.length });
+  if (q.links !== '0') {
+    const links = []; const linkRe = /<a\s[^>]*href\s*=\s*["']([^"'#]+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+    while ((m = linkRe.exec(html))) {
+      links.push({ href: m[1], text: m[2].replace(/<[^>]+>/g, '').trim().slice(0, 200) });
+    }
+    if (links.length) out.links = links.slice(0, parseInt(q.maxLinks || '100', 10));
   }
-  throw new Error('mode must be one of: escape, unescape, strip');
+  if (q.text !== '0') {
+    let text = html
+      .replace(/<script[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[\s\S]*?<\/style>/gi, '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+      .replace(/\s+/g, ' ').trim();
+    out.text = text.slice(0, parseInt(q.maxText || '5000', 10));
+    out.textLength = text.length;
+  }
+  if (q.images !== '0') {
+    const images = []; const imgRe = /<img\s[^>]*src\s*=\s*["']([^"']+)["']/gi;
+    while ((m = imgRe.exec(html))) images.push(m[1]);
+    if (images.length) out.images = images.slice(0, 50);
+  }
+  const h1 = [...html.matchAll(/<h1[^>]*>([\s\S]*?)<\/h1>/gi)].map(x => x[1].replace(/<[^>]+>/g, '').trim());
+  if (h1.length) out.h1 = h1;
+  return json(res, 200, out);
 }
-
 module.exports = { routeHtml };
