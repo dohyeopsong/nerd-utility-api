@@ -62,6 +62,7 @@ const { routeCurrency } = require('./routes/currency.js');
 const { routeCountry } = require('./routes/country.js');
 const { routeTimezone } = require('./routes/timezone.js');
 const { routeEmoji } = require('./routes/emoji.js');
+const { routePercent } = require('./routes/percent.js');
 const { routeMath } = require('./routes/math.js');
 const { routeRandom } = require('./routes/random.js'); // luhn validate
 const { routePwstrength } = require('./routes/pwstrength.js');
@@ -386,6 +387,10 @@ http.createServer(async (req, res) => {
     }
     if (u.pathname === '/math') {
       try { return routeMath(u, res, json); }
+      catch (e) { return json(res, 400, { error: e.message }); }
+    }
+    if (u.pathname === '/percent') {
+      try { return routePercent(u, res, json); }
       catch (e) { return json(res, 400, { error: e.message }); }
     }
     if (u.pathname === '/emoji') {
