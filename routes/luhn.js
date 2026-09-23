@@ -1,73 +1,48 @@
-// /luhn — Luhn algorithm: validate card/ID numbers, compute check digit, or generate test numbers
-function luhnSum(digits) {
-  // digits: array of numbers, rightmost first
-  let sum = 0;
-  for (let i = 0; i < digits.length; i++) {
+// /luhn — Luhn algorithm: validate & compute check digit
+function luhnCheckDigit(digits) {
+  let sum = 0, dbl = false;
+  for (let i = digits.length - 1; i >= 0; i--) {
     let d = digits[i];
-    if (i % 2 === 1) { // every second digit from right
-      d *= 2;
-      if (d > 9) d -= 9;
-    }
-    sum += d;
+    if (dbl) { d *= 2; if (d > 9) d -= 9; }
+    sum += d; dbl = !dbl;
   }
-  return sum;
-}
-
-function validateLuhn(numStr) {
-  const s = numStr.replace(/[\s-]/g, '');
-  if (!/^\d{2,}$/.test(s)) return { valid: false, error: 'must be 2+ digits' };
-  const digits = [...s].reverse().map(Number);
-  const sum = luhnSum(digits);
-  return { valid: sum % 10 === 0, checksumTotal: sum };
-}
-
-function checkDigit(base) {
-  // compute the check digit to append to base
-  const digits = [...base].reverse().map(Number);
-  digits.unshift(0); // placeholder for check digit
-  const sum = luhnSum(digits);
   return (10 - (sum % 10)) % 10;
-}
-
-function generateLuhn(length) {
-  // random number of given length that passes Luhn
-  const crypto = require('crypto');
-  let base = '';
-  for (let i = 0; i < length - 1; i++) base += crypto.randomInt(0, 10);
-  return base + checkDigit(base);
 }
 
 function routeLuhn(u, res, json) {
   const p = u.searchParams;
-  const num = p.get('number') || p.get('num');
-  const mode = p.get('mode') || 'validate';
+  const q = p.get('n') || p.get('number');
+  if (!q) return json(res, 400, { error: 'provide ?n=<digits> (check digit optional for checkdigit mode)' });
+  const s = q.replace(/[\s-]/g, '');
+  if (!/^\d+$/.test(s)) return json(res, 400, { error: 'only digits (spaces/dashes allowed)' });
 
-  if (mode === 'checkdigit' || mode === 'check') {
-    if (!num || !/^\d{1,}$/.test(num.replace(/[\s-]/g, ''))) return json(res, 400, { error: 'provide ?number=<digits>' });
-    const base = num.replace(/[\s-]/g, '');
-    const cd = checkDigit(base);
-    return json(res, 200, { base, checkDigit: cd, full: base + cd });
+  if (p.get('mode') === 'checkdigit') {
+    // parity must match append scenario: rightmost payload digit gets doubled
+    const dd = [...s].map(Number);
+    let sum = 0, dbl = true;
+    for (let i = dd.length - 1; i >= 0; i--) {
+      let d = dd[i];
+      if (dbl) { d *= 2; if (d > 9) d -= 9; }
+      sum += d; dbl = !dbl;
+    }
+    return json(res, 200, { input: s, checkDigit: (10 - (sum % 10)) % 10 });
   }
 
-  if (mode === 'generate' || mode === 'gen') {
-    const length = Math.min(19, Math.max(2, parseInt(p.get('length'), 10) || 16));
-    const count = Math.min(25, Math.max(1, parseInt(p.get('count'), 10) || 1));
-    const out = [];
-    for (let i = 0; i < count; i++) out.push(generateLuhn(length));
-    return json(res, 200, { length, count, numbers: out });
+  const digits = [...s].map(Number);
+  const last = digits.pop();
+  const expected = luhnCheckDigit([...digits, 0]); // compute over payload with 0 then derive
+  // proper: check digit for payload
+  let sum = 0, dbl = true; // parity: payload + check, dbl starts true from rightmost (check pos)
+  for (let i = digits.length - 1; i >= 0; i--) {
+    let d = digits[i];
+    if (dbl) { d *= 2; if (d > 9) d -= 9; }
+    sum += d; dbl = !dbl;
   }
-
-  // default: validate
-  if (!num) return json(res, 400, { error: 'provide ?number=<digits> or ?mode=checkdigit|generate' });
-  const r = validateLuhn(num);
-  const out = { input: num, ...r };
-  if (r.valid !== undefined && !r.error) {
-    const clean = num.replace(/[\s-]/g, '');
-    const expected = checkDigit(clean.slice(0, -1));
-    out.expectedCheckDigit = expected;
-    if (!r.valid) out.suggestion = clean.slice(0, -1) + expected;
-  }
-  return json(res, 200, out);
+  const check = (10 - (sum % 10)) % 10;
+  return json(res, 200, {
+    input: q, valid: last === check,
+    expectedCheckDigit: check, actualCheckDigit: last
+  });
 }
 
-module.exports = { routeLuhn, validateLuhn, checkDigit };
+module.exports = { routeLuhn };
