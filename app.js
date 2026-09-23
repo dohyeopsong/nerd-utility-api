@@ -1228,6 +1228,7 @@ http.createServer(async (req, res) => {
       try { return routeUrl(u, res, json); }
       catch (e) { return json(res, 400, { error: e.message }); }
     }
+  if (u.pathname === '/gravatar') return routeGravatar(u, res, json);
     if (!handler && u.pathname !== '/md2html' && u.pathname !== '/html2md' && u.pathname !== '/jsonpath' && u.pathname !== '/pipeline' && u.pathname !== '/nato') return json(res, 404, { error: 'not found. See /docs' });
     if (req.method !== 'POST' && req.method !== 'GET') return json(res, 405, { error: 'GET/POST. See /docs' });
     const q = Object.fromEntries(u.searchParams.entries());
@@ -1247,4 +1248,3 @@ if (u.pathname === '/html2md') { return routeHtml2md(u, res, json, body, req.met
     } catch (e) { return json(res, (e && e.status) || 422, { error: String(e && e.message || e) }); }
   } catch (e) { json(res, 400, { error: e.message }); }
 }).listen(8080, () => console.log('Nerd utility API (with x402 /scrape) listening on :8080'));
-  if (u.pathname === '/gravatar') return routeGravatar(u, res, json);
