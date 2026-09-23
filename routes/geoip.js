@@ -1,34 +1,23 @@
-// /geoip?ip=8.8.8.8 — IP geolocation with ASN/org info (ip-api.com, no key needed)
+// /geoip — IP geolocation lookup using ip-api.com free tier (no key, 45 req/min limit)
+const https = require('https');
 function routeGeoip(u, res, json) {
-  const q = Object.fromEntries(new URL(u, 'http://x').searchParams);
-  const ip = (q.ip || '').trim();
-  const fields = 'status,message,continent,country,countryCode,region,regionName,city,zip,lat,lon,timezone,isp,org,as,asname,reverse,mobile,proxy,hosting,query';
-
-  fetchGeoip(ip, fields)
-    .then(data => {
-      if (data.status === 'fail') return json(res, 400, { error: data.message || 'lookup failed', query: ip });
-      json(res, 200, {
-        ip: data.query || ip,
-        city: data.city, region: data.regionName, regionCode: data.region,
-        country: data.country, countryCode: data.countryCode, continent: data.continent,
-        lat: data.lat, lon: data.lon, timezone: data.timezone, zip: data.zip,
-        isp: data.isp, org: data.org,
-        asn: data.as ? parseInt(String(data.as).split(' ')[0]) || data.as : null,
-        asName: data.asname,
-        reverseDns: data.reverse || null,
-        flags: { mobile: !!data.mobile, proxy: !!data.proxy, hosting: !!data.hosting }
-      });
-    })
-    .catch(e => json(res, 502, { error: 'geoip lookup failed: ' + e.message }));
+  const p = u.searchParams;
+  const ip = p.get('ip');
+  if (!ip) return json(res, 200, { usage: '?ip=8.8.8.8 — geolocation lookup via ip-api.com free tier' });
+  if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(ip)) return json(res, 400, { error: 'invalid IPv4 address' });
+  const opts = { hostname: 'ip-api.com', path: `/json/${encodeURIComponent(ip)}?fields=status,message,country,countryCode,region,regionName,city,zip,lat,lon,timezone,isp,org,as,reverse,query`, timeout: 8000 };
+  const req = https.get(opts, r => {
+    let body = '';
+    r.on('data', c => body += c);
+    r.on('end', () => {
+      try {
+        const d = JSON.parse(body);
+        if (d.status === 'fail') return json(res, 502, { error: d.message || 'upstream lookup failed', ip });
+        return json(res, 200, d);
+      } catch (e) { return json(res, 502, { error: 'bad upstream response' }); }
+    });
+  });
+  req.on('timeout', () => { req.destroy(); json(res, 504, { error: 'upstream timeout' }); });
+  req.on('error', e => json(res, 502, { error: 'upstream error: ' + e.message }));
 }
-
-async function fetchGeoip(ip, fields) {
-  const target = ip
-    ? `http://ip-api.com/json/${encodeURIComponent(ip)}?fields=${fields}`
-    : `http://ip-api.com/json/?fields=${fields}`;
-  const r = await fetch(target, { signal: AbortSignal.timeout(6000) });
-  if (!r.ok) throw new Error('upstream ' + r.status);
-  return r.json();
-}
-
 module.exports = { routeGeoip };
