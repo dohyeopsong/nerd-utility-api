@@ -33,6 +33,7 @@ const { routeCronexpr } = require('./routes/cronexpr.js'); // slug/case
 const { routeDiff } = require('./routes/diff.js'); // text diff
 const { routeTimeago } = require('./routes/timeago.js'); // relative time
 const { routeNanoid } = require('./routes/nanoid.js');
+const { routeSoundex } = require('./routes/soundex.js');
 const { routeRoman } = require('./routes/roman.js');
 const { routeUlid } = require('./routes/ulid.js');
 const { routeCuid } = require('./routes/cuid.js');
